@@ -46,10 +46,10 @@ jobs:
       - name: Compilar APK
         working-directory: android
         run: |
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
+          printf "\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\n" >> gradle.properties
           chmod +x gradlew
           set -o pipefail
-          ./gradlew assembleRelease --no-daemon --info --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a > ../gradle.log 2>&1 || (tail -80 ../gradle.log; exit 1)
+          ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a 2>&1 | tee ../gradle.log
           cp app/build/outputs/apk/release/app-release.apk ../SagaQuest.apk
 
       - name: Guardar el registro de Gradle si falla
