@@ -1,4 +1,3 @@
-import { CATALOG_GAMES } from '@/data/catalog';
 import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord, ListItem, UserGame } from '@/types';
 import { now } from '@/utils/id';
@@ -104,10 +103,10 @@ export async function pushAll(): Promise<void> {
   const items = Object.values(state.items).filter((i) => listIds.has(i.listId));
   const userGames = Object.values(state.userGames).filter((u) => u.profileId === localId);
 
-  // Juegos que no están en el catálogo y usas (los del catálogo ya están en la base de datos).
+  // Juegos que usas en tus listas o tu biblioteca.
   const gameIds = new Set([...items.map((i) => i.gameId), ...userGames.map((u) => u.gameId)]);
   const customGames = [...gameIds]
-    .filter((id) => !CATALOG_GAMES[id] && state.games[id])
+    .filter((id) => state.games[id])
     .map((id) => toGameRow(state.games[id], uid));
   if (customGames.length) check(await client.from('games').upsert(customGames));
 
@@ -176,7 +175,7 @@ export async function pullAll(): Promise<void> {
 
   const neededGames = [
     ...new Set([...itemRows.map((i) => i.game_id), ...userRows.map((u) => u.game_id)]),
-  ].filter((id) => !CATALOG_GAMES[id]);
+  ];
   const gameRows = neededGames.length
     ? (check(await client.from('games').select('*').in('id', neededGames)) as GameRow[])
     : [];
@@ -241,7 +240,7 @@ export async function fetchCommunity(): Promise<void> {
     const profileRows = ownerIds.length
       ? (check(await client.from('profiles').select('*').in('id', ownerIds)) as ProfileRow[])
       : [];
-    const gameIds = [...new Set(itemRows.map((i) => i.game_id))].filter((id) => !CATALOG_GAMES[id]);
+    const gameIds = [...new Set(itemRows.map((i) => i.game_id))];
     const gameRows = gameIds.length
       ? (check(await client.from('games').select('*').in('id', gameIds)) as GameRow[])
       : [];

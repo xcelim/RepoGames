@@ -1,4 +1,4 @@
-import { CATALOG_GAMES, OFFICIAL_ITEMS, OFFICIAL_LISTS } from '@/data/catalog';
+import { OFFICIAL_LISTS } from '@/data/catalog';
 import { FINISHED, STATUS_ORDER } from '@/data/meta';
 import type {
   DurationMode,
@@ -18,7 +18,7 @@ export function findGame(
   customGames: Record<string, GameRecord>,
   gameId: string,
 ): GameRecord | undefined {
-  return CATALOG_GAMES[gameId] ?? customGames[gameId];
+  return customGames[gameId];
 }
 
 export function allLists(userLists: Record<string, GameList>): GameList[] {
@@ -33,8 +33,7 @@ export function findList(
 }
 
 export function itemsOfList(items: Record<string, ListItem>, listId: string): ListItem[] {
-  const source = listId.startsWith('official-') ? OFFICIAL_ITEMS : Object.values(items);
-  return source.filter((item) => item.listId === listId).sort((a, b) => a.position - b.position);
+  return Object.values(items).filter((item) => item.listId === listId).sort((a, b) => a.position - b.position);
 }
 
 // Una fila lista para pintar: el juego, su posición y lo que el usuario sabe de él.

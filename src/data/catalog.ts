@@ -1,58 +1,32 @@
-import type { GameList, GameRecord, ListItem, Profile, Saga } from '@/types';
+import type { GameList, Profile } from '@/types';
 
-import { NINTENDO_SAGAS } from './sagas-nintendo';
-import { SAGAS as BASE_SAGAS } from './sagas';
+// Las bibliotecas oficiales solo dicen QUÉ serie son. Los juegos, portadas,
+// horas y descripciones se descargan de la API (IGDB / RAWG).
 
-const ORDER = ['persona', 'fe', 'ff', 'zelda', 'kirby', 'mario', 'xeno', 'metroid'];
+export type OfficialSeries = {
+  id: string;
+  name: string;
+  query: string; // nombre de la serie en la API
+  color: string;
+  color2: string;
+  icon: string;
+};
 
-export const SAGAS: Saga[] = [...BASE_SAGAS, ...NINTENDO_SAGAS].sort(
-  (a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id),
-);
+export const OFFICIAL_SERIES: OfficialSeries[] = [
+  { id: 'persona', name: 'Persona', query: 'Persona', color: '#ff2a4d', color2: '#2ef2ff', icon: 'flame' },
+  { id: 'fe', name: 'Fire Emblem', query: 'Fire Emblem', color: '#f7971e', color2: '#c94b4b', icon: 'shield' },
+  { id: 'ff', name: 'Final Fantasy', query: 'Final Fantasy', color: '#1e3c72', color2: '#7fd6ff', icon: 'diamond' },
+  { id: 'zelda', name: 'The Legend of Zelda', query: 'The Legend of Zelda', color: '#2f9e58', color2: '#e8c547', icon: 'triangle' },
+  { id: 'kirby', name: 'Kirby', query: 'Kirby', color: '#ff8fc8', color2: '#7fd6ff', icon: 'star' },
+  { id: 'mario', name: 'Super Mario', query: 'Super Mario', color: '#e53935', color2: '#ffd23f', icon: 'flash' },
+  { id: 'xeno', name: 'Xenoblade Chronicles', query: 'Xenoblade Chronicles', color: '#11998e', color2: '#38ef7d', icon: 'planet' },
+  { id: 'metroid', name: 'Metroid', query: 'Metroid', color: '#ff7a18', color2: '#7b2ff7', icon: 'rocket' },
+];
 
-// Quita tildes ("Pokémon" -> "Pokemon") aunque el motor no soporte normalize.
-export function stripAccents(text: string): string {
-  try {
-    return text.normalize('NFD').replace(/[̀-ͯ]/g, '');
-  } catch {
-    return text;
-  }
-}
+export const officialListId = (seriesId: string) => `official-${seriesId}`;
 
-export function slugify(text: string): string {
-  return stripAccents(text)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-export function catalogGameId(sagaId: string, title: string): string {
-  return `${sagaId}-${slugify(title)}`;
-}
-
-export const CATALOG_GAMES: Record<string, GameRecord> = {};
-for (const saga of SAGAS) {
-  for (const game of saga.games) {
-    const id = catalogGameId(saga.id, game.title);
-    CATALOG_GAMES[id] = {
-      id,
-      title: game.title,
-      year: game.year,
-      platforms: game.platform,
-      version: game.version,
-      series: saga.id,
-      main: game.main,
-      extra: game.extra,
-      full: game.full,
-      synopsis: game.synopsis,
-      note: game.note,
-      igdbId: null,
-      rawgId: null,
-      igdbQuery: game.igdbQuery ?? null,
-      coverUrl: null,
-      source: 'catalog',
-      createdBy: null,
-    };
-  }
+export function seriesOfList(listId: string): OfficialSeries | undefined {
+  return OFFICIAL_SERIES.find((s) => officialListId(s.id) === listId);
 }
 
 export const OFFICIAL_PROFILE_ID = 'saga-quest';
@@ -61,43 +35,22 @@ export const OFFICIAL_PROFILE: Profile = {
   id: OFFICIAL_PROFILE_ID,
   username: 'sagaquest',
   displayName: 'Saga Quest',
-  bio: 'Las sagas completas, en orden y en su mejor versión.',
+  bio: 'Sagas completas, en orden de lanzamiento, con datos de la API de IGDB.',
   avatarColor: '#ff2a4d',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-const SAGA_ICONS: Record<string, string> = {
-  persona: 'flame',
-  fe: 'shield',
-  ff: 'diamond',
-  zelda: 'triangle',
-  kirby: 'star',
-  mario: 'flash',
-  xeno: 'planet',
-  metroid: 'rocket',
-};
-
-export const OFFICIAL_LISTS: GameList[] = SAGAS.map((saga) => ({
-  id: `official-${saga.id}`,
+export const OFFICIAL_LISTS: GameList[] = OFFICIAL_SERIES.map((series) => ({
+  id: officialListId(series.id),
   ownerId: OFFICIAL_PROFILE_ID,
-  name: saga.name,
-  description: `${saga.tag}. ${saga.blurb}`,
+  name: series.name,
+  description: `Todos los juegos de la serie ${series.name}, en orden de lanzamiento.`,
   visibility: 'public',
-  color: saga.color,
-  color2: saga.color2,
-  icon: SAGA_ICONS[saga.id] ?? 'albums',
+  color: series.color,
+  color2: series.color2,
+  icon: series.icon,
   forkedFrom: null,
   official: true,
   createdAt: OFFICIAL_PROFILE.createdAt,
   updatedAt: OFFICIAL_PROFILE.createdAt,
 }));
-
-export const OFFICIAL_ITEMS: ListItem[] = SAGAS.flatMap((saga) =>
-  saga.games.map((game, position) => ({
-    id: `official-${saga.id}-${position}`,
-    listId: `official-${saga.id}`,
-    gameId: catalogGameId(saga.id, game.title),
-    position,
-    addedAt: OFFICIAL_PROFILE.createdAt,
-  })),
-);

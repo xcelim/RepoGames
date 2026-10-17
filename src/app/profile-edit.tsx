@@ -7,7 +7,7 @@ import { Button } from '@/components/Button';
 import { ScreenHeader } from '@/components/lists';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar, TextField } from '@/components/ui';
-import { slugify } from '@/data/catalog';
+import { slugify } from '@/utils/text';
 import { AVATAR_COLORS } from '@/data/meta';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';

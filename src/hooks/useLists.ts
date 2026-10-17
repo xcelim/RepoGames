@@ -80,6 +80,6 @@ export function useListCount(): (listId: string) => number {
       counts[item.listId] = (counts[item.listId] ?? 0) + 1;
     }
     return (listId: string) =>
-      listId.startsWith('official-') ? itemsOfList({}, listId).length : (counts[listId] ?? 0);
+      counts[listId] ?? 0;
   }, [items, remoteItems]);
 }

@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { BUILT_IN } from './keys';
 import type { GameDetails, OnlineResult } from './types';
 
 // RAWG: la base de datos abierta más grande (más de 500.000 juegos).
@@ -19,7 +20,8 @@ export async function saveRawgKey(key: string): Promise<void> {
   }
 }
 
-export async function getRawgKey(): Promise<string | null> {
+// Clave propia guardada en Ajustes (opcional).
+export async function getSavedRawgKey(): Promise<string | null> {
   if (memoryKey) return memoryKey;
   try {
     memoryKey = await SecureStore.getItemAsync(KEY_NAME);
@@ -29,11 +31,25 @@ export async function getRawgKey(): Promise<string | null> {
   return memoryKey || null;
 }
 
+export async function getRawgKey(): Promise<string | null> {
+  return (await getSavedRawgKey()) || BUILT_IN.rawgKey || null;
+}
+
+export async function hasRawg(): Promise<boolean> {
+  return !!BUILT_IN.proxyUrl || !!(await getRawgKey());
+}
+
 async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const key = await getRawgKey();
-  if (!key) throw new Error('Configura RAWG en Ajustes');
-  const search = new URLSearchParams({ key, ...params });
-  const response = await fetch(`${BASE}${path}?${search}`);
+  let url: string;
+  if (key) {
+    url = `${BASE}${path}?${new URLSearchParams({ key, ...params })}`;
+  } else if (BUILT_IN.proxyUrl) {
+    url = `${BUILT_IN.proxyUrl}/rawg${path}?${new URLSearchParams(params)}`;
+  } else {
+    throw new Error('La app no tiene acceso a RAWG');
+  }
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(response.status === 401 ? 'RAWG rechazó la clave' : `RAWG respondió ${response.status}`);
   }
@@ -138,4 +154,29 @@ export async function rawgDetails(by: { id?: number; title?: string; year?: numb
     timeToBeat: game.playtime ? { main: game.playtime, extra: null, full: null } : null,
     url: `https://rawg.io/games/${game.slug}`,
   };
+}
+
+// Todos los juegos de una serie: busca el primero y pide su "game-series".
+export async function rawgSeries(name: string): Promise<OnlineResult[]> {
+  const results = await searchRawg(name);
+  const anchor = results[0];
+  if (!anchor) return [];
+  const data = await get<{ results: RawgGame[] }>(`/games/${anchor.sourceId}/game-series`, { page_size: '40' });
+  const all = [
+    anchor,
+    ...data.results.map((game) => ({
+      source: 'rawg' as const,
+      sourceId: game.id,
+      title: game.name,
+      year: yearOf(game.released),
+      platforms: (game.platforms ?? []).map((p) => p.platform.name).join(', '),
+      coverUrl: game.background_image ?? null,
+      summary: null,
+      rating: score(game),
+      main: game.playtime ? game.playtime : null,
+      extra: null,
+      full: null,
+    })),
+  ];
+  return all.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
 }

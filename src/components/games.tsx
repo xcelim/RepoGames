@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { SAGAS } from '@/data/catalog';
+import { OFFICIAL_SERIES } from '@/data/catalog';
 import { LIST_COLORS, STATUS_META, STATUS_ORDER } from '@/data/meta';
 import { useCover } from '@/hooks/useIgdb';
 import { useSkin } from '@/theme/useSkin';
@@ -15,7 +15,7 @@ import type { IconName } from './ui';
 
 // ---------- Colores de un juego (los de su saga o unos fijos según el título) ----------
 export function gameColors(game: GameRecord): [string, string] {
-  const saga = SAGAS.find((s) => s.id === game.series);
+  const saga = OFFICIAL_SERIES.find((s) => s.id === game.series);
   if (saga) return [saga.color, saga.color2];
   let hash = 0;
   for (const char of game.title) hash = (hash * 31 + char.charCodeAt(0)) | 0;

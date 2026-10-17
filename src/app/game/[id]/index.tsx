@@ -19,7 +19,7 @@ import { Button } from '@/components/Button';
 import { GameCover, gameColors, RatingBadge, StatusPill } from '@/components/games';
 import { ThemedText } from '@/components/ThemedText';
 import { Chip, EmptyState, IconButton, Panel, type IconName } from '@/components/ui';
-import { SAGAS } from '@/data/catalog';
+import { OFFICIAL_SERIES, officialListId } from '@/data/catalog';
 import { STATUS_META } from '@/data/meta';
 import { useGameDetails } from '@/hooks/useIgdb';
 import { useGame } from '@/hooks/useLists';
@@ -130,7 +130,7 @@ export default function GameScreen() {
     );
   }
 
-  const saga = SAGAS.find((s) => s.id === game.series);
+  const saga = OFFICIAL_SERIES.find((s) => s.id === game.series);
   const [c1, c2] = gameColors(game);
   const hero = details?.heroUrl ?? details?.screenshots[0] ?? details?.coverUrl ?? game.coverUrl;
   const cover = game.coverUrl ?? details?.coverUrl ?? null;
@@ -424,7 +424,7 @@ export default function GameScreen() {
         </View>
 
         {saga ? (
-          <Button kind="ghost" label={`Ver la saga ${saga.name}`} onPress={() => router.push(`/list/official-${saga.id}`)} />
+          <Button kind="ghost" label={`Ver la saga ${saga.name}`} onPress={() => router.push(`/list/${officialListId(saga.id)}`)} />
         ) : null}
 
         <View style={styles.links}>

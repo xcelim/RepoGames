@@ -20,6 +20,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
+import { loadAllOfficial } from '@/api/official';
 import { fetchCommunity, pushAll } from '@/cloud/sync';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
@@ -84,6 +85,9 @@ export default function RootLayout() {
 
   const skin = useSkin();
   useCloudAutoSync(ready);
+  useEffect(() => {
+    if (ready) loadAllOfficial();
+  }, [ready]);
   if (!ready) return null;
 
   return (

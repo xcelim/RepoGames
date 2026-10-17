@@ -11,7 +11,8 @@ import { GameRow } from '@/components/games';
 import { ScreenHeader } from '@/components/lists';
 import { ThemedText } from '@/components/ThemedText';
 import { Chip, Panel, TextField } from '@/components/ui';
-import { CATALOG_GAMES, SAGAS, stripAccents } from '@/data/catalog';
+import { OFFICIAL_SERIES, officialListId } from '@/data/catalog';
+import { stripAccents } from '@/utils/text';
 import { useList } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
@@ -40,7 +41,6 @@ export default function SearchScreen() {
   const removeFromList = useStore((s) => s.removeFromList);
 
   const [query, setQuery] = useState('');
-  const [series, setSeries] = useState<string | null>(null);
   const [remote, setRemote] = useState<OnlineResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,12 +84,14 @@ export default function SearchScreen() {
 
   const local: Row[] = useMemo(() => {
     const q = normalize(query.trim());
-    if (!q && !series) return [];
-    return [...Object.values(CATALOG_GAMES), ...Object.values(customGames)]
-      .filter((game) => (!series || game.series === series) && (!q || normalize(game.title).includes(q)))
-      .slice(0, 60)
+    if (!q) return [];
+    // Juegos que ya tienes en el móvil (los creados a mano y los ya descargados).
+    return Object.values(customGames)
+      .filter((game) => normalize(game.title).includes(q))
+      .sort((a, b) => (a.source === 'custom' ? -1 : 0) - (b.source === 'custom' ? -1 : 0))
+      .slice(0, 20)
       .map((game) => ({ key: game.id, game }));
-  }, [query, series, customGames]);
+  }, [query, customGames]);
 
   const external: Row[] = (query.trim().length >= 3 ? remote : [])
     .filter((r) => !local.some((row) => row.game.id === onlineGameId(r)))
@@ -145,9 +147,9 @@ export default function SearchScreen() {
   };
 
   const rows: (Row | { key: string; header: string })[] = [
-    ...(local.length ? [{ key: 'h-local', header: 'Catálogo y tus juegos' }] : []),
+    ...(local.length ? [{ key: 'h-local', header: 'Ya en tu móvil' }] : []),
     ...local,
-    ...(external.length ? [{ key: 'h-online', header: 'Todos los juegos (IGDB + RAWG)' }] : []),
+    ...(external.length ? [{ key: 'h-online', header: 'IGDB · RAWG' }] : []),
     ...external,
   ];
 
@@ -169,30 +171,27 @@ export default function SearchScreen() {
               returnKeyType="search"
             />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {SAGAS.map((saga) => (
+              {OFFICIAL_SERIES.map((saga) => (
                 <Chip
                   key={saga.id}
                   label={saga.name}
                   color={saga.color}
-                  selected={series === saga.id}
-                  onPress={() => setSeries(series === saga.id ? null : saga.id)}
+                  onPress={() => router.push(`/list/${officialListId(saga.id)}`)}
                 />
               ))}
             </ScrollView>
             {!online ? (
               <Panel>
                 <ThemedText variant="muted" size={13}>
-                  Ahora solo buscas en las {Object.keys(CATALOG_GAMES).length} sagas del catálogo. Para
-                  buscar entre todos los juegos que existen (con portada, horas y ficha completa),
-                  conecta IGDB y/o RAWG en Ajustes: son gratis.
+                  Esta versión de la app se compiló sin acceso a la API de juegos. Solo
+                  puedes buscar tus juegos y crearlos a mano.
                 </ThemedText>
-                <Button kind="ghost" label="Ir a Ajustes" onPress={() => router.push('/settings')} />
               </Panel>
             ) : null}
             {loading ? <ActivityIndicator color={skin.colors.accent} /> : null}
             {online && query.trim().length > 0 && query.trim().length < 3 ? (
               <ThemedText variant="muted" size={12}>
-                Escribe al menos 3 letras para buscar en todas las bases de datos.
+                Escribe al menos 3 letras para buscar en la API de juegos.
               </ThemedText>
             ) : null}
             {error ? (

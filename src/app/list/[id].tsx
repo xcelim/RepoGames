@@ -2,13 +2,25 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadOfficialList, useOfficialStatus } from '@/api/official';
+import { Button } from '@/components/Button';
 import { GameRow } from '@/components/games';
 import { Segmented } from '@/components/Segmented';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar, Chip, EmptyState, IconButton, TextField, type IconName } from '@/components/ui';
+import { seriesOfList } from '@/data/catalog';
 import { SORT_LABEL, STATUS_META, STATUS_ORDER } from '@/data/meta';
 import { useList, useListEntries, useProfileLookup } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
@@ -83,6 +95,8 @@ export default function ListScreen() {
   const moveInList = useStore((s) => s.moveInList);
   const removeFromList = useStore((s) => s.removeFromList);
   const setStatus = useStore((s) => s.setStatus);
+  const pendingSeeds = useStore((s) => s.pendingSeeds);
+  const officialStatus = useOfficialStatus();
 
   const [sort, setSort] = useState<ListSort>('manual');
   const [descending, setDescending] = useState(false);
@@ -107,6 +121,12 @@ export default function ListScreen() {
     () => [...new Set(entries.map((e) => e.userGame?.platform).filter((p): p is string => !!p))],
     [entries],
   );
+
+  const sourceId = list?.official ? list.id : list?.forkedFrom;
+  const officialSeries = sourceId ? seriesOfList(sourceId) : undefined;
+  const officialLoading = !!(sourceId && officialStatus.loading[sourceId]);
+  const officialError = sourceId ? officialStatus.errors[sourceId] : undefined;
+  const pendingCopy = !!list && pendingSeeds.includes(list.id) && !officialError;
 
   if (!list) {
     return (
@@ -467,7 +487,19 @@ export default function ListScreen() {
           );
         }}
         ListEmptyComponent={
-          entries.length === 0 ? (
+          entries.length === 0 && (officialLoading || pendingCopy) ? (
+            <EmptyState
+              icon="cloud-download-outline"
+              title="Descargando juegos…"
+              text="Se descargan de la API de IGDB, con portadas y horas."
+            >
+              <ActivityIndicator color={skin.colors.accent} />
+            </EmptyState>
+          ) : entries.length === 0 && officialError && officialSeries ? (
+            <EmptyState icon="cloud-offline-outline" title="No se pudo descargar" text={officialError}>
+              <Button label="Reintentar" onPress={() => loadOfficialList(officialSeries, true)} />
+            </EmptyState>
+          ) : entries.length === 0 ? (
             <EmptyState
               icon="albums-outline"
               title="Lista vacía"

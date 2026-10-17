@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Alert, Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { clearOnlineCache } from '@/api/games';
-import { getCredentials, saveCredentials, testConnection } from '@/api/igdb';
-import { getRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
+import { clearOnlineCache, onlineSources } from '@/api/games';
+import { getSavedCredentials, saveCredentials, testConnection } from '@/api/igdb';
+import { loadAllOfficial } from '@/api/official';
+import { getSavedRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
 import { cloudConfig } from '@/cloud/supabase';
 import { fetchCommunity, pullAll, pushAll, signIn, signOutCloud, signUp } from '@/cloud/sync';
 import { Button } from '@/components/Button';
@@ -38,15 +39,20 @@ export default function SettingsScreen() {
   const [secret, setSecret] = useState('');
   const [igdbStatus, setIgdbStatus] = useState('');
   const [rawgKey, setRawgKey] = useState('');
+  const [sources, setSources] = useState({ igdb: false, rawg: false });
+  const [advanced, setAdvanced] = useState(false);
+  const [dbStatus, setDbStatus] = useState('');
+  const dbOnline = sources.igdb || sources.rawg;
   const [rawgStatus, setRawgStatus] = useState('');
   useEffect(() => {
-    getCredentials().then((saved) => {
+    onlineSources().then(setSources);
+    getSavedCredentials().then((saved) => {
       if (saved) {
         setClientId(saved.clientId);
         setSecret(saved.secret);
       }
     });
-    getRawgKey().then((key) => setRawgKey(key ?? ''));
+    getSavedRawgKey().then((key) => setRawgKey(key ?? ''));
   }, []);
 
   const saveRawg = async () => {
@@ -55,7 +61,8 @@ export default function SettingsScreen() {
       await saveRawgKey(rawgKey);
       await testRawg();
       await clearOnlineCache();
-      setRawgStatus('Conectado: ya puedes buscar entre más de 500.000 juegos.');
+      setRawgStatus('Conectado con tu clave.');
+      onlineSources().then(setSources);
     } catch (error) {
       setRawgStatus(error instanceof Error ? error.message : 'No se pudo conectar');
     }
@@ -67,7 +74,8 @@ export default function SettingsScreen() {
       await saveCredentials(clientId, secret);
       await testConnection();
       await clearOnlineCache();
-      setIgdbStatus('Conectado: ya tienes portadas, fichas completas y el buscador de todos los juegos.');
+      setIgdbStatus('Conectado con tus claves.');
+      onlineSources().then(setSources);
     } catch (error) {
       setIgdbStatus(error instanceof Error ? error.message : 'No se pudo conectar');
     }
@@ -174,8 +182,48 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section title="API de juegos (IGDB + RAWG)">
+          <Panel>
+            <View style={styles.dbRow}>
+              <View style={[styles.dot, { backgroundColor: dbOnline ? '#3dbb6b' : '#e5484d' }]} />
+              <ThemedText variant="bold" style={styles.flex}>
+                {dbOnline ? 'Conectada' : 'Sin acceso a la API'}
+              </ThemedText>
+            </View>
+            <ThemedText variant="muted" size={13}>
+              {dbOnline
+                ? `Juegos, portadas, capturas, vídeos y tiempos de ${[sources.igdb && 'IGDB', sources.rawg && 'RAWG'].filter(Boolean).join(' y ')}. No tienes que configurar nada.`
+                : 'Esta versión se compiló sin las claves de la app. Puedes usar las tuyas en «Avanzado».'}
+            </ThemedText>
+            <Button
+              kind="ghost"
+              label="Actualizar bibliotecas oficiales"
+              onPress={() => {
+                setDbStatus('Descargando…');
+                loadAllOfficial(true).then(() => setDbStatus('Bibliotecas actualizadas.'));
+              }}
+            />
+            <Button
+              kind="ghost"
+              label="Vaciar caché de fichas e imágenes"
+              onPress={() => clearOnlineCache().then(() => setDbStatus('Caché vaciada.'))}
+            />
+            {dbStatus ? <ThemedText variant="muted">{dbStatus}</ThemedText> : null}
+            <ThemedText
+              variant="bold"
+              size={13}
+              style={{ color: skin.colors.accent }}
+              onPress={() => setAdvanced((v) => !v)}
+            >
+              {advanced ? 'Ocultar avanzado' : 'Avanzado: usar mis propias claves'}
+            </ThemedText>
+          </Panel>
+        </Section>
+
+        {advanced ? (
+          <>
         <Panel>
-          <ThemedText variant="bold">Bases de datos de juegos</ThemedText>
+          <ThemedText variant="bold">Tus claves (opcional)</ThemedText>
           <ThemedText variant="muted" size={13}>
             Conecta una o las dos (son gratis) para buscar cualquier juego que exista, con portada,
             capturas, vídeos, compañías y tiempos para terminarlo. Lo ideal es usar las dos: IGDB
@@ -234,6 +282,9 @@ export default function SettingsScreen() {
             onPress={() => clearOnlineCache().then(() => setRawgStatus('Caché vaciada'))}
           />
         </Section>
+
+          </>
+        ) : null}
 
         <Section title="Nube · Supabase (opcional)">
           <ThemedText variant="muted" size={13}>
@@ -378,4 +429,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 16, gap: 26 },
   version: { textAlign: 'center' },
+  dbRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
 });

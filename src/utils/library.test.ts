@@ -1,4 +1,4 @@
-import { CATALOG_GAMES, OFFICIAL_ITEMS, OFFICIAL_LISTS, SAGAS, catalogGameId } from '../data/catalog';
+import { OFFICIAL_LISTS, OFFICIAL_SERIES } from '../data/catalog';
 import type { GameRecord, ListItem, UserGame } from '../types';
 import {
   buildEntries,
@@ -72,27 +72,11 @@ const userGames = {
 };
 const entries = buildEntries(items, games, userGames, 'yo');
 
-describe('catálogo', () => {
-  it('tiene las 8 sagas y ningún identificador repetido', () => {
-    expect(SAGAS.map((s) => s.id)).toEqual([
-      'persona',
-      'fe',
-      'ff',
-      'zelda',
-      'kirby',
-      'mario',
-      'xeno',
-      'metroid',
-    ]);
-    const total = SAGAS.reduce((sum, s) => sum + s.games.length, 0);
-    expect(Object.keys(CATALOG_GAMES)).toHaveLength(total);
-  });
-
-  it('crea una lista oficial por saga con sus juegos en orden', () => {
-    expect(OFFICIAL_LISTS).toHaveLength(8);
-    const zelda = itemsOfList({}, 'official-zelda');
-    expect(zelda[0].gameId).toBe(catalogGameId('zelda', 'The Legend of Zelda'));
-    expect(OFFICIAL_ITEMS.every((item) => CATALOG_GAMES[item.gameId])).toBe(true);
+describe('bibliotecas oficiales', () => {
+  it('solo definen la serie: los juegos vienen de la API', () => {
+    expect(OFFICIAL_SERIES.map((s) => s.id)).toEqual(['persona', 'fe', 'ff', 'zelda', 'kirby', 'mario', 'xeno', 'metroid']);
+    expect(OFFICIAL_LISTS.every((l) => l.official && l.visibility === 'public')).toBe(true);
+    expect(itemsOfList({}, 'official-zelda')).toEqual([]);
   });
 });
 

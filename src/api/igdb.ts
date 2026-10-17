@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
+import { BUILT_IN } from './keys';
 import type { GameDetails, OnlineResult } from './types';
 
 // IGDB (Twitch): unos 300.000 juegos con portadas, capturas, tráileres,
@@ -27,19 +28,29 @@ export async function saveCredentials(clientId: string, secret: string): Promise
   token = null;
 }
 
-export async function getCredentials(): Promise<Credentials | null> {
+// Claves propias guardadas en Ajustes (opcional; si no, las de la app).
+export async function getSavedCredentials(): Promise<Credentials | null> {
   try {
     const clientId = await SecureStore.getItemAsync(ID_KEY);
     const secret = await SecureStore.getItemAsync(SECRET_KEY);
     return clientId && secret ? { clientId, secret } : null;
   } catch {
-    // SecureStore no existe en la versión web: la app sigue sin IGDB.
+    // SecureStore no existe en la versión web.
     return null;
   }
 }
 
+export async function getCredentials(): Promise<Credentials | null> {
+  const saved = await getSavedCredentials();
+  if (saved) return saved;
+  if (BUILT_IN.igdbClientId && BUILT_IN.igdbClientSecret) {
+    return { clientId: BUILT_IN.igdbClientId, secret: BUILT_IN.igdbClientSecret };
+  }
+  return null;
+}
+
 export async function hasIgdbCredentials(): Promise<boolean> {
-  return (await getCredentials()) !== null;
+  return !!BUILT_IN.proxyUrl || (await getCredentials()) !== null;
 }
 
 // ---------- Token de Twitch ----------
@@ -81,7 +92,19 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
 // Hace una consulta a un endpoint de IGDB (dentro de la cola).
 async function query<T>(endpoint: string, body: string): Promise<T> {
   const credentials = await getCredentials();
-  if (!credentials) throw new Error('Configura IGDB en Ajustes');
+  if (!credentials && BUILT_IN.proxyUrl) {
+    // Servidor intermedio: él pone las claves.
+    return enqueue(async () => {
+      const response = await fetch(`${BUILT_IN.proxyUrl}/igdb/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body,
+      });
+      if (!response.ok) throw new Error(`IGDB respondió ${response.status}`);
+      return (await response.json()) as T;
+    });
+  }
+  if (!credentials) throw new Error('La app no tiene acceso a IGDB');
   return enqueue(async () => {
     const accessToken = await getToken(credentials);
     const response = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
@@ -253,4 +276,74 @@ export async function igdbCover(by: { id?: number; title?: string; year?: number
   );
   const hit = sameYear ?? candidates[0] ?? rows.find((r) => r.cover);
   return hit?.cover ? igdbImage(hit.cover.image_id, 't_cover_big') : null;
+}
+
+// ---------- Series (para las bibliotecas oficiales) ----------
+
+type IgdbSeriesGame = IgdbSearchGame & { franchises?: number[]; collections?: number[] };
+
+const SERIES_FIELDS =
+  'fields name,summary,first_release_date,total_rating,cover.image_id,platforms.name,platforms.abbreviation,version_parent;';
+
+// Tipos de juego que cuentan: principal, expansión independiente, remake, remaster y edición ampliada.
+const TYPE_FILTERS = ['game_type = (0,4,8,9,10)', 'category = (0,4,8,9,10)', ''];
+
+async function seriesGames(field: 'collections' | 'franchises', id: number): Promise<IgdbSeriesGame[]> {
+  for (const typeFilter of TYPE_FILTERS) {
+    try {
+      const where = [`${field} = (${id})`, 'version_parent = null', typeFilter].filter(Boolean).join(' & ');
+      return await query<IgdbSeriesGame[]>(
+        'games',
+        `${SERIES_FIELDS} where ${where}; sort first_release_date asc; limit 200;`,
+      );
+    } catch {
+      // Prueba con el siguiente filtro (los nombres de campo han cambiado entre versiones de IGDB).
+    }
+  }
+  return [];
+}
+
+async function findGroup(endpoint: 'collections' | 'franchises', name: string): Promise<number | null> {
+  const wanted = name.toLowerCase();
+  const exact = await query<{ id: number; name: string }[]>(
+    endpoint,
+    `fields name; where name ~ "${clean(name)}"; limit 5;`,
+  ).catch(() => []);
+  if (exact.length) return exact[0].id;
+  const found = await query<{ id: number; name: string }[]>(
+    endpoint,
+    `search "${clean(name)}"; fields name; limit 10;`,
+  ).catch(() => []);
+  return (found.find((g) => g.name.toLowerCase() === wanted) ?? found[0])?.id ?? null;
+}
+
+export async function igdbSeries(name: string): Promise<OnlineResult[]> {
+  let games: IgdbSeriesGame[] = [];
+  const collection = await findGroup('collections', name);
+  if (collection) games = await seriesGames('collections', collection);
+  if (games.length < 3) {
+    const franchise = await findGroup('franchises', name);
+    if (franchise) {
+      const more = await seriesGames('franchises', franchise);
+      if (more.length > games.length) games = more;
+    }
+  }
+  const unique = games.filter((g, i) => !g.version_parent && games.findIndex((x) => x.id === g.id) === i);
+  const times = await timesToBeat(unique.map((g) => g.id));
+  return unique.map((game) => {
+    const t = times[game.id];
+    return {
+      source: 'igdb' as const,
+      sourceId: game.id,
+      title: game.name,
+      year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
+      platforms: (game.platforms ?? []).map((p) => p.abbreviation ?? p.name).join(', '),
+      coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
+      summary: game.summary ?? null,
+      rating: game.total_rating ? Math.round(game.total_rating) : null,
+      main: toHours(t?.hastily),
+      extra: toHours(t?.normally),
+      full: toHours(t?.completely),
+    };
+  });
 }

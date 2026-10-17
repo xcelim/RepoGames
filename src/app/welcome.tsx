@@ -9,7 +9,7 @@ import { SkinPicker } from '@/components/SkinPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar, Panel, TextField } from '@/components/ui';
 import { AVATAR_COLORS } from '@/data/meta';
-import { slugify } from '@/data/catalog';
+import { slugify } from '@/utils/text';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
 

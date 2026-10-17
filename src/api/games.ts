@@ -1,24 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { stripAccents } from '@/data/catalog';
 import type { GameRecord } from '@/types';
+import { normTitle as norm } from '@/utils/text';
 
-import { hasIgdbCredentials, igdbCover, igdbDetails, searchIgdb } from './igdb';
-import { getRawgKey, rawgDetails, searchRawg } from './rawg';
+import { hasIgdbCredentials, igdbCover, igdbDetails, igdbSeries, searchIgdb } from './igdb';
+import { hasRawg, rawgDetails, rawgSeries, searchRawg } from './rawg';
 import type { GameDetails, OnlineResult } from './types';
 
 // Punto único para hablar con las bases de datos online:
 // IGDB (mejores datos: tiempos, compañías, tráileres) + RAWG (la más grande).
 
 export async function onlineSources(): Promise<{ igdb: boolean; rawg: boolean }> {
-  const [igdb, rawgKey] = await Promise.all([hasIgdbCredentials(), getRawgKey()]);
-  return { igdb, rawg: !!rawgKey };
+  const [igdb, rawg] = await Promise.all([hasIgdbCredentials(), hasRawg()]);
+  return { igdb, rawg };
 }
-
-const norm = (text: string) =>
-  stripAccents(text)
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
 
 export type SearchOutcome = { results: OnlineResult[]; errors: string[] };
 
@@ -57,6 +52,18 @@ export async function searchOnline(text: string): Promise<SearchOutcome> {
 
 export function onlineGameId(r: { source: 'igdb' | 'rawg'; sourceId: number }): string {
   return `${r.source}-${r.sourceId}`;
+}
+
+// Todos los juegos de una serie (para las bibliotecas oficiales), de IGDB o, si no, de RAWG.
+export async function fetchSeries(query: string): Promise<OnlineResult[]> {
+  const sources = await onlineSources();
+  if (sources.igdb) {
+    const games = await igdbSeries(query).catch(() => []);
+    if (games.length) return games;
+  }
+  if (sources.rawg) return rawgSeries(query);
+  if (!sources.igdb) throw new Error('La app no tiene acceso a la API de juegos');
+  return [];
 }
 
 export function toGameRecord(r: OnlineResult, profileId: string | null): GameRecord {

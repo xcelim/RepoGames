@@ -7,7 +7,7 @@ import { Button } from '@/components/Button';
 import { ListCard, SectionTitle } from '@/components/lists';
 import { ThemedText } from '@/components/ThemedText';
 import { EmptyState, IconButton } from '@/components/ui';
-import { OFFICIAL_ITEMS, OFFICIAL_LISTS } from '@/data/catalog';
+import { OFFICIAL_LISTS } from '@/data/catalog';
 import { FINISHED } from '@/data/meta';
 import { useRemote } from '@/cloud/remote';
 import { useMyLists, useProfileLookup } from '@/hooks/useLists';
@@ -30,7 +30,7 @@ export default function ListsScreen() {
   // Juegos y terminados de cada lista, para la barra de progreso.
   const progress = useMemo(() => {
     const result: Record<string, { count: number; done: number }> = {};
-    const all = [...OFFICIAL_ITEMS, ...Object.values(items), ...Object.values(remoteItems)];
+    const all = [...Object.values(items), ...Object.values(remoteItems)];
     for (const item of all) {
       const entry = (result[item.listId] ??= { count: 0, done: 0 });
       entry.count += 1;

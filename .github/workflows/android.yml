@@ -16,6 +16,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Claves de la API de juegos: se guardan en Settings → Secrets and variables → Actions
+    # y se meten en la app al compilar, para que nadie tenga que configurarlas.
+    env:
+      EXPO_PUBLIC_IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+      EXPO_PUBLIC_IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+      EXPO_PUBLIC_RAWG_KEY: ${{ secrets.RAWG_KEY }}
+      EXPO_PUBLIC_GAMES_PROXY_URL: ${{ secrets.GAMES_PROXY_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -28,6 +35,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Comprobar las claves de la API
+        run: |
+          if [ -z "$EXPO_PUBLIC_IGDB_CLIENT_ID" ] && [ -z "$EXPO_PUBLIC_RAWG_KEY" ] && [ -z "$EXPO_PUBLIC_GAMES_PROXY_URL" ]; then
+            echo "::warning::No hay claves de la API (IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, RAWG_KEY): la app no podrá descargar juegos."
+          else
+            echo "Claves de la API presentes: IGDB=$([ -n "$EXPO_PUBLIC_IGDB_CLIENT_ID" ] && echo sí || echo no) RAWG=$([ -n "$EXPO_PUBLIC_RAWG_KEY" ] && echo sí || echo no)"
+          fi
 
       - name: Instalar dependencias
         run: npm ci

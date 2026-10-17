@@ -44,6 +44,8 @@ type State = {
   lastSync: string | null;
   cloudUrl: string; // proyecto de Supabase (vacío = solo en el móvil)
   cloudAnonKey: string;
+  officialLoadedAt: Record<string, string>; // cuándo se descargó cada biblioteca oficial
+  pendingSeeds: string[]; // copias tuyas de bibliotecas oficiales que esperan a la descarga
 };
 
 type Actions = {
@@ -73,6 +75,7 @@ type Actions = {
   importSnapshot: (data: Partial<State>) => void;
   setCloud: (cloudUserId: string | null, lastSync?: string | null) => void;
   setCloudConfig: (url: string, anonKey: string) => void;
+  setOfficialList: (listId: string, games: GameRecord[]) => void;
   resetAll: () => void;
 };
 
@@ -93,6 +96,8 @@ const INITIAL: State = {
   lastSync: null,
   cloudUrl: '',
   cloudAnonKey: '',
+  officialLoadedAt: {},
+  pendingSeeds: [],
 };
 
 // Copia una lista (y sus juegos) a otro perfil.
@@ -162,6 +167,7 @@ export const useStore = create<Store>()(
           const state = get();
           const lists = { ...state.lists };
           const items = { ...state.items };
+          const pending = [...state.pendingSeeds];
           // Las bibliotecas oficiales vienen ya añadidas a tu perfil.
           const base = Date.now();
           for (const [index, official] of OFFICIAL_LISTS.entries()) {
@@ -171,12 +177,15 @@ export const useStore = create<Store>()(
             if (!copy) continue;
             lists[copy.list.id] = copy.list;
             for (const item of copy.items) items[item.id] = item;
+            // Si aún no se ha descargado, se rellenará en cuanto llegue.
+            if (copy.items.length === 0) pending.push(copy.list.id);
           }
           set({
             profiles: { ...state.profiles, [id]: profile },
             currentProfileId: id,
             lists,
             items,
+            pendingSeeds: pending,
           });
           return id;
         },
@@ -369,6 +378,47 @@ export const useStore = create<Store>()(
             cloudProfileId: cloudUserId ? get().currentProfileId : null,
             lastSync: lastSync === undefined ? get().lastSync : lastSync,
           }),
+        setOfficialList: (listId, games) => {
+          const state = get();
+          const stamp = now();
+          const gamesMap = { ...state.games };
+          for (const game of games) {
+            const old = gamesMap[game.id];
+            // Lo nuevo manda, pero sin borrar datos que ya teníamos (horas, portada...).
+            gamesMap[game.id] = old
+              ? (Object.fromEntries(
+                  Object.entries(game).map(([k, v]) => [k, v ?? old[k as keyof GameRecord]]),
+                ) as GameRecord)
+              : game;
+          }
+          const items = withoutKeys(state.items, (item) => item.listId !== listId);
+          games.forEach((game, position) => {
+            const id = `${listId}-${position}`;
+            items[id] = { id, listId, gameId: game.id, position, addedAt: stamp };
+          });
+          // Rellena las copias de tus perfiles que estaban esperando.
+          const pendingSeeds: string[] = [];
+          for (const copyId of state.pendingSeeds) {
+            const copy = state.lists[copyId];
+            if (!copy) continue;
+            if (copy.forkedFrom !== listId) {
+              pendingSeeds.push(copyId);
+              continue;
+            }
+            if (Object.values(items).some((i) => i.listId === copyId)) continue;
+            games.forEach((game, position) => {
+              const id = uuid();
+              items[id] = { id, listId: copyId, gameId: game.id, position, addedAt: stamp };
+            });
+          }
+          set({
+            games: gamesMap,
+            items,
+            pendingSeeds,
+            officialLoadedAt: { ...state.officialLoadedAt, [listId]: stamp },
+          });
+        },
+
         setCloudConfig: (cloudUrl, cloudAnonKey) =>
           set({ cloudUrl: cloudUrl.trim(), cloudAnonKey: cloudAnonKey.trim() }),
         resetAll: () =>
@@ -377,7 +427,22 @@ export const useStore = create<Store>()(
     },
     {
       name: 'saga-quest-v2',
-      version: 1,
+      version: 2,
+      // v1 traía un catálogo escrito a mano: se borra y se descarga de la API.
+      migrate: (persisted, version) => {
+        const state = persisted as State;
+        if (version < 2) {
+          return {
+            ...state,
+            items: withoutKeys(state.items ?? {}, (item) => !item.listId.startsWith('official-')),
+            officialLoadedAt: {},
+            pendingSeeds: Object.values(state.lists ?? {})
+              .filter((l) => l.forkedFrom?.startsWith('official-'))
+              .map((l) => l.id),
+          };
+        }
+        return state;
+      },
       storage: createJSONStorage(() => AsyncStorage),
     },
   ),
