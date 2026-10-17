@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { SAGAS } from '@/data/catalog';
 import { LIST_COLORS, STATUS_META, STATUS_ORDER } from '@/data/meta';
-import { useIgdb } from '@/hooks/useIgdb';
+import { useCover } from '@/hooks/useIgdb';
 import { useSkin } from '@/theme/useSkin';
 import type { GameRecord, PlayStatus, UserGame } from '@/types';
 
@@ -22,29 +22,21 @@ export function gameColors(game: GameRecord): [string, string] {
   return LIST_COLORS[Math.abs(hash) % LIST_COLORS.length];
 }
 
-export function igdbQueryFor(game: GameRecord): string {
-  if (game.igdbId) return `id:${game.igdbId}`;
-  return game.igdbQuery ?? game.title;
-}
-
 // ---------- Carátula ----------
 export function GameCover({
   game,
   width,
-  kind = 'cover',
+  url: forcedUrl,
 }: {
   game: GameRecord;
   width: number;
-  kind?: 'cover' | 'wide';
+  url?: string | null;
 }) {
   const skin = useSkin();
-  const info = useIgdb(game.coverUrl && kind === 'cover' ? '' : igdbQueryFor(game));
-  const url =
-    kind === 'wide'
-      ? (info?.screenshotUrl ?? info?.coverUrl ?? game.coverUrl)
-      : (game.coverUrl ?? info?.coverUrl);
+  const cover = useCover(forcedUrl ? undefined : game);
+  const url = forcedUrl ?? cover;
   const [c1, c2] = gameColors(game);
-  const height = kind === 'cover' ? width * (4 / 3) : width * (9 / 16);
+  const height = width * (4 / 3);
   const words = game.title.replace(/[^A-Za-z0-9 ]/g, ' ').split(' ').filter(Boolean);
   const important = words.filter((w) => /^[A-Z0-9]/.test(w));
   const initials = (important.length ? important : words)

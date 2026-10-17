@@ -1,21 +1,55 @@
 import { useEffect, useState } from 'react';
 
-import { fetchGameInfo, type IgdbInfo } from '@/api/igdb';
+import { fetchCover, fetchDetails } from '@/api/games';
+import type { GameDetails } from '@/api/types';
+import type { GameRecord } from '@/types';
 
-export function useIgdb(query: string) {
-  const [info, setInfo] = useState<IgdbInfo | null>(null);
-
+// Portada de un juego (de su ficha, de IGDB o de RAWG).
+export function useCover(game: GameRecord | undefined): string | null {
+  const [url, setUrl] = useState<string | null>(game?.coverUrl ?? null);
+  const id = game?.id;
+  const known = game?.coverUrl ?? null;
   useEffect(() => {
+    if (!game || known) return;
     let cancelled = false;
-    fetchGameInfo(query)
+    fetchCover(game)
       .then((result) => {
-        if (!cancelled) setInfo(result);
+        if (!cancelled) setUrl(result);
       })
-      .catch((error) => console.warn('IGDB', error));
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, known]);
+  return known ?? url;
+}
 
-  return info;
+// Ficha completa del juego.
+export function useGameDetails(game: GameRecord | undefined) {
+  const [state, setState] = useState<{ id?: string; details: GameDetails | null; loading: boolean; error: string | null }>({
+    details: null,
+    loading: false,
+    error: null,
+  });
+  const id = game?.id;
+  useEffect(() => {
+    if (!game) return;
+    let cancelled = false;
+    fetchDetails(game)
+      .then((details) => {
+        if (!cancelled) setState({ id: game.id, details, loading: false, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setState({ id: game.id, details: null, loading: false, error: error instanceof Error ? error.message : 'Error' });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  const fresh = state.id === id;
+  return { details: fresh ? state.details : null, loading: !fresh, error: fresh ? state.error : null };
 }

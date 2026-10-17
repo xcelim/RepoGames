@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Alert, Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { clearIgdbCache, getCredentials, saveCredentials, testConnection } from '@/api/igdb';
+import { clearOnlineCache } from '@/api/games';
+import { getCredentials, saveCredentials, testConnection } from '@/api/igdb';
+import { getRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
 import { cloudConfig } from '@/cloud/supabase';
 import { fetchCommunity, pullAll, pushAll, signIn, signOutCloud, signUp } from '@/cloud/sync';
 import { Button } from '@/components/Button';
@@ -14,9 +16,11 @@ import { SkinPicker } from '@/components/SkinPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { Panel, TextField } from '@/components/ui';
 import { useStore } from '@/store/useStore';
+import { useSkin } from '@/theme/useSkin';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const skin = useSkin();
   const mode = useStore((s) => s.durationMode);
   const setMode = useStore((s) => s.setDurationMode);
   const cloudUrl = useStore((s) => s.cloudUrl);
@@ -33,6 +37,8 @@ export default function SettingsScreen() {
   const [clientId, setClientId] = useState('');
   const [secret, setSecret] = useState('');
   const [igdbStatus, setIgdbStatus] = useState('');
+  const [rawgKey, setRawgKey] = useState('');
+  const [rawgStatus, setRawgStatus] = useState('');
   useEffect(() => {
     getCredentials().then((saved) => {
       if (saved) {
@@ -40,14 +46,28 @@ export default function SettingsScreen() {
         setSecret(saved.secret);
       }
     });
+    getRawgKey().then((key) => setRawgKey(key ?? ''));
   }, []);
+
+  const saveRawg = async () => {
+    setRawgStatus('Probando la clave…');
+    try {
+      await saveRawgKey(rawgKey);
+      await testRawg();
+      await clearOnlineCache();
+      setRawgStatus('Conectado: ya puedes buscar entre más de 500.000 juegos.');
+    } catch (error) {
+      setRawgStatus(error instanceof Error ? error.message : 'No se pudo conectar');
+    }
+  };
 
   const saveKeys = async () => {
     setIgdbStatus('Conectando con Twitch…');
     try {
       await saveCredentials(clientId, secret);
       await testConnection();
-      setIgdbStatus('Conectado: ya tienes portadas y puedes buscar cualquier juego.');
+      await clearOnlineCache();
+      setIgdbStatus('Conectado: ya tienes portadas, fichas completas y el buscador de todos los juegos.');
     } catch (error) {
       setIgdbStatus(error instanceof Error ? error.message : 'No se pudo conectar');
     }
@@ -154,7 +174,16 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="IGDB · portadas y buscador">
+        <Panel>
+          <ThemedText variant="bold">Bases de datos de juegos</ThemedText>
+          <ThemedText variant="muted" size={13}>
+            Conecta una o las dos (son gratis) para buscar cualquier juego que exista, con portada,
+            capturas, vídeos, compañías y tiempos para terminarlo. Lo ideal es usar las dos: IGDB
+            tiene los mejores datos y RAWG la colección más grande.
+          </ThemedText>
+        </Panel>
+
+        <Section title="IGDB (Twitch) · unos 300.000 juegos">
           <ThemedText variant="muted" size={13}>
             Crea una aplicación gratis en dev.twitch.tv/console y pega aquí su Client ID y Client
             Secret. Se guardan cifrados en este móvil.
@@ -176,10 +205,33 @@ export default function SettingsScreen() {
           />
           <Button label="Guardar y probar" onPress={saveKeys} />
           {igdbStatus ? <ThemedText variant="muted">{igdbStatus}</ThemedText> : null}
+        </Section>
+
+        <Section title="RAWG · más de 500.000 juegos">
+          <ThemedText variant="muted" size={13}>
+            Regístrate gratis en rawg.io/apidocs, pide una clave («Get API Key») y pégala aquí.
+          </ThemedText>
+          <ThemedText
+            variant="bold"
+            size={13}
+            style={{ color: skin.colors.accent }}
+            onPress={() => Linking.openURL('https://rawg.io/apidocs')}
+          >
+            Abrir rawg.io/apidocs →
+          </ThemedText>
+          <TextField
+            value={rawgKey}
+            onChangeText={setRawgKey}
+            placeholder="Clave de RAWG"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Button label="Guardar y probar" onPress={saveRawg} />
+          {rawgStatus ? <ThemedText variant="muted">{rawgStatus}</ThemedText> : null}
           <Button
             kind="ghost"
-            label="Vaciar caché de imágenes"
-            onPress={() => clearIgdbCache().then(() => setIgdbStatus('Caché vaciada'))}
+            label="Vaciar caché de fichas e imágenes"
+            onPress={() => clearOnlineCache().then(() => setRawgStatus('Caché vaciada'))}
           />
         </Section>
 

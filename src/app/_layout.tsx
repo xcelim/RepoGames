@@ -100,7 +100,8 @@ export default function RootLayout() {
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="list/[id]" />
         <Stack.Screen name="user/[id]" />
-        <Stack.Screen name="game/[id]" />
+        <Stack.Screen name="game/[id]/index" />
+        <Stack.Screen name="game/[id]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="search" />
         <Stack.Screen name="list/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="list/pick" options={{ presentation: 'modal' }} />

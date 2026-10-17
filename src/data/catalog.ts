@@ -46,6 +46,7 @@ for (const saga of SAGAS) {
       synopsis: game.synopsis,
       note: game.note,
       igdbId: null,
+      rawgId: null,
       igdbQuery: game.igdbQuery ?? null,
       coverUrl: null,
       source: 'catalog',

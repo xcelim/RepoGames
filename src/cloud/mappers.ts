@@ -23,6 +23,7 @@ export type GameRow = {
   synopsis: string | null;
   note: string | null;
   igdb_id: number | null;
+  rawg_id: number | null;
   igdb_query: string | null;
   cover_url: string | null;
   source: GameRecord['source'];
@@ -101,6 +102,7 @@ export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => (
   synopsis: g.synopsis,
   note: g.note,
   igdb_id: g.igdbId,
+  rawg_id: g.rawgId,
   igdb_query: g.igdbQuery,
   cover_url: g.coverUrl,
   source: g.source,
@@ -120,6 +122,7 @@ export const fromGameRow = (r: GameRow): GameRecord => ({
   synopsis: r.synopsis,
   note: r.note,
   igdbId: r.igdb_id,
+  rawgId: r.rawg_id ?? null,
   igdbQuery: r.igdb_query,
   coverUrl: r.cover_url,
   source: r.source,

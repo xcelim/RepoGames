@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { hasIgdbCredentials, searchGames, type IgdbSearchResult } from '@/api/igdb';
+import { onlineGameId, onlineSources, searchOnline, toGameRecord } from '@/api/games';
+import type { OnlineResult } from '@/api/types';
 import { Button } from '@/components/Button';
 import { GameRow } from '@/components/games';
 import { ScreenHeader } from '@/components/lists';
@@ -23,28 +24,7 @@ function normalize(text: string): string {
   return stripAccents(text).toLowerCase();
 }
 
-function fromIgdb(result: IgdbSearchResult, profileId: string | null): GameRecord {
-  return {
-    id: `igdb-${result.igdbId}`,
-    title: result.title,
-    year: result.year,
-    platforms: result.platforms,
-    version: null,
-    series: null,
-    main: null,
-    extra: null,
-    full: null,
-    synopsis: result.summary,
-    note: null,
-    igdbId: result.igdbId,
-    igdbQuery: null,
-    coverUrl: result.coverUrl,
-    source: 'igdb',
-    createdBy: profileId,
-  };
-}
-
-type Row = { key: string; game: GameRecord; external?: boolean };
+type Row = { key: string; game: GameRecord; external?: boolean; source?: string };
 
 export default function SearchScreen() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
@@ -61,28 +41,31 @@ export default function SearchScreen() {
 
   const [query, setQuery] = useState('');
   const [series, setSeries] = useState<string | null>(null);
-  const [remote, setRemote] = useState<IgdbSearchResult[]>([]);
+  const [remote, setRemote] = useState<OnlineResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [igdbReady, setIgdbReady] = useState(false);
+  const [sources, setSources] = useState({ igdb: false, rawg: false });
+  const online = sources.igdb || sources.rawg;
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: '', year: '', platforms: '', hours: '' });
+  const [form, setForm] = useState({ title: '', year: '', platforms: '', hours: '', cover: '' });
   const requestId = useRef(0);
 
   useEffect(() => {
-    hasIgdbCredentials().then(setIgdbReady);
+    onlineSources().then(setSources);
   }, []);
 
   // Busca en IGDB medio segundo después de dejar de escribir.
   useEffect(() => {
     const current = ++requestId.current;
-    if (!igdbReady || query.trim().length < 3) return;
+    if (!online || query.trim().length < 3) return;
     const timer = setTimeout(() => {
       setLoading(true);
       setError(null);
-      searchGames(query)
-        .then((results) => {
-          if (current === requestId.current) setRemote(results);
+      searchOnline(query)
+        .then(({ results, errors }) => {
+          if (current !== requestId.current) return;
+          setRemote(results);
+          if (errors.length) setError(errors.join(' · '));
         })
         .catch((e: unknown) => {
           if (current === requestId.current) setError(e instanceof Error ? e.message : 'Error');
@@ -92,7 +75,7 @@ export default function SearchScreen() {
         });
     }, 500);
     return () => clearTimeout(timer);
-  }, [query, igdbReady]);
+  }, [query, online]);
 
   const inList = useMemo(
     () => new Set(listId ? itemsOfList(items, listId).map((i) => i.gameId) : []),
@@ -109,11 +92,16 @@ export default function SearchScreen() {
   }, [query, series, customGames]);
 
   const external: Row[] = (query.trim().length >= 3 ? remote : [])
-    .filter((r) => !local.some((row) => row.game.igdbId === r.igdbId))
-    .map((r) => ({ key: `igdb-${r.igdbId}`, game: customGames[`igdb-${r.igdbId}`] ?? fromIgdb(r, profileId), external: true }));
+    .filter((r) => !local.some((row) => row.game.id === onlineGameId(r)))
+    .map((r) => ({
+      key: onlineGameId(r),
+      game: customGames[onlineGameId(r)] ?? toGameRecord(r, profileId),
+      external: true,
+      source: r.source === 'igdb' ? 'IGDB' : 'RAWG',
+    }));
 
   const choose = (row: Row) => {
-    if (row.external) upsertGame(row.game);
+    if (row.external && !customGames[row.game.id]) upsertGame(row.game);
     if (!listId) {
       router.push(`/game/${encodeURIComponent(row.game.id)}`);
       return;
@@ -144,21 +132,22 @@ export default function SearchScreen() {
       synopsis: null,
       note: null,
       igdbId: null,
+      rawgId: null,
       igdbQuery: title,
-      coverUrl: null,
+      coverUrl: form.cover.trim() || null,
       source: 'custom',
       createdBy: profileId,
     };
     upsertGame(game);
     setCreating(false);
-    setForm({ title: '', year: '', platforms: '', hours: '' });
+    setForm({ title: '', year: '', platforms: '', hours: '', cover: '' });
     choose({ key: game.id, game });
   };
 
   const rows: (Row | { key: string; header: string })[] = [
     ...(local.length ? [{ key: 'h-local', header: 'Catálogo y tus juegos' }] : []),
     ...local,
-    ...(external.length ? [{ key: 'h-igdb', header: 'Desde IGDB' }] : []),
+    ...(external.length ? [{ key: 'h-online', header: 'Todos los juegos (IGDB + RAWG)' }] : []),
     ...external,
   ];
 
@@ -190,16 +179,22 @@ export default function SearchScreen() {
                 />
               ))}
             </ScrollView>
-            {!igdbReady ? (
+            {!online ? (
               <Panel>
                 <ThemedText variant="muted" size={13}>
-                  Ahora buscas en las {Object.keys(CATALOG_GAMES).length} entradas del catálogo. Para
-                  buscar cualquier juego existente, pega tus claves de IGDB en Ajustes.
+                  Ahora solo buscas en las {Object.keys(CATALOG_GAMES).length} sagas del catálogo. Para
+                  buscar entre todos los juegos que existen (con portada, horas y ficha completa),
+                  conecta IGDB y/o RAWG en Ajustes: son gratis.
                 </ThemedText>
                 <Button kind="ghost" label="Ir a Ajustes" onPress={() => router.push('/settings')} />
               </Panel>
             ) : null}
             {loading ? <ActivityIndicator color={skin.colors.accent} /> : null}
+            {online && query.trim().length > 0 && query.trim().length < 3 ? (
+              <ThemedText variant="muted" size={12}>
+                Escribe al menos 3 letras para buscar en todas las bases de datos.
+              </ThemedText>
+            ) : null}
             {error ? (
               <ThemedText variant="muted" size={13}>
                 {error}
@@ -230,6 +225,10 @@ export default function SearchScreen() {
                     size={28}
                     color={added ? skin.colors.accent : skin.colors.muted}
                   />
+                ) : row.source ? (
+                  <ThemedText variant="muted" size={10}>
+                    {row.source}
+                  </ThemedText>
                 ) : undefined
               }
             />
@@ -237,6 +236,16 @@ export default function SearchScreen() {
         }}
         ListFooterComponent={
           <View style={styles.footer}>
+            {sources.rawg && external.some((r) => r.source === 'RAWG') ? (
+              <ThemedText
+                variant="muted"
+                size={11}
+                style={styles.attribution}
+                onPress={() => Linking.openURL('https://rawg.io')}
+              >
+                Datos e imágenes de RAWG (rawg.io) e IGDB (igdb.com)
+              </ThemedText>
+            ) : null}
             {creating ? (
               <Panel>
                 <ThemedText variant="display" size={18}>
@@ -271,6 +280,17 @@ export default function SearchScreen() {
                   placeholder="Switch, PS5…"
                   onChangeText={(platforms) => setForm((f) => ({ ...f, platforms }))}
                 />
+                <TextField
+                  label="Portada (enlace a una imagen, opcional)"
+                  value={form.cover}
+                  placeholder="https://…"
+                  autoCapitalize="none"
+                  keyboardType="url"
+                  onChangeText={(cover) => setForm((f) => ({ ...f, cover }))}
+                />
+                <ThemedText variant="muted" size={12}>
+                  Después podrás completar el resto de datos desde «Editar» en su ficha.
+                </ThemedText>
                 <Button label="Crear" onPress={createManual} />
               </Panel>
             ) : (
@@ -296,6 +316,7 @@ const styles = StyleSheet.create({
   headerBlock: { gap: 12, marginBottom: 6 },
   chips: { gap: 8, paddingRight: 16 },
   header: { letterSpacing: 2, marginTop: 8 },
-  footer: { marginTop: 16 },
+  footer: { marginTop: 16, gap: 12 },
+  attribution: { textAlign: 'center', textDecorationLine: 'underline' },
   twoCols: { flexDirection: 'row', gap: 8 },
 });

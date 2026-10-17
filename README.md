@@ -14,7 +14,9 @@ Tu registro de videojuegos, al estilo de IGN Playlist pero con estética cyberpu
 - **Comunidad**: las listas públicas de otros usuarios se pueden ver, seguir o copiar a tu perfil («remix»).
 - **Cuentas**: varios perfiles en el mismo móvil, cada uno con sus datos. Con Supabase, cuentas reales con correo.
 - **Perfil y estadísticas**: juegos, terminados, nota media, horas, gráfica de notas, estados y plataformas.
-- **IGDB** (opcional): con tus claves de Twitch, portadas, capturas, tráileres y un buscador de cualquier juego existente.
+- **Todos los juegos que existen**: buscador conectado a **IGDB** (unos 300.000 juegos, con portadas, capturas, tráileres, compañías y tiempos para terminarlos) y **RAWG** (más de 500.000 juegos). Se usan las dos a la vez y se quitan duplicados. Las claves son gratis: IGDB en dev.twitch.tv/console y RAWG en rawg.io/apidocs; se pegan en Ajustes.
+- **Ficha de juego al estilo IGN**: cabecera con imagen, nota de la crítica, cuánto dura, resumen, capturas, vídeos y detalles. Tu estado, nota, plataforma y reseña se cambian desde el botón «Editar».
+- Juegos creados a mano con portada (enlace), horas y sinopsis, editables después.
 - **7 estéticas**: Neón, Cozy, Game Boy, Teyvat, Synthwave, Visor HUD y Pastel.
 - Copia de seguridad: exporta e importa todos tus datos.
 

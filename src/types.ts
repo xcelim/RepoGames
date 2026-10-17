@@ -42,9 +42,10 @@ export type GameRecord = {
   synopsis: string | null;
   note: string | null;
   igdbId: number | null;
+  rawgId: number | null;
   igdbQuery: string | null;
   coverUrl: string | null;
-  source: 'catalog' | 'igdb' | 'custom';
+  source: 'catalog' | 'igdb' | 'rawg' | 'custom';
   createdBy: string | null; // perfil que lo creó (null = catálogo)
 };
 

@@ -24,6 +24,7 @@ function game(id: string, title: string, year: number, main: number): GameRecord
     synopsis: null,
     note: null,
     igdbId: null,
+    rawgId: null,
     igdbQuery: null,
     coverUrl: null,
     source: 'custom',

@@ -52,9 +52,10 @@ create table if not exists public.games (
   synopsis text,
   note text,
   igdb_id bigint,
+  rawg_id bigint,
   igdb_query text,
   cover_url text,
-  source text not null check (source in ('catalog', 'igdb', 'custom')),
+  source text not null check (source in ('catalog', 'igdb', 'rawg', 'custom')),
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -173,3 +174,8 @@ create policy "user_games write own" on public.user_games for all
 drop policy if exists "follows own" on public.list_follows;
 create policy "follows own" on public.list_follows for all
   using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+-- Migración para bases creadas con la versión 2.0 (no hace nada si ya existe).
+alter table public.games add column if not exists rawg_id bigint;
+alter table public.games drop constraint if exists games_source_check;
+alter table public.games add constraint games_source_check check (source in ('catalog', 'igdb', 'rawg', 'custom'));
