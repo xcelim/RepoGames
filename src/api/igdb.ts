@@ -347,3 +347,64 @@ export async function igdbSeries(name: string): Promise<OnlineResult[]> {
     };
   });
 }
+
+// ---------- Resolver una lista de juegos concretos (bibliotecas oficiales) ----------
+
+type Candidate = IgdbSearchGame;
+
+const normName = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function scoreCandidate(game: Candidate, wanted: string, year: number): number {
+  const name = normName(game.name);
+  const target = normName(wanted);
+  let score = 0;
+  if (name === target) score += 100;
+  else if (name.includes(target) || target.includes(name)) score += 25;
+  const gameYear = game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null;
+  if (gameYear === year) score += 40;
+  else if (gameYear && Math.abs(gameYear - year) <= 1) score += 20;
+  if (game.cover) score += 5;
+  return score;
+}
+
+async function findOne(entry: { q: string; year: number; alt?: string[] }): Promise<Candidate | null> {
+  let best: { game: Candidate; score: number } | null = null;
+  for (const name of [entry.q, ...(entry.alt ?? [])]) {
+    const found = await query<Candidate[]>(
+      'games',
+      `search "${clean(name)}"; fields name,summary,first_release_date,total_rating,cover.image_id,platforms.name,platforms.abbreviation,version_parent; limit 15;`,
+    ).catch(() => [] as Candidate[]);
+    for (const game of found) {
+      const score = scoreCandidate(game, name, entry.year);
+      if (!best || score > best.score) best = { game, score };
+    }
+    if (best && best.score >= 125) break; // nombre exacto y año correcto: no hace falta seguir
+  }
+  return best && best.score >= 25 ? best.game : null;
+}
+
+export async function igdbResolve(
+  entries: { q: string; year: number; alt?: string[] }[],
+): Promise<(OnlineResult | null)[]> {
+  const found: (Candidate | null)[] = [];
+  for (const entry of entries) found.push(await findOne(entry));
+  const ids = found.filter((g): g is Candidate => !!g).map((g) => g.id);
+  const times = await timesToBeat(ids);
+  return found.map((game) => {
+    if (!game) return null;
+    const t = times[game.id];
+    return {
+      source: 'igdb' as const,
+      sourceId: game.id,
+      title: game.name,
+      year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
+      platforms: (game.platforms ?? []).map((p) => p.abbreviation ?? p.name).join(', '),
+      coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
+      summary: game.summary ?? null,
+      rating: game.total_rating ? Math.round(game.total_rating) : null,
+      main: toHours(t?.hastily),
+      extra: toHours(t?.normally),
+      full: toHours(t?.completely),
+    };
+  });
+}

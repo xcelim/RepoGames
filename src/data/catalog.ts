@@ -35,7 +35,7 @@ export const OFFICIAL_PROFILE: Profile = {
   id: OFFICIAL_PROFILE_ID,
   username: 'sagaquest',
   displayName: 'Saga Quest',
-  bio: 'Sagas completas, en orden de lanzamiento, con datos de la API de IGDB.',
+  bio: 'Los canónicos de cada saga en su mejor versión. Datos de la API de IGDB.',
   avatarColor: '#ff2a4d',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
@@ -44,7 +44,7 @@ export const OFFICIAL_LISTS: GameList[] = OFFICIAL_SERIES.map((series) => ({
   id: officialListId(series.id),
   ownerId: OFFICIAL_PROFILE_ID,
   name: series.name,
-  description: `Todos los juegos de la serie ${series.name}, en orden de lanzamiento.`,
+  description: `Los juegos canónicos de ${series.name}, cada uno en su mejor versión jugable.`,
   visibility: 'public',
   color: series.color,
   color2: series.color2,

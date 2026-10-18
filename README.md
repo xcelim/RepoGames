@@ -10,7 +10,7 @@ Tu registro de videojuegos, al estilo de IGN Playlist pero con estética cyberpu
 
 - **Biblioteca personal**: cada juego con estado (Lo quiero, Pendiente, Jugando, En pausa, Terminado, 100 %, Abandonado), nota del 1 al 10, plataforma en la que lo juegas, horas, fechas de inicio y fin, «lo tengo», favorito y reseña con lo mejor y lo peor.
 - **Listas / bibliotecas**: créalas con nombre, descripción, colores e icono; públicas o privadas; ordénalas a mano con flechas; ordena por lanzamiento, tu nota, duración, título, estado o fecha; filtra por estado, plataforma o texto; selección múltiple para cambiar el estado o quitar varios juegos; compártelas como texto.
-- **Bibliotecas oficiales** (públicas): Persona, Fire Emblem, Final Fantasy, The Legend of Zelda, Kirby, Super Mario, Xenoblade y Metroid. No hay ningún juego escrito a mano: la app descarga cada serie de la API de IGDB (o de RAWG) con portadas, horas y fichas. Vienen añadidas a cada perfil nuevo; desde Inicio puedes volver a copiarlas o seguirlas.
+- **Bibliotecas oficiales** (públicas): Persona, Fire Emblem, Final Fantasy, The Legend of Zelda, Kirby, Super Mario, Xenoblade y Metroid. Solo los juegos canónicos de cada saga, en su mejor versión jugable (src/data/canon.ts dice cuáles); portadas, horas y fichas se descargan de la API de IGDB. Vienen añadidas a cada perfil nuevo; desde Inicio puedes volver a copiarlas o seguirlas.
 - **Comunidad**: las listas públicas de otros usuarios se pueden ver, seguir o copiar a tu perfil («remix»).
 - **Cuentas**: varios perfiles en el mismo móvil, cada uno con sus datos. Con Supabase, cuentas reales con correo.
 - **Perfil y estadísticas**: juegos, terminados, nota media, horas, gráfica de notas, estados y plataformas.

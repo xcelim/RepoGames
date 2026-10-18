@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GameRecord } from '@/types';
 import { normTitle as norm } from '@/utils/text';
 
-import { hasIgdbCredentials, igdbCover, igdbDetails, igdbSeries, searchIgdb } from './igdb';
-import { hasRawg, rawgDetails, rawgSeries, searchRawg } from './rawg';
+import { hasIgdbCredentials, igdbCover, igdbDetails, igdbResolve, igdbSeries, searchIgdb } from './igdb';
+import { hasRawg, rawgDetails, rawgResolve, rawgSeries, searchRawg } from './rawg';
 import type { GameDetails, OnlineResult } from './types';
 
 // Punto único para hablar con las bases de datos online:
@@ -64,6 +64,25 @@ export async function fetchSeries(query: string): Promise<OnlineResult[]> {
   if (sources.rawg) return rawgSeries(query);
   if (!sources.igdb) throw new Error('La app no tiene acceso a la API de juegos');
   return [];
+}
+
+// Busca en la API una lista concreta de juegos (nombre + año). Si IGDB no encuentra
+// alguno, lo intenta en RAWG. Devuelve null en los que no aparezcan en ninguna.
+export async function resolveGames(
+  entries: { q: string; year: number; alt?: string[] }[],
+): Promise<(OnlineResult | null)[]> {
+  const sources = await onlineSources();
+  if (!sources.igdb && !sources.rawg) throw new Error('La app no tiene acceso a la API de juegos');
+  let results: (OnlineResult | null)[] = entries.map(() => null);
+  if (sources.igdb) results = await igdbResolve(entries);
+  const missing = entries.map((e, i) => ({ e, i })).filter(({ i }) => !results[i]);
+  if (missing.length && sources.rawg) {
+    const extra = await rawgResolve(missing.map(({ e }) => e));
+    missing.forEach(({ i }, k) => {
+      results[i] = extra[k];
+    });
+  }
+  return results;
 }
 
 export function toGameRecord(r: OnlineResult, profileId: string | null): GameRecord {

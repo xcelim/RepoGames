@@ -1,4 +1,4 @@
-import { fetchDetails, fetchSeries, searchOnline, toGameRecord } from './games';
+import { fetchDetails, fetchSeries, resolveGames, searchOnline, toGameRecord } from './games';
 import { saveCredentials } from './igdb';
 import { saveRawgKey } from './rawg';
 
@@ -27,6 +27,14 @@ function respond(url: string, body?: string): unknown {
       { id: 3, name: 'Zelda II', first_release_date: 537580800 },
     ];
   }
+  if (url.endsWith('/v4/games') && body?.includes('search "Persona 5 Royal"')) {
+    return [
+      { id: 50, name: 'Persona 5', first_release_date: 1473984000, cover: { image_id: 'p5' } },
+      { id: 51, name: 'Persona 5 Royal', first_release_date: 1572480000, cover: { image_id: 'p5r' } },
+      { id: 52, name: 'Persona 5 Royal Soundtrack', first_release_date: 1572480000 },
+    ];
+  }
+  if (url.endsWith('/v4/games') && body?.includes('search "Juego Inexistente"')) return [];
   if (url.endsWith('/v4/games') && body?.includes('search')) {
     return [
       {
@@ -45,6 +53,7 @@ function respond(url: string, body?: string): unknown {
       { id: 2, name: 'Hollow Knight (edición)', version_parent: 1 },
     ];
   }
+  if (url.includes('api.rawg.io/api/games?') && url.includes('Inexistente')) return { results: [] };
   if (url.includes('api.rawg.io/api/games?')) {
     return {
       results: [
@@ -107,5 +116,16 @@ describe('bibliotecas oficiales desde la API', () => {
     expect(games[0]).toMatchObject({ source: 'igdb', sourceId: 1, year: 1986, main: 10 });
     expect(games[0].coverUrl).toContain('z1');
     expect(calls.some((c) => c.body?.includes('category = (0,4,8,9,10)'))).toBe(true);
+  });
+});
+
+describe('canónicos en su mejor versión', () => {
+  it('elige la versión exacta (nombre y año) y descarta lo que no existe', async () => {
+    const results = await resolveGames([
+      { q: 'Persona 5 Royal', year: 2019 },
+      { q: 'Juego Inexistente', year: 2000 },
+    ]);
+    expect(results[0]).toMatchObject({ source: 'igdb', sourceId: 51, title: 'Persona 5 Royal', year: 2019 });
+    expect(results[1]).toBeNull();
   });
 });

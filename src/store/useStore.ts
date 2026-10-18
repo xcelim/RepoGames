@@ -427,18 +427,24 @@ export const useStore = create<Store>()(
     },
     {
       name: 'saga-quest-v2',
-      version: 2,
-      // v1 traía un catálogo escrito a mano: se borra y se descarga de la API.
+      version: 3,
       migrate: (persisted, version) => {
-        const state = persisted as State;
-        if (version < 2) {
-          return {
+        let state = persisted as State;
+        // v1 traía un catálogo escrito a mano; v2 descargaba la serie entera. Desde v3 las
+        // bibliotecas oficiales son solo los canónicos en su mejor versión: se vuelven a descargar.
+        if (version < 3) {
+          const officialCopies = Object.values(state.lists ?? {}).filter(
+            (l) => l.forkedFrom?.startsWith('official-') && (version < 2 || l.updatedAt === l.createdAt),
+          );
+          const reset = new Set(officialCopies.map((l) => l.id));
+          state = {
             ...state,
-            items: withoutKeys(state.items ?? {}, (item) => !item.listId.startsWith('official-')),
+            items: withoutKeys(
+              state.items ?? {},
+              (item) => !item.listId.startsWith('official-') && !reset.has(item.listId),
+            ),
             officialLoadedAt: {},
-            pendingSeeds: Object.values(state.lists ?? {})
-              .filter((l) => l.forkedFrom?.startsWith('official-'))
-              .map((l) => l.id),
+            pendingSeeds: [...new Set([...(state.pendingSeeds ?? []), ...reset])],
           };
         }
         return state;

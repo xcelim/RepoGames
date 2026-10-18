@@ -180,3 +180,26 @@ export async function rawgSeries(name: string): Promise<OnlineResult[]> {
   ];
   return all.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
 }
+
+// Busca un juego concreto (nombre + año) para las bibliotecas oficiales.
+export async function rawgResolve(
+  entries: { q: string; year: number; alt?: string[] }[],
+): Promise<(OnlineResult | null)[]> {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const out: (OnlineResult | null)[] = [];
+  for (const entry of entries) {
+    let best: { r: OnlineResult; score: number } | null = null;
+    for (const name of [entry.q, ...(entry.alt ?? [])]) {
+      const results = await searchRawg(name).catch(() => [] as OnlineResult[]);
+      for (const r of results) {
+        let score = norm(r.title) === norm(name) ? 100 : norm(r.title).includes(norm(name)) ? 25 : 0;
+        if (r.year === entry.year) score += 40;
+        else if (r.year && Math.abs(r.year - entry.year) <= 1) score += 20;
+        if (!best || score > best.score) best = { r, score };
+      }
+      if (best && best.score >= 125) break;
+    }
+    out.push(best && best.score >= 25 ? best.r : null);
+  }
+  return out;
+}

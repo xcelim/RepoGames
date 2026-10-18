@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 
+import { CANON } from '@/data/canon';
 import { OFFICIAL_SERIES, officialListId, type OfficialSeries } from '@/data/catalog';
 import { useStore } from '@/store/useStore';
 
-import { fetchSeries, onlineSources, toGameRecord } from './games';
+import { fetchSeries, onlineSources, resolveGames, toGameRecord } from './games';
 
 // Descarga de la base de datos los juegos de las bibliotecas oficiales.
 
@@ -37,9 +38,24 @@ export async function loadOfficialList(series: OfficialSeries, force = false): P
   if (useOfficialStatus.getState().loading[listId]) return;
   setLoading(listId, true);
   try {
-    const results = await fetchSeries(series.query);
-    if (results.length === 0) throw new Error('La API no ha devuelto juegos');
-    const games = results.map((r) => ({ ...toGameRecord(r, null), series: series.id }));
+    const canon = CANON[series.id];
+    let games;
+    if (canon) {
+      // Solo los canónicos, en su mejor versión: la selección es nuestra, los datos de la API.
+      const results = await resolveGames(canon);
+      const seen = new Set<string>();
+      games = results.flatMap((r, i) => {
+        if (!r) return [];
+        const game = { ...toGameRecord(r, null), series: series.id, version: canon[i].edition };
+        if (seen.has(game.id)) return [];
+        seen.add(game.id);
+        return [game];
+      });
+    } else {
+      const results = await fetchSeries(series.query);
+      games = results.map((r) => ({ ...toGameRecord(r, null), series: series.id }));
+    }
+    if (games.length === 0) throw new Error('La API no ha devuelto juegos');
     useStore.getState().setOfficialList(listId, games);
     setLoading(listId, false);
   } catch (error) {
