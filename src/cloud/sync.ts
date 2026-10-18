@@ -1,6 +1,7 @@
 // Cuentas (Supabase Auth) y listas públicas de la comunidad.
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 
 import { useStore } from '@/store/useStore';
 import type { Profile } from '@/types';
@@ -107,7 +108,8 @@ export const OAUTH_REDIRECT = 'auth-callback';
 // Abre la página de Google (a través de Supabase) y vuelve a la app con un código.
 export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
   const client = requireClient();
-  const redirectTo = Linking.createURL(OAUTH_REDIRECT);
+  // En el móvil, siempre la misma dirección exacta (es la que hay que dar de alta en Supabase).
+  const redirectTo = Platform.OS === 'web' ? Linking.createURL(OAUTH_REDIRECT) : `sagaquest://${OAUTH_REDIRECT}`;
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },

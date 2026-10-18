@@ -7,10 +7,10 @@ import { toGameRecord } from '@/api/games';
 import type { OnlineResult } from '@/api/types';
 import { GameCover } from '@/components/games';
 import { useGameSheets } from '@/components/gameSheets';
-import { Card, Collage, CoverTile, formatUsDate, HeaderIcon, IgnScreen, RankCircle, SectionHeader, useIgnColors } from '@/components/ign';
+import { Card, Collage, CoverTile, formatUsDate, HeaderIcon, IgnScreen, ProgressBar, RankCircle, SectionHeader, useIgnColors } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { OFFICIAL_LISTS, OFFICIAL_PROFILE } from '@/data/catalog';
-import { useCommunityLists, useListCount, useListPreview, useProfileLookup } from '@/hooks/useLists';
+import { useCommunityLists, useListCount, useListPreview, useListProgress, useProfileLookup } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
@@ -71,6 +71,7 @@ function DiscoverScreenInner() {
 }
 
 function FeaturedCard({ list, games, count, width, author }: { list: GameList; games: GameRecord[]; count: number; width: number; author: string }) {
+  const { pct } = useListProgress()(list.id);
   return (
     <Pressable onPress={() => router.push(`/list/${list.id}`)} style={({ pressed }) => ({ width, opacity: pressed ? 0.85 : 1 })}>
       <Collage list={list} games={games} width={width} height={width * 0.72} />
@@ -78,8 +79,13 @@ function FeaturedCard({ list, games, count, width, author }: { list: GameList; g
         {list.name}
       </ThemedText>
       <ThemedText variant="muted" size={11} style={styles.caps}>
-        {`${author} · ${count} ${count === 1 ? 'juego' : 'juegos'}`.toUpperCase()}
+        {`${author} · ${count} ${count === 1 ? 'juego' : 'juegos'} · ${pct}% completado`.toUpperCase()}
       </ThemedText>
+      {pct > 0 ? (
+        <View style={{ marginTop: 6 }}>
+          <ProgressBar pct={pct} height={4} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }

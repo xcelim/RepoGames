@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { DarkButton, HeaderIcon, IgnScreen, Mosaic, useIgnColors } from '@/components/ign';
+import { DarkButton, HeaderIcon, IgnScreen, Mosaic, ProgressBar, useIgnColors } from '@/components/ign';
 import { useOfflineMode } from '@/components/offline';
 import { ThemedText } from '@/components/ThemedText';
 import { TextField } from '@/components/ui';
@@ -12,6 +12,7 @@ import {
   useFollowedLists,
   useListCount,
   useListPreview,
+  useListProgress,
   useMyLists,
   useProfileLookup,
 } from '@/hooks/useLists';
@@ -26,6 +27,7 @@ export default function ListsScreen() {
   const preview = useListPreview();
   const count = useListCount();
   const lookup = useProfileLookup();
+  const progress = useListProgress();
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -82,6 +84,14 @@ export default function ListsScreen() {
             <ThemedText size={14} numberOfLines={2} style={{ marginTop: 8 }}>
               {list.name}
             </ThemedText>
+            <View style={styles.tileProgress}>
+              <View style={{ flex: 1 }}>
+                <ProgressBar pct={progress(list.id).pct} height={4} />
+              </View>
+              <ThemedText variant="muted" size={11}>
+                {progress(list.id).pct}%
+              </ThemedText>
+            </View>
           </Pressable>
         ))}
         <Pressable
@@ -181,6 +191,7 @@ function ListRow({
   count: number;
   author?: string;
 }) {
+  const progress = useListProgress()(list.id);
   const c = useIgnColors();
   return (
     <Pressable
@@ -194,8 +205,11 @@ function ListRow({
         </ThemedText>
         <ThemedText variant="muted" size={12}>
           {author ? `${author} · ` : ''}
-          {count} {count === 1 ? 'juego' : 'juegos'}
+          {count} {count === 1 ? 'juego' : 'juegos'} · {progress.pct}% completado
         </ThemedText>
+        <View style={{ marginTop: 6 }}>
+          <ProgressBar pct={progress.pct} height={4} />
+        </View>
       </View>
       {list.visibility === 'private' ? (
         <Ionicons name="lock-closed" size={16} color={c.muted} />
@@ -207,6 +221,7 @@ function ListRow({
 }
 
 const styles = StyleSheet.create({
+  tileProgress: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   search: { paddingHorizontal: 20, gap: 4, marginBottom: 20 },
   h2: { paddingHorizontal: 20, marginTop: 6, marginBottom: 14 },
   hRow: { paddingHorizontal: 20, gap: 14 },

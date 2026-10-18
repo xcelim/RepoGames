@@ -15,6 +15,7 @@ import {
   IgnScreen,
   LightButton,
   Mosaic,
+  ProgressBar,
   SelectBox,
   Sheet,
   SheetRow,
@@ -70,6 +71,7 @@ export default function ListScreen() {
     return query.trim() ? rankByQuery(query, sorted, (e) => e.game.title) : sorted;
   }, [entries, sort, mode, query]);
   const stats = entryStats(entries, mode);
+  const pct = stats.games ? Math.round((stats.finished / stats.games) * 100) : 0;
 
   if (!list) {
     return (
@@ -209,8 +211,11 @@ export default function ListScreen() {
           )}
           <DotsButton onPress={() => setMoreOpen(true)} />
         </View>
-        <Card style={styles.stats} padded={false}>
+        <Card padded={false}>
+        <View style={styles.stats}>
           <Stat value={String(stats.games)} label="JUEGOS" />
+          <View style={[styles.statDivider, { backgroundColor: c.line }]} />
+          <Stat value={`${pct}%`} label="COMPLETADO" />
           <View style={[styles.statDivider, { backgroundColor: c.line }]} />
           <Stat value={formatHours(stats.totalHours).replace(' h', '')} label="HORAS" />
           <View style={[styles.statDivider, { backgroundColor: c.line }]} />
@@ -224,6 +229,16 @@ export default function ListScreen() {
               {list.official ? 'OFICIAL' : list.visibility === 'public' ? 'PÚBLICA' : 'PRIVADA'}
             </ThemedText>
           </Pressable>
+        </View>
+          {stats.games ? (
+            <View style={styles.progress}>
+              <ProgressBar pct={pct} height={8} />
+              <ThemedText variant="muted" size={12}>
+                {stats.finished} de {stats.games} terminados
+                {stats.hoursLeft ? ` · te quedan ${formatHours(stats.hoursLeft)}` : ''}
+              </ThemedText>
+            </View>
+          ) : null}
         </Card>
       </View>
 
@@ -315,6 +330,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   round: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   stats: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18 },
+  progress: { paddingHorizontal: 18, paddingBottom: 16, gap: 6 },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 40 },
   caps: { letterSpacing: 0.8 },

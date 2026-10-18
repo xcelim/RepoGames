@@ -828,3 +828,14 @@ export function EntryGrid({
 const gridStyles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, rowGap: 24, paddingHorizontal: 20 },
 });
+
+// ---------- Barra de % completado de una lista ----------
+
+export function ProgressBar({ pct, height = 6, color }: { pct: number; height?: number; color?: string }) {
+  const c = useIgnColors();
+  return (
+    <View style={{ height, borderRadius: height / 2, backgroundColor: c.soft, overflow: 'hidden' }}>
+      <View style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', backgroundColor: color ?? '#6aa834', borderRadius: height / 2 }} />
+    </View>
+  );
+}

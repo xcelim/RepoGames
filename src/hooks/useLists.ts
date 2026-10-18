@@ -119,3 +119,30 @@ export function useFollowedLists(): GameList[] {
       .filter((l): l is GameList => !!l);
   }, [follows, profileId, lists, remote]);
 }
+
+export type ListProgress = { games: number; finished: number; pct: number };
+
+// Cuánto llevas completado de cada lista (terminados o al 100 % con tu cuenta).
+export function useListProgress(): (listId: string) => ListProgress {
+  const items = useStore((s) => s.items);
+  const userGames = useStore((s) => s.userGames);
+  const profileId = useStore((s) => s.currentProfileId);
+  const remoteItems = useRemote((s) => s.items);
+  return useMemo(() => {
+    const done = new Set(
+      Object.values(userGames)
+        .filter((u) => u.profileId === profileId && (u.status === 'beaten' || u.status === 'completed'))
+        .map((u) => u.gameId),
+    );
+    const local = Object.values(items);
+    const localLists = new Set(local.map((i) => i.listId));
+    const byList: Record<string, ListProgress> = {};
+    for (const item of [...local, ...Object.values(remoteItems).filter((i) => !localLists.has(i.listId))]) {
+      const p = (byList[item.listId] ??= { games: 0, finished: 0, pct: 0 });
+      p.games += 1;
+      if (done.has(item.gameId)) p.finished += 1;
+    }
+    for (const p of Object.values(byList)) p.pct = p.games ? Math.round((p.finished / p.games) * 100) : 0;
+    return (listId: string) => byList[listId] ?? { games: 0, finished: 0, pct: 0 };
+  }, [items, userGames, profileId, remoteItems]);
+}

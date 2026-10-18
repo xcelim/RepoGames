@@ -123,6 +123,8 @@ function StatusSheet({ game, onClose }: { game: GameRecord; onClose: () => void 
           </ThemedText>
         </Pressable>
       ) : null}
+      <View style={[styles.divider, { backgroundColor: c.line }]} />
+      <OrganizeRows game={game} onClose={onClose} />
     </Sheet>
   );
 }
@@ -203,6 +205,15 @@ function MoreSheet({ game, onClose, onKind }: { game: GameRecord; onClose: () =>
 // ---------- Organizar en listas ----------
 
 function OrganizeSheet({ game, onClose }: { game: GameRecord; onClose: () => void }) {
+  return (
+    <Sheet visible title={game.title} onClose={onClose}>
+      <OrganizeRows game={game} onClose={onClose} />
+    </Sheet>
+  );
+}
+
+// Tus listas con un botón para meter o sacar el juego (sirve en las dos hojas).
+function OrganizeRows({ game, onClose }: { game: GameRecord; onClose: () => void }) {
   const c = useIgnColors();
   const lists = useMyLists();
   const preview = useListPreview();
@@ -212,13 +223,13 @@ function OrganizeSheet({ game, onClose }: { game: GameRecord; onClose: () => voi
   const ensure = useEnsureGame();
 
   return (
-    <Sheet visible title={game.title} onClose={onClose}>
+    <>
       <ThemedText variant="bold" size={11} style={styles.overline}>
-        LISTAS ACTUALIZADAS RECIENTEMENTE
+        ORGANIZAR EN TUS LISTAS
       </ThemedText>
       <SheetRow
         label="Nueva lista"
-        caption="0 JUEGOS"
+        caption="CREAR UNA CON ESTE JUEGO"
         left={
           <View style={[styles.newThumb, { backgroundColor: c.accent, borderRadius: 6 }]}>
             <Ionicons name="albums" size={18} color="#fff" />
@@ -238,7 +249,7 @@ function OrganizeSheet({ game, onClose }: { game: GameRecord; onClose: () => voi
           <SheetRow
             key={list.id}
             label={list.name}
-            caption={`${listItems.length} ${listItems.length === 1 ? 'JUEGO' : 'JUEGOS'}`}
+            caption={`${listItems.length} ${listItems.length === 1 ? 'JUEGO' : 'JUEGOS'}${inList ? ' · ESTÁ AQUÍ' : ''}`}
             left={<Mosaic list={list} games={preview(list.id)} size={44} radius={6} />}
             right={
               <View style={styles.rowRight}>
@@ -260,7 +271,7 @@ function OrganizeSheet({ game, onClose }: { game: GameRecord; onClose: () => voi
           />
         );
       })}
-    </Sheet>
+    </>
   );
 }
 
@@ -304,5 +315,6 @@ const styles = StyleSheet.create({
   quick: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 12 },
   moreIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   overline: { letterSpacing: 1.2, marginBottom: 4, opacity: 0.8 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 14 },
   newThumb: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });
