@@ -48,6 +48,9 @@ export default function ListsScreen() {
       right={
         <>
           <HeaderIcon icon="add-circle-outline" label="Nueva lista" onPress={() => router.push('/list/edit')} />
+          {!offline ? (
+            <HeaderIcon icon="download-outline" label="Importar lista" onPress={() => router.push('/list/import')} />
+          ) : null}
           {!offline ? <HeaderIcon icon="search" label="Buscar listas" onPress={() => setSearching((s) => !s)} /> : null}
         </>
       }
@@ -132,7 +135,7 @@ export default function ListsScreen() {
         ))}
         {mine.length === 0 ? (
           <ThemedText variant="muted" size={13}>
-            Aún no tienes listas. Crea una con el botón ⊕.
+            Aún no tienes listas. Crea una con el botón ⊕ o importa una pegando los títulos.
           </ThemedText>
         ) : null}
       </View>

@@ -229,11 +229,12 @@ type IgdbSearchGame = {
   platforms?: { abbreviation?: string; name: string }[];
   involved_companies?: { company?: { name: string }; developer?: boolean; publisher?: boolean }[];
   version_parent?: number;
+  game_type?: number;
 };
 
 const LIST_FIELDS =
   'fields name,summary,first_release_date,total_rating,total_rating_count,cover.image_id,' +
-  'platforms.name,platforms.abbreviation,involved_companies.company.name,involved_companies.developer,version_parent;';
+  'platforms.name,platforms.abbreviation,involved_companies.company.name,involved_companies.developer,version_parent,game_type;';
 
 function toResult(game: IgdbSearchGame, t?: IgdbTimeToBeat): OnlineResult {
   const dev = (game.involved_companies ?? []).find((c) => c.developer && c.company)?.company?.name ?? null;
@@ -560,6 +561,11 @@ function scoreCandidate(game: Candidate, wanted: string, year: number): number {
   if (gameYear === year) score += 40;
   else if (gameYear && Math.abs(gameYear - year) <= 1) score += 20;
   if (game.cover) score += 5;
+  // Mejor el juego principal que un DLC, un pack, un mod o una versión regional.
+  // (game_type de IGDB: 1 DLC, 3 pack, 5 mod, 6 episodio, 7 temporada, 13 pack, 14 actualización)
+  if (game.game_type != null && [1, 3, 5, 6, 7, 13, 14].includes(game.game_type)) score -= 40;
+  if (game.version_parent) score -= 30;
+  score += Math.min(game.total_rating_count ?? 0, 500) / 100; // desempate por popularidad
   return score;
 }
 
