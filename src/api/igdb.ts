@@ -234,7 +234,7 @@ type IgdbSearchGame = {
 
 const LIST_FIELDS =
   'fields name,summary,first_release_date,total_rating,total_rating_count,cover.image_id,' +
-  'platforms.name,platforms.abbreviation,involved_companies.company.name,involved_companies.developer,version_parent,game_type;';
+  'platforms.name,platforms.abbreviation,involved_companies.company.name,involved_companies.developer,version_parent;';
 
 function toResult(game: IgdbSearchGame, t?: IgdbTimeToBeat): OnlineResult {
   const dev = (game.involved_companies ?? []).find((c) => c.developer && c.company)?.company?.name ?? null;
@@ -572,11 +572,11 @@ function scoreCandidate(game: Candidate, wanted: string, year: number): number {
 async function findOne(entry: { q: string; year: number; alt?: string[] }): Promise<Candidate | null> {
   let best: { game: Candidate; score: number } | null = null;
   for (const name of [entry.q, ...(entry.alt ?? [])]) {
-    const found = await query<Candidate[]>(
-      'games',
-      `search "${clean(name)}"; ${LIST_FIELDS} limit 15;`,
-      'low',
-    ).catch(() => [] as Candidate[]);
+    // Pedimos también game_type (para descartar DLC y packs); si esta API no lo conoce, sin él.
+    const body = `search "${clean(name)}"; ${LIST_FIELDS} limit 15;`;
+    const found = await query<Candidate[]>('games', body.replace('version_parent;', 'version_parent,game_type;'), 'low')
+      .catch(() => query<Candidate[]>('games', body, 'low'))
+      .catch(() => [] as Candidate[]);
     for (const game of found) {
       const score = scoreCandidate(game, name, entry.year);
       if (!best || score > best.score) best = { game, score };
