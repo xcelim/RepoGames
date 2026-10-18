@@ -30,6 +30,8 @@ export function getSupabase(): SupabaseClient | null {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+        // Inicio de sesión con Google: el navegador devuelve un código que la app canjea.
+        flowType: 'pkce',
       },
     });
     clientKey = key;

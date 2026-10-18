@@ -49,7 +49,17 @@ begin
     candidate := left(base, 18) || '-' || substr(new.id::text, 1, 5);
   end if;
   insert into public.profiles (id, username, display_name)
-  values (new.id, candidate, coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), base))
+  values (
+    new.id,
+    candidate,
+    -- Con Google llegan full_name / name; con correo, el display_name del formulario.
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'display_name', ''),
+      nullif(new.raw_user_meta_data ->> 'full_name', ''),
+      nullif(new.raw_user_meta_data ->> 'name', ''),
+      base
+    )
+  )
   on conflict (id) do nothing;
   return new;
 end;

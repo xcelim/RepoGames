@@ -59,6 +59,7 @@ export type Profile = {
   bio: string;
   avatarColor: string;
   createdAt: string;
+  onboarded?: boolean; // ya ha creado su usuario (nombre, @usuario, color)
 };
 
 // Estado del juego en tu biblioteca personal (como IGN Playlist).

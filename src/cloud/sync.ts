@@ -1,4 +1,7 @@
 // Cuentas (Supabase Auth) y listas públicas de la comunidad.
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+
 import { useStore } from '@/store/useStore';
 import type { Profile } from '@/types';
 
@@ -77,6 +80,14 @@ export async function signUp(data: { email: string; password: string; displayNam
   // Si el proyecto pide confirmar el correo, aún no hay sesión.
   if (!result.session) return 'confirm';
   await afterLogin(result.user.id, result.user.email ?? data.email);
+  // El usuario ya lo ha elegido en el formulario de registro.
+  const current = useStore.getState().profiles[result.user.id];
+  if (current) {
+    useStore.getState().updateProfile({
+      displayName: data.displayName.trim() || current.displayName,
+      onboarded: true,
+    });
+  }
   return 'ok';
 }
 
@@ -89,6 +100,77 @@ export async function signIn(email: string, password: string): Promise<void> {
 
 // Contraseña olvidada: Supabase manda un correo con un código de 6 cifras ({{ .Token }}
 // en la plantilla "Reset Password"); con ese código se pone la nueva sin salir de la app.
+// ---------- Google ----------
+
+export const OAUTH_REDIRECT = 'auth-callback';
+
+// Abre la página de Google (a través de Supabase) y vuelve a la app con un código.
+export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
+  const client = requireClient();
+  const redirectTo = Linking.createURL(OAUTH_REDIRECT);
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
+  });
+  if (error || !data.url) throw new Error(friendly(error?.message ?? 'No se pudo abrir Google'));
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== 'success') return 'cancel';
+  await completeOAuth(result.url);
+  return 'ok';
+}
+
+let exchanging: Promise<void> | null = null;
+
+// Canjea el código que devuelve Google por una sesión (también si la app se abre con el enlace).
+export function completeOAuth(url: string): Promise<void> {
+  if (exchanging) return exchanging;
+  exchanging = (async () => {
+    const client = requireClient();
+    const parsed = new URL(url.replace('#', url.includes('?') ? '&' : '?'));
+    const failure = parsed.searchParams.get('error_description') ?? parsed.searchParams.get('error');
+    if (failure) throw new Error(friendly(failure));
+    const code = parsed.searchParams.get('code');
+    if (!code) {
+      const { data } = await client.auth.getSession();
+      if (data.session) return afterLogin(data.session.user.id, data.session.user.email ?? null);
+      throw new Error('Google no devolvió ningún código. Inténtalo otra vez.');
+    }
+    const { data, error } = await client.auth.exchangeCodeForSession(code);
+    if (error || !data.user) throw new Error(friendly(error?.message ?? 'No se pudo entrar con Google'));
+    await afterLogin(data.user.id, data.user.email ?? null);
+  })().finally(() => {
+    exchanging = null;
+  });
+  return exchanging;
+}
+
+// ---------- Crear tu usuario (la primera vez) ----------
+
+export async function isUsernameFree(username: string): Promise<boolean> {
+  const client = requireClient();
+  const uid = useStore.getState().cloudUserId;
+  let q = client.from('profiles').select('id').eq('username', username);
+  if (uid) q = q.neq('id', uid);
+  const { data, error } = await q.limit(1);
+  if (error) throw new Error(error.message);
+  return !(data ?? []).length;
+}
+
+export async function finishOnboarding(data: { displayName: string; username: string; avatarColor: string }): Promise<void> {
+  const username = data.username.trim().toLowerCase();
+  if (!/^[a-z0-9-]{3,30}$/.test(username)) {
+    throw new Error('El usuario debe tener entre 3 y 30 letras minúsculas, números o guiones.');
+  }
+  if (!(await isUsernameFree(username))) throw new Error(`@${username} ya está cogido. Prueba con otro.`);
+  useStore.getState().updateProfile({
+    displayName: data.displayName.trim(),
+    username,
+    avatarColor: data.avatarColor,
+    onboarded: true,
+  });
+  await flush();
+}
+
 export async function resetPassword(email: string): Promise<void> {
   const client = requireClient();
   const { error } = await client.auth.resetPasswordForEmail(email.trim());

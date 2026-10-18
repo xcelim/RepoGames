@@ -99,6 +99,8 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="auth-callback" options={{ gestureEnabled: false, animation: 'fade' }} />
         <Stack.Screen name="list/[id]" />
         <Stack.Screen name="user/[id]" />
         <Stack.Screen name="game/[id]/index" />

@@ -40,12 +40,13 @@ Si vas a publicar la app para otra gente, mejor no meter las claves en la APK (s
 
 ## Base de datos (Supabase)
 
-Todo se guarda en Supabase: tu perfil y tus ajustes, tus listas (públicas y privadas) con su orden, tu biblioteca (estado, nota, plataforma, horas, fechas, reseña…) y las listas que sigues. Se entra con correo y contraseña y se ve igual en cualquier móvil.
+Todo se guarda en Supabase: tu perfil y tus ajustes, tus listas (públicas y privadas) con su orden, tu biblioteca (estado, nota, plataforma, horas, fechas, reseña…) y las listas que sigues. Hay que crear una cuenta sí o sí (con correo y contraseña o con Google) y elegir tu usuario la primera vez; con la misma cuenta ves tu progreso en cualquier dispositivo.
 
 1. **SQL Editor** → ejecuta `supabase/schema.sql` (tablas, normas RLS, borrar cuenta y tiempo real) y después `supabase/seed.sql` (las 8 bibliotecas oficiales). Los dos se pueden volver a ejecutar sin perder datos.
 2. **Authentication → Sign In / Providers → Email**: desactiva «Confirm email» si quieres entrar nada más registrarte. Si lo dejas activado, el usuario confirma desde el correo y luego entra.
 3. **Authentication → Emails → Reset Password**: añade `{{ .Token }}` a la plantilla para que la app pueda cambiar la contraseña con un código.
-4. **Project Settings → API**: copia la *Project URL* y la clave *anon public* y guárdalas en GitHub (Settings → Secrets and variables → Actions) como `SUPABASE_URL` y `SUPABASE_ANON_KEY`. El siguiente APK ya va conectado.
+4. **Google**: en Google Cloud crea un *ID de cliente de OAuth* de tipo *Aplicación web* con la URI de redirección `https://<tu-proyecto>.supabase.co/auth/v1/callback`; en Supabase, **Authentication → Sign In / Providers → Google**, actívalo y pega el Client ID y el Client Secret; en **Authentication → URL Configuration → Redirect URLs** añade `sagaquest://auth-callback`.
+5. **Project Settings → API**: copia la *Project URL* y la clave *anon public* y guárdalas en GitHub (Settings → Secrets and variables → Actions) como `SUPABASE_URL` y `SUPABASE_ANON_KEY`. El siguiente APK ya va conectado.
 
 La clave *anon* es pública por diseño: lo que protege los datos son las normas Row Level Security (las listas privadas solo las lee su dueño y nadie puede cambiar lo de otro).
 

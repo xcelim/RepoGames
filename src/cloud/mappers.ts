@@ -7,7 +7,7 @@ export type ProfileRow = {
   display_name: string;
   bio: string;
   avatar_color: string;
-  settings?: { skin?: string; durationMode?: string } | null;
+  settings?: { skin?: string; durationMode?: string; onboarded?: boolean } | null;
   created_at: string;
   updated_at?: string;
 };
@@ -86,7 +86,7 @@ export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['setti
   display_name: p.displayName || p.username,
   bio: p.bio,
   avatar_color: p.avatarColor,
-  ...(settings ? { settings } : {}),
+  ...(settings ? { settings: { ...settings, onboarded: !!p.onboarded } } : {}),
   created_at: p.createdAt,
   updated_at: new Date().toISOString(),
 });
@@ -98,6 +98,7 @@ export const fromProfileRow = (r: ProfileRow): Profile => ({
   bio: r.bio ?? '',
   avatarColor: r.avatar_color ?? '#7b2ff7',
   createdAt: r.created_at,
+  onboarded: !!r.settings?.onboarded,
 });
 
 export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => ({
