@@ -3,6 +3,9 @@ name: Compilar APK Android
 on:
   push:
     branches: [main]
+    # La web (docs/) no cambia la app: no hace falta recompilar.
+    paths-ignore:
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
