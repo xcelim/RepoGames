@@ -146,6 +146,9 @@ export function CloudAccountPanel() {
         </View>
         {status === 'syncing' ? <ActivityIndicator color={c.text} /> : null}
       </View>
+      <ThemedText variant="muted" size={11}>
+        Proyecto: {cloudConfig()?.url}
+      </ThemedText>
       {pending ? (
         <ThemedText size={13}>
           {pending} {pending === 1 ? 'cambio pendiente' : 'cambios pendientes'} de subir.

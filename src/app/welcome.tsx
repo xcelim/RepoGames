@@ -12,7 +12,7 @@ import { Panel, TextField } from '@/components/ui';
 import { slugify } from '@/utils/text';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
-import { isCloudEnabled } from '@/cloud/supabase';
+import { cloudConfig, isCloudEnabled } from '@/cloud/supabase';
 import { useOnline } from '@/cloud/net';
 import { confirmPasswordReset, resetPassword, signIn, signInWithGoogle, signUp } from '@/cloud/sync';
 import { CloudAccountPanel } from '@/components/cloudPanel';
@@ -226,6 +226,10 @@ function CloudWelcome() {
             </>
           ) : null}
         </Panel>
+
+        <ThemedText variant="muted" size={11} style={{ textAlign: 'center' }}>
+          Servidor: {cloudConfig()?.url}
+        </ThemedText>
 
         <Section title="Elige tu estética">
           <SkinPicker />

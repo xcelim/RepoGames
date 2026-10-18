@@ -11,9 +11,23 @@ import { useStore } from '@/store/useStore';
 // La clave anon es pública por diseño: la seguridad la ponen las políticas RLS de supabase/schema.sql.
 export function cloudConfig(): { url: string; anonKey: string } | null {
   const state = useStore.getState();
-  const url = state.cloudUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-  const anonKey = state.cloudAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  const url = normalizeUrl(state.cloudUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '');
+  const anonKey = cleanKey(state.cloudAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '');
   return url && anonKey ? { url, anonKey } : null;
+}
+
+// Se queda solo con https://xxxx.supabase.co aunque se haya pegado con /rest/v1/, una barra
+// final, comillas o espacios (si no, el inicio de sesión con Google va a una ruta equivocada).
+export function normalizeUrl(raw: string): string {
+  const text = raw.trim().replace(/^['"]|['"]$/g, '').trim();
+  if (!text) return '';
+  const withScheme = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  const match = withScheme.match(/^(https?:\/\/[^/?#\s]+)/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function cleanKey(raw: string): string {
+  return raw.trim().replace(/^['"]|['"]$/g, '').trim();
 }
 
 let client: SupabaseClient | null = null;
