@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+
+import { loadAllFonts, loadFonts } from '@/theme/fonts';
 
 import { useStore } from '@/store/useStore';
 import { SKIN_LIST } from '@/theme/skins';
@@ -9,6 +12,15 @@ import { ThemedText } from './ThemedText';
 export function SkinPicker() {
   const current = useSkin();
   const setSkin = useStore((s) => s.setSkin);
+  // Para enseñar el nombre de cada estética con su propia letra.
+  const [, setFontsReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadAllFonts().then(() => alive && setFontsReady(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <View style={styles.grid}>
@@ -17,7 +29,12 @@ export function SkinPicker() {
         return (
           <Pressable
             key={skin.id}
-            onPress={() => setSkin(skin.id)}
+            onPress={() => {
+              // Primero sus letras, luego el cambio (así no se ve con la letra del sistema).
+              loadFonts([skin.fonts.display, skin.fonts.body, skin.fonts.bodyBold])
+                .catch(() => undefined)
+                .finally(() => setSkin(skin.id));
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             style={[

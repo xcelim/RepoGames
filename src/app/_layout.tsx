@@ -1,20 +1,3 @@
-import { Audiowide_400Regular } from '@expo-google-fonts/audiowide/400Regular';
-import { Baloo2_700Bold } from '@expo-google-fonts/baloo-2/700Bold';
-import { ChakraPetch_400Regular } from '@expo-google-fonts/chakra-petch/400Regular';
-import { ChakraPetch_700Bold } from '@expo-google-fonts/chakra-petch/700Bold';
-import { ChakraPetch_700Bold_Italic } from '@expo-google-fonts/chakra-petch/700Bold_Italic';
-import { Cinzel_700Bold } from '@expo-google-fonts/cinzel/700Bold';
-import { Fredoka_600SemiBold } from '@expo-google-fonts/fredoka/600SemiBold';
-import { Lato_400Regular } from '@expo-google-fonts/lato/400Regular';
-import { Lato_700Bold } from '@expo-google-fonts/lato/700Bold';
-import { Nunito_400Regular } from '@expo-google-fonts/nunito/400Regular';
-import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
-import { Orbitron_700Bold } from '@expo-google-fonts/orbitron/700Bold';
-import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p/400Regular';
-import { Rajdhani_500Medium } from '@expo-google-fonts/rajdhani/500Medium';
-import { Rajdhani_700Bold } from '@expo-google-fonts/rajdhani/700Bold';
-import { VT323_400Regular } from '@expo-google-fonts/vt323/400Regular';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -26,6 +9,8 @@ import { startSyncEngine } from '@/cloud/engine';
 import { startConnectionWatcher, useOnline } from '@/cloud/net';
 import { fetchCommunity, restoreSession } from '@/cloud/sync';
 import { useStore } from '@/store/useStore';
+import { loadFonts } from '@/theme/fonts';
+import { SKINS } from '@/theme/skins';
 import { useSkin } from '@/theme/useSkin';
 
 SplashScreen.preventAutoHideAsync();
@@ -56,28 +41,25 @@ function useCloud(enabled: boolean) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Audiowide_400Regular,
-    Baloo2_700Bold,
-    ChakraPetch_400Regular,
-    ChakraPetch_700Bold,
-    ChakraPetch_700Bold_Italic,
-    Cinzel_700Bold,
-    Fredoka_600SemiBold,
-    Lato_400Regular,
-    Lato_700Bold,
-    Nunito_400Regular,
-    Nunito_700Bold,
-    Orbitron_700Bold,
-    PressStart2P_400Regular,
-    Rajdhani_500Medium,
-    Rajdhani_700Bold,
-    VT323_400Regular,
-  });
 
   const [hydrated, setHydrated] = useState(useStore.persist.hasHydrated());
   useEffect(() => useStore.persist.onFinishHydration(() => setHydrated(true)), []);
 
+  // Solo se cargan las letras de la estética elegida (y de nuevo al cambiarla).
+  const skinId = useStore((st) => st.skin);
+  const [fontsFor, setFontsFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const f = SKINS[skinId]?.fonts ?? SKINS.neon.fonts;
+    let alive = true;
+    loadFonts([f.display, f.body, f.bodyBold])
+      .catch(() => undefined)
+      .finally(() => alive && setFontsFor(skinId));
+    return () => {
+      alive = false;
+    };
+  }, [hydrated, skinId]);
+  const fontsLoaded = fontsFor !== null;
   const ready = fontsLoaded && hydrated;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();

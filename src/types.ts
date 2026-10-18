@@ -1,6 +1,38 @@
 // ---------- Ajustes ----------
 export type DurationMode = 'main' | 'extra' | 'full';
-export type SkinId = 'neon' | 'cozy' | 'gameboy' | 'teyvat' | 'synthwave' | 'hud' | 'pastel';
+export type SkinId =
+  | 'neon'
+  | 'cozy'
+  | 'gameboy'
+  | 'teyvat'
+  | 'synthwave'
+  | 'hud'
+  | 'pastel'
+  | 'castle'
+  | 'pirate'
+  | 'horror'
+  | 'noir'
+  | 'comic'
+  | 'street'
+  | 'arcade'
+  | 'tactical'
+  | 'druid'
+  | 'galaxy'
+  | 'notebook'
+  | 'metal'
+  | 'racing'
+  | 'terminal'
+  | 'gala'
+  | 'seventies'
+  | 'pixel'
+  | 'samurai'
+  | 'dungeon'
+  | 'minimal'
+  | 'abyss'
+  | 'desert'
+  | 'glacier'
+  | 'toxic'
+  | 'steam';
 
 // ---------- Catálogo (datos de partida) ----------
 export type Game = {
