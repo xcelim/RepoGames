@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { GameRecord } from '@/types';
+import { rankByQuery } from '@/utils/fuzzy';
 import { normTitle as norm } from '@/utils/text';
 
-import { hasIgdbCredentials, igdbCover, igdbDetails, igdbResolve, igdbSeries, searchIgdb } from './igdb';
+import { hasIgdbCredentials, igdbBasics, igdbCover, igdbDetails, igdbResolve, igdbSeries, searchIgdb } from './igdb';
 import { hasRawg, rawgDetails, rawgResolve, rawgSeries, searchRawg } from './rawg';
 import type { GameDetails, OnlineResult } from './types';
 
@@ -42,12 +43,14 @@ export async function searchOnline(text: string): Promise<SearchOutcome> {
       twin.coverUrl ??= r.coverUrl;
       twin.rating ??= r.rating;
       twin.main ??= r.main;
+      twin.popularity = Math.max(twin.popularity ?? 0, r.popularity ?? 0);
       continue;
     }
     seen.set(key, r);
     results.push(r);
   }
-  return { results, errors };
+  // Orden final: lo que más se parece a lo escrito, y a igualdad, lo más popular.
+  return { results: rankByQuery(text, results, (r) => r.title, (r) => r.popularity ?? 0), errors };
 }
 
 export function onlineGameId(r: { source: 'igdb' | 'rawg'; sourceId: number }): string {
@@ -102,6 +105,9 @@ export function toGameRecord(r: OnlineResult, profileId: string | null): GameRec
     rawgId: r.source === 'rawg' ? r.sourceId : null,
     igdbQuery: null,
     coverUrl: r.coverUrl,
+    developer: r.developer ?? null,
+    releaseDate: r.releaseDate ?? null,
+    criticRating: r.rating,
     source: r.source,
     createdBy: profileId,
   };
@@ -109,7 +115,7 @@ export function toGameRecord(r: OnlineResult, profileId: string | null): GameRec
 
 // ---------- Ficha completa (con caché en el móvil) ----------
 
-const DETAILS_PREFIX = 'details:v1:';
+const DETAILS_PREFIX = 'details:v2:';
 
 export async function fetchDetails(game: GameRecord): Promise<GameDetails | null> {
   const cacheKey = DETAILS_PREFIX + game.id;
@@ -156,7 +162,7 @@ export async function fetchCover(game: GameRecord): Promise<string | null> {
   const title = game.igdbQuery ?? game.title;
   if (sources.igdb) url = await igdbCover(game.igdbId ? { id: game.igdbId } : { title, year: game.year });
   if (!url && sources.rawg) {
-    const results = await searchRawg(title).catch(() => []);
+    const results = await searchRawg(title, true).catch(() => []);
     url = (results.find((r) => r.year === game.year) ?? results[0])?.coverUrl ?? null;
   }
   // Sin fuentes no guardamos nada, para volver a intentarlo cuando las configures.
@@ -169,4 +175,24 @@ export async function clearOnlineCache(): Promise<void> {
   await AsyncStorage.multiRemove(
     keys.filter((k) => k.startsWith(DETAILS_PREFIX) || k.startsWith(COVER_PREFIX) || k.startsWith('igdb:')),
   );
+}
+
+// Completa desarrolladora / fecha / nota de la crítica de los juegos de IGDB que no la tengan.
+const basicsAsked = new Set<string>();
+export async function fillBasics(games: GameRecord[]): Promise<(Partial<GameRecord> & { id: string })[]> {
+  const missing = games.filter((g) => g.igdbId && g.developer === undefined && !basicsAsked.has(g.id));
+  if (!missing.length || !(await hasIgdbCredentials())) return [];
+  missing.forEach((g) => basicsAsked.add(g.id));
+  const rows = await igdbBasics(missing.map((g) => g.igdbId!)).catch(() => []);
+  const byId = new Map(rows.map((r) => [r.sourceId, r]));
+  return missing.map((g) => {
+    const r = byId.get(g.igdbId!);
+    return {
+      id: g.id,
+      developer: r?.developer ?? null,
+      releaseDate: r?.releaseDate ?? null,
+      criticRating: r?.rating ?? null,
+      coverUrl: g.coverUrl ?? r?.coverUrl ?? null,
+    };
+  });
 }

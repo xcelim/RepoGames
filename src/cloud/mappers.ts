@@ -26,6 +26,9 @@ export type GameRow = {
   rawg_id: number | null;
   igdb_query: string | null;
   cover_url: string | null;
+  developer?: string | null;
+  release_date?: string | null;
+  critic_rating?: number | null;
   source: GameRecord['source'];
   created_by: string | null;
 };
@@ -67,6 +70,9 @@ export type UserGameRow = {
   finished_at: string | null;
   owned: boolean;
   favorite: boolean;
+  recommend?: boolean | null;
+  spoilers?: boolean;
+  review_private?: boolean;
   added_at: string;
   updated_at: string;
 };
@@ -105,6 +111,9 @@ export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => (
   rawg_id: g.rawgId,
   igdb_query: g.igdbQuery,
   cover_url: g.coverUrl,
+  developer: g.developer ?? null,
+  release_date: g.releaseDate ?? null,
+  critic_rating: g.criticRating ?? null,
   source: g.source,
   created_by: createdBy,
 });
@@ -125,6 +134,9 @@ export const fromGameRow = (r: GameRow): GameRecord => ({
   rawgId: r.rawg_id ?? null,
   igdbQuery: r.igdb_query,
   coverUrl: r.cover_url,
+  developer: r.developer ?? null,
+  releaseDate: r.release_date ?? null,
+  criticRating: r.critic_rating ?? null,
   source: r.source,
   createdBy: r.created_by,
 });
@@ -189,6 +201,9 @@ export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
   finished_at: u.finishedAt,
   owned: u.owned,
   favorite: u.favorite,
+  recommend: u.recommend ?? null,
+  spoilers: u.spoilers ?? false,
+  review_private: u.reviewPrivate ?? false,
   added_at: u.addedAt,
   updated_at: u.updatedAt,
 });
@@ -208,6 +223,9 @@ export const fromUserGameRow = (r: UserGameRow, localProfileId: string): UserGam
   finishedAt: r.finished_at,
   owned: r.owned,
   favorite: r.favorite,
+  recommend: r.recommend ?? null,
+  spoilers: r.spoilers ?? false,
+  reviewPrivate: r.review_private ?? false,
   addedAt: r.added_at,
   updatedAt: r.updated_at,
 });

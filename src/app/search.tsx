@@ -1,17 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { onlineGameId, onlineSources, searchOnline, toGameRecord } from '@/api/games';
 import type { OnlineResult } from '@/api/types';
 import { Button } from '@/components/Button';
-import { GameRow } from '@/components/games';
+import { useGameSheets } from '@/components/gameSheets';
+import { GameLine } from '@/components/ign';
 import { ScreenHeader } from '@/components/lists';
 import { ThemedText } from '@/components/ThemedText';
 import { Chip, Panel, TextField } from '@/components/ui';
 import { OFFICIAL_SERIES, officialListId } from '@/data/catalog';
+import { rankByQuery } from '@/utils/fuzzy';
 import { stripAccents } from '@/utils/text';
 import { useList } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
@@ -49,6 +51,7 @@ export default function SearchScreen() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', year: '', platforms: '', hours: '', cover: '' });
   const requestId = useRef(0);
+  const sheets = useGameSheets();
 
   useEffect(() => {
     onlineSources().then(setSources);
@@ -57,7 +60,7 @@ export default function SearchScreen() {
   // Busca en IGDB medio segundo después de dejar de escribir.
   useEffect(() => {
     const current = ++requestId.current;
-    if (!online || query.trim().length < 3) return;
+    if (!online || query.trim().length < 2) return;
     const timer = setTimeout(() => {
       setLoading(true);
       setError(null);
@@ -73,7 +76,7 @@ export default function SearchScreen() {
         .finally(() => {
           if (current === requestId.current) setLoading(false);
         });
-    }, 500);
+    }, 400);
     return () => clearTimeout(timer);
   }, [query, online]);
 
@@ -83,17 +86,20 @@ export default function SearchScreen() {
   );
 
   const local: Row[] = useMemo(() => {
-    const q = normalize(query.trim());
+    const q = query.trim();
     if (!q) return [];
     // Juegos que ya tienes en el móvil (los creados a mano y los ya descargados).
-    return Object.values(customGames)
-      .filter((game) => normalize(game.title).includes(q))
-      .sort((a, b) => (a.source === 'custom' ? -1 : 0) - (b.source === 'custom' ? -1 : 0))
-      .slice(0, 20)
+    // Búsqueda tolerante: "minecraf" encuentra "Minecraft".
+    const all = Object.values(customGames);
+    const plain = normalize(q);
+    const ranked = rankByQuery(q, all, (game) => game.title);
+    const contains = all.filter((game) => normalize(game.title).includes(plain) && !ranked.includes(game));
+    return [...ranked, ...contains]
+      .slice(0, 12)
       .map((game) => ({ key: game.id, game }));
   }, [query, customGames]);
 
-  const external: Row[] = (query.trim().length >= 3 ? remote : [])
+  const external: Row[] = (query.trim().length >= 2 ? remote : [])
     .filter((r) => !local.some((row) => row.game.id === onlineGameId(r)))
     .map((r) => ({
       key: onlineGameId(r),
@@ -189,9 +195,9 @@ export default function SearchScreen() {
               </Panel>
             ) : null}
             {loading ? <ActivityIndicator color={skin.colors.accent} /> : null}
-            {online && query.trim().length > 0 && query.trim().length < 3 ? (
+            {online && query.trim().length === 1 ? (
               <ThemedText variant="muted" size={12}>
-                Escribe al menos 3 letras para buscar en la API de juegos.
+                Escribe al menos 2 letras para buscar en la API de juegos.
               </ThemedText>
             ) : null}
             {error ? (
@@ -212,23 +218,28 @@ export default function SearchScreen() {
           const added = inList.has(row.game.id);
           const ug = profileId ? userGames[userGameKey(profileId, row.game.id)] : undefined;
           return (
-            <GameRow
+            <GameLine
               game={row.game}
-              userGame={ug}
-              hours={row.game.main}
+              status={ug?.status}
               onPress={() => choose(row)}
               right={
                 listId ? (
                   <Ionicons
                     name={added ? 'checkmark-circle' : 'add-circle-outline'}
-                    size={28}
-                    color={added ? skin.colors.accent : skin.colors.muted}
+                    size={30}
+                    color={added ? skin.colors.accent : skin.colors.text}
                   />
-                ) : row.source ? (
-                  <ThemedText variant="muted" size={10}>
-                    {row.source}
-                  </ThemedText>
-                ) : undefined
+                ) : (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => {
+                      if (row.external && !customGames[row.game.id]) upsertGame(row.game);
+                      sheets.openStatus(row.game);
+                    }}
+                  >
+                    <Ionicons name={ug ? 'checkmark-circle' : 'add-circle-outline'} size={30} color={skin.colors.text} />
+                  </Pressable>
+                )
               }
             />
           );
@@ -305,13 +316,14 @@ export default function SearchScreen() {
           </View>
         }
       />
+      {sheets.element}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 16, gap: 8 },
+  content: { paddingHorizontal: 16, gap: 0 },
   headerBlock: { gap: 12, marginBottom: 6 },
   chips: { gap: 8, paddingRight: 16 },
   header: { letterSpacing: 2, marginTop: 8 },

@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 import { BUILT_IN } from './keys';
+import { rankByQuery, searchStems } from '@/utils/fuzzy';
+
 import type { GameDetails, OnlineResult } from './types';
 
 // IGDB (Twitch): unos 300.000 juegos con portadas, capturas, tráileres,
@@ -149,42 +151,119 @@ type IgdbSearchGame = {
   summary?: string;
   first_release_date?: number;
   total_rating?: number;
+  total_rating_count?: number;
   cover?: { image_id: string };
   platforms?: { abbreviation?: string; name: string }[];
+  involved_companies?: { company?: { name: string }; developer?: boolean; publisher?: boolean }[];
   version_parent?: number;
 };
 
+const LIST_FIELDS =
+  'fields name,summary,first_release_date,total_rating,total_rating_count,cover.image_id,' +
+  'platforms.name,platforms.abbreviation,involved_companies.company.name,involved_companies.developer,version_parent;';
+
+function toResult(game: IgdbSearchGame, t?: IgdbTimeToBeat): OnlineResult {
+  const dev = (game.involved_companies ?? []).find((c) => c.developer && c.company)?.company?.name ?? null;
+  return {
+    source: 'igdb' as const,
+    sourceId: game.id,
+    title: game.name,
+    year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
+    platforms: (game.platforms ?? []).map((p) => p.name).join(', '),
+    coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
+    summary: game.summary ?? null,
+    rating: game.total_rating ? Math.round(game.total_rating) : null,
+    main: toHours(t?.hastily),
+    extra: toHours(t?.normally),
+    full: toHours(t?.completely),
+    developer: dev,
+    releaseDate: game.first_release_date ? new Date(game.first_release_date * 1000).toISOString().slice(0, 10) : null,
+    popularity: game.total_rating_count ?? 0,
+  };
+}
+
+async function withTimes(games: IgdbSearchGame[]): Promise<OnlineResult[]> {
+  const times = await timesToBeat(games.map((g) => g.id));
+  return games.map((g) => toResult(g, times[g.id]));
+}
+
+const stemWhere = (stems: string[]) => stems.map((s) => `name ~ *"${s}"*`).join(' & ');
+
+// Busca de varias maneras a la vez para aguantar erratas y nombres a medias:
+// 1) el buscador de IGDB, 2) "contiene" con el principio de cada palabra,
+// 3) lo mismo quitando la última palabra (por si está mal escrita).
 export async function searchIgdb(text: string): Promise<OnlineResult[]> {
   const q = clean(text);
   if (q.length < 2) return [];
+  const stems = searchStems(q);
+  const bodies = [`search "${q}"; ${LIST_FIELDS} where version_parent = null; limit 30;`];
+  const containsTail = 'version_parent = null; sort total_rating_count desc; limit 40;';
+  if (stems.length) bodies.push(`${LIST_FIELDS} where ${stemWhere(stems)} & ${containsTail}`);
+  if (stems.length >= 3) bodies.push(`${LIST_FIELDS} where ${stemWhere(stems.slice(0, -1))} & ${containsTail}`);
+  if (stems.length >= 2) {
+    // La palabra más larga suele ser la más distintiva.
+    const longest = [...stems].sort((a, b) => b.length - a.length)[0];
+    bodies.push(`${LIST_FIELDS} where name ~ *"${longest}"* & ${containsTail}`);
+  }
+  const batches = await Promise.all(bodies.map((body) => query<IgdbSearchGame[]>('games', body).catch(() => null)));
+  if (batches.every((b) => b === null)) throw new Error('IGDB no respondió');
+  const seen = new Set<number>();
+  const games: IgdbSearchGame[] = [];
+  for (const batch of batches) {
+    for (const g of batch ?? []) {
+      if (g.version_parent || seen.has(g.id)) continue;
+      seen.add(g.id);
+      games.push(g);
+    }
+  }
+  const ranked = rankByQuery(q, games, (g) => g.name, (g) => g.total_rating_count ?? 0).slice(0, 30);
+  return withTimes(ranked);
+}
+
+// ---------- Descubrir ----------
+
+// Mejor valorados de un año (con un mínimo de votos para que sea fiable).
+export async function igdbBestOfYear(year: number, limit = 20): Promise<OnlineResult[]> {
+  const from = Date.UTC(year, 0, 1) / 1000;
+  const to = Date.UTC(year + 1, 0, 1) / 1000;
   const games = await query<IgdbSearchGame[]>(
     'games',
-    `search "${q}"; fields name,summary,first_release_date,total_rating,cover.image_id,platforms.name,platforms.abbreviation,version_parent; limit 30;`,
+    `${LIST_FIELDS} where first_release_date >= ${from} & first_release_date < ${to} & total_rating_count >= 5 & version_parent = null & cover != null; sort total_rating desc; limit ${limit};`,
   );
-  const main = games.filter((g) => !g.version_parent);
-  const times = await timesToBeat(main.map((g) => g.id));
-  return main.map((game) => {
-    const t = times[game.id];
-    return {
-      source: 'igdb' as const,
-      sourceId: game.id,
-      title: game.name,
-      year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
-      platforms: (game.platforms ?? []).map((p) => p.abbreviation ?? p.name).join(', '),
-      coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
-      summary: game.summary ?? null,
-      rating: game.total_rating ? Math.round(game.total_rating) : null,
-      main: toHours(t?.hastily),
-      extra: toHours(t?.normally),
-      full: toHours(t?.completely),
-    };
-  });
+  return withTimes(games);
+}
+
+// Lo más esperado / reciente: salidos en los últimos meses, por popularidad.
+export async function igdbRecentPopular(limit = 10): Promise<OnlineResult[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - 120 * 24 * 3600;
+  const games = await query<IgdbSearchGame[]>(
+    'games',
+    `${LIST_FIELDS} where first_release_date >= ${from} & first_release_date <= ${now} & version_parent = null & cover != null & (hypes > 0 | total_rating_count > 0); sort hypes desc; limit ${limit};`,
+  );
+  return withTimes(games);
+}
+
+// Próximos lanzamientos.
+export async function igdbUpcoming(limit = 10): Promise<OnlineResult[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const games = await query<IgdbSearchGame[]>(
+    'games',
+    `${LIST_FIELDS} where first_release_date > ${now} & version_parent = null & cover != null & hypes > 0; sort hypes desc; limit ${limit};`,
+  );
+  return withTimes(games);
 }
 
 // ---------- Ficha completa ----------
 
 type IgdbDetailGame = IgdbSearchGame & {
   storyline?: string;
+  aggregated_rating?: number;
+  aggregated_rating_count?: number;
+  rating?: number;
+  rating_count?: number;
+  themes?: { name: string }[];
+  game_modes?: { name: string }[];
   total_rating_count?: number;
   artworks?: { image_id: string }[];
   screenshots?: { image_id: string }[];
@@ -200,7 +279,8 @@ const DETAIL_FIELDS =
   'fields name,summary,storyline,first_release_date,total_rating,total_rating_count,cover.image_id,' +
   'artworks.image_id,screenshots.image_id,videos.video_id,videos.name,platforms.name,platforms.abbreviation,' +
   'genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,' +
-  'franchises.name,collections.name,url,version_parent;';
+  'franchises.name,collections.name,url,version_parent,aggregated_rating,aggregated_rating_count,rating,rating_count,' +
+  'themes.name,game_modes.name;';
 
 function toDetails(game: IgdbDetailGame, t?: IgdbTimeToBeat): GameDetails {
   const companies = game.involved_companies ?? [];
@@ -226,6 +306,12 @@ function toDetails(game: IgdbDetailGame, t?: IgdbTimeToBeat): GameDetails {
     rating: game.total_rating ? Math.round(game.total_rating) : null,
     ratingCount: game.total_rating_count ?? null,
     ratingLabel: 'IGDB',
+    criticRating: game.aggregated_rating ? Math.round(game.aggregated_rating) : null,
+    criticCount: game.aggregated_rating_count ?? null,
+    userRating: game.rating ? Math.round(game.rating) : null,
+    userCount: game.rating_count ?? null,
+    themes: (game.themes ?? []).map((t) => t.name),
+    modes: (game.game_modes ?? []).map((m) => m.name),
     timeToBeat: t
       ? { main: toHours(t.hastily), extra: toHours(t.normally), full: toHours(t.completely) }
       : null,
@@ -282,8 +368,7 @@ export async function igdbCover(by: { id?: number; title?: string; year?: number
 
 type IgdbSeriesGame = IgdbSearchGame & { franchises?: number[]; collections?: number[] };
 
-const SERIES_FIELDS =
-  'fields name,summary,first_release_date,total_rating,cover.image_id,platforms.name,platforms.abbreviation,version_parent;';
+const SERIES_FIELDS = LIST_FIELDS;
 
 // Tipos de juego que cuentan: principal, expansión independiente, remake, remaster y edición ampliada.
 const TYPE_FILTERS = ['game_type = (0,4,8,9,10)', 'category = (0,4,8,9,10)', ''];
@@ -329,23 +414,7 @@ export async function igdbSeries(name: string): Promise<OnlineResult[]> {
     }
   }
   const unique = games.filter((g, i) => !g.version_parent && games.findIndex((x) => x.id === g.id) === i);
-  const times = await timesToBeat(unique.map((g) => g.id));
-  return unique.map((game) => {
-    const t = times[game.id];
-    return {
-      source: 'igdb' as const,
-      sourceId: game.id,
-      title: game.name,
-      year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
-      platforms: (game.platforms ?? []).map((p) => p.abbreviation ?? p.name).join(', '),
-      coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
-      summary: game.summary ?? null,
-      rating: game.total_rating ? Math.round(game.total_rating) : null,
-      main: toHours(t?.hastily),
-      extra: toHours(t?.normally),
-      full: toHours(t?.completely),
-    };
-  });
+  return withTimes(unique);
 }
 
 // ---------- Resolver una lista de juegos concretos (bibliotecas oficiales) ----------
@@ -372,7 +441,7 @@ async function findOne(entry: { q: string; year: number; alt?: string[] }): Prom
   for (const name of [entry.q, ...(entry.alt ?? [])]) {
     const found = await query<Candidate[]>(
       'games',
-      `search "${clean(name)}"; fields name,summary,first_release_date,total_rating,cover.image_id,platforms.name,platforms.abbreviation,version_parent; limit 15;`,
+      `search "${clean(name)}"; ${LIST_FIELDS} limit 15;`,
     ).catch(() => [] as Candidate[]);
     for (const game of found) {
       const score = scoreCandidate(game, name, entry.year);
@@ -390,21 +459,17 @@ export async function igdbResolve(
   for (const entry of entries) found.push(await findOne(entry));
   const ids = found.filter((g): g is Candidate => !!g).map((g) => g.id);
   const times = await timesToBeat(ids);
-  return found.map((game) => {
-    if (!game) return null;
-    const t = times[game.id];
-    return {
-      source: 'igdb' as const,
-      sourceId: game.id,
-      title: game.name,
-      year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
-      platforms: (game.platforms ?? []).map((p) => p.abbreviation ?? p.name).join(', '),
-      coverUrl: game.cover ? igdbImage(game.cover.image_id, 't_cover_big') : null,
-      summary: game.summary ?? null,
-      rating: game.total_rating ? Math.round(game.total_rating) : null,
-      main: toHours(t?.hastily),
-      extra: toHours(t?.normally),
-      full: toHours(t?.completely),
-    };
-  });
+  return found.map((game) => (game ? toResult(game, times[game.id]) : null));
+}
+
+// Datos básicos (desarrolladora, fecha, nota, portada) de varios juegos a la vez.
+export async function igdbBasics(ids: number[]): Promise<OnlineResult[]> {
+  if (!ids.length) return [];
+  const out: OnlineResult[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const games = await query<IgdbSearchGame[]>('games', `${LIST_FIELDS} where id = (${chunk.join(',')}); limit 200;`);
+    out.push(...games.map((g) => toResult(g)));
+  }
+  return out;
 }

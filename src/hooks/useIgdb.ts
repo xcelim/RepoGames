@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { fetchCover, fetchDetails } from '@/api/games';
+import { fetchCover, fetchDetails, fillBasics } from '@/api/games';
+import { useStore } from '@/store/useStore';
 import type { GameDetails } from '@/api/types';
 import type { GameRecord } from '@/types';
 
@@ -52,4 +53,26 @@ export function useGameDetails(game: GameRecord | undefined) {
   }, [id]);
   const fresh = state.id === id;
   return { details: fresh ? state.details : null, loading: !fresh, error: fresh ? state.error : null };
+}
+
+// Completa en segundo plano desarrolladora, fecha y nota de los juegos que no las tengan.
+export function useFillBasics(games: GameRecord[]): void {
+  const key = games
+    .filter((g) => g.igdbId && g.developer === undefined)
+    .map((g) => g.id)
+    .join('|');
+  useEffect(() => {
+    if (!key) return;
+    let cancelled = false;
+    const missing = useStore.getState();
+    const list = key.split('|').map((id) => missing.games[id]).filter((g): g is GameRecord => !!g);
+    fillBasics(list)
+      .then((patches) => {
+        if (!cancelled) useStore.getState().patchGames(patches);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
 }

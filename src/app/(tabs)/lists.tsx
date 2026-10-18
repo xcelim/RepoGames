@@ -1,103 +1,145 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/Button';
-import { ListCard, SectionTitle } from '@/components/lists';
+import { DarkButton, HeaderIcon, IgnScreen, Mosaic, useIgnColors } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
-import { EmptyState, IconButton } from '@/components/ui';
-import { OFFICIAL_LISTS } from '@/data/catalog';
-import { FINISHED } from '@/data/meta';
-import { useRemote } from '@/cloud/remote';
-import { useMyLists, useProfileLookup } from '@/hooks/useLists';
-import { useStore } from '@/store/useStore';
+import { TextField } from '@/components/ui';
+import { useCommunityLists, useFollowedLists, useListCount, useListPreview, useMyLists, useProfileLookup } from '@/hooks/useLists';
 import type { GameList } from '@/types';
-import { userGameKey } from '@/utils/library';
+import { rankByQuery } from '@/utils/fuzzy';
 
 export default function ListsScreen() {
-  const insets = useSafeAreaInsets();
-  const myLists = useMyLists();
-  const profileId = useStore((s) => s.currentProfileId);
-  const items = useStore((s) => s.items);
-  const userGames = useStore((s) => s.userGames);
-  const lists = useStore((s) => s.lists);
-  const follows = useStore((s) => (s.currentProfileId ? s.follows[s.currentProfileId] : undefined));
-  const remote = useRemote((s) => s.lists);
-  const remoteItems = useRemote((s) => s.items);
-  const lookupProfile = useProfileLookup();
+  const c = useIgnColors();
+  const mine = useMyLists();
+  const followed = useFollowedLists();
+  const community = useCommunityLists();
+  const preview = useListPreview();
+  const count = useListCount();
+  const lookup = useProfileLookup();
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
-  // Juegos y terminados de cada lista, para la barra de progreso.
-  const progress = useMemo(() => {
-    const result: Record<string, { count: number; done: number }> = {};
-    const all = [...Object.values(items), ...Object.values(remoteItems)];
-    for (const item of all) {
-      const entry = (result[item.listId] ??= { count: 0, done: 0 });
-      entry.count += 1;
-      const ug = profileId ? userGames[userGameKey(profileId, item.gameId)] : undefined;
-      if (ug && FINISHED.includes(ug.status)) entry.done += 1;
-    }
-    return result;
-  }, [items, remoteItems, userGames, profileId]);
+  const found = useMemo(() => {
+    if (!query.trim()) return [];
+    const seen = new Set<string>();
+    const all = [...mine, ...followed, ...community].filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)));
+    return rankByQuery(query, all, (l) => l.name);
+  }, [query, mine, followed, community]);
 
-  const followed: GameList[] = (follows ?? [])
-    .map((id) => lists[id] ?? OFFICIAL_LISTS.find((l) => l.id === id) ?? remote[id])
-    .filter((l): l is GameList => !!l);
-
-  const card = (list: GameList, showOwner: boolean) => {
-    const p = progress[list.id] ?? { count: 0, done: 0 };
-    return (
-      <View key={list.id} style={styles.half}>
-        <ListCard
-          list={list}
-          count={p.count}
-          progress={p.count > 0 ? p.done / p.count : 0}
-          subtitle={`${p.count} juegos · ${p.done} terminados${
-            showOwner ? ` · ${lookupProfile(list.ownerId)?.displayName ?? ''}` : ''
-          }`}
-        />
-      </View>
-    );
-  };
+  const shownMine = showAll ? mine : mine.slice(0, 6);
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
-      <View style={styles.titleRow}>
-        <ThemedText variant="display" size={32} style={styles.flex}>
-          Listas
-        </ThemedText>
-        <IconButton icon="add" label="Nueva lista" filled onPress={() => router.push('/list/edit')} />
-      </View>
-      <ThemedText variant="muted" size={13}>
-        Tus bibliotecas son carpetas: ordénalas a mano, filtra por nota o plataforma y decide si son
-        públicas o privadas.
+    <IgnScreen
+      title="Listas"
+      right={
+        <>
+          <HeaderIcon icon="add-circle-outline" label="Nueva lista" onPress={() => router.push('/list/edit')} />
+          <HeaderIcon icon="search" label="Buscar listas" onPress={() => setSearching((s) => !s)} />
+        </>
+      }
+    >
+      {searching ? (
+        <View style={styles.search}>
+          <TextField value={query} onChangeText={setQuery} placeholder="Buscar listas…" autoFocus />
+          {found.map((list) => (
+            <ListRow key={list.id} list={list} preview={preview(list.id)} count={count(list.id)} author={lookup(list.ownerId)?.displayName} />
+          ))}
+        </View>
+      ) : null}
+
+      <ThemedText variant="display" size={22} style={styles.h2}>
+        Actualizadas recientemente
       </ThemedText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+        {mine.slice(0, 10).map((list) => (
+          <Pressable key={list.id} onPress={() => router.push(`/list/${list.id}`)} style={({ pressed }) => ({ width: 150, opacity: pressed ? 0.8 : 1 })}>
+            <Mosaic list={list} games={preview(list.id)} size={150} />
+            <ThemedText size={14} numberOfLines={2} style={{ marginTop: 8 }}>
+              {list.name}
+            </ThemedText>
+          </Pressable>
+        ))}
+        <Pressable onPress={() => router.push('/list/edit')} style={[styles.newTile, { borderColor: c.line, borderRadius: c.radius }]}>
+          <Ionicons name="add" size={36} color={c.muted} />
+          <ThemedText variant="muted" size={13}>
+            Nueva lista
+          </ThemedText>
+        </Pressable>
+      </ScrollView>
 
-      <SectionTitle title={`Mis listas (${myLists.length})`} />
-      {myLists.length === 0 ? (
-        <EmptyState icon="folder-open-outline" title="Aún no tienes listas">
-          <Button label="Crear lista" onPress={() => router.push('/list/edit')} />
-        </EmptyState>
-      ) : (
-        <View style={styles.grid}>{myLists.map((list) => card(list, false))}</View>
-      )}
+      <View style={[styles.card, { backgroundColor: c.card, borderRadius: c.radius + 6, borderColor: c.line }]}>
+        <View style={styles.cardHead}>
+          <ThemedText variant="display" size={20} style={{ flex: 1 }}>
+            Mis listas
+          </ThemedText>
+          {mine.length > 6 ? (
+            <Pressable onPress={() => setShowAll((s) => !s)} hitSlop={8}>
+              <ThemedText variant="bold" size={13} style={{ textDecorationLine: 'underline' }}>
+                {showAll ? 'Ver menos' : 'Ver todas'}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+        {shownMine.map((list) => (
+          <ListRow key={list.id} list={list} preview={preview(list.id)} count={count(list.id)} />
+        ))}
+        {mine.length === 0 ? (
+          <ThemedText variant="muted" size={13}>
+            Aún no tienes listas. Crea una con el botón ⊕.
+          </ThemedText>
+        ) : null}
+      </View>
 
-      <SectionTitle title={`Siguiendo (${followed.length})`} />
-      {followed.length === 0 ? (
-        <ThemedText variant="muted" size={13}>
-          Sigue listas públicas desde Inicio para tenerlas aquí sin copiarlas.
+      <View style={[styles.card, { backgroundColor: c.card, borderRadius: c.radius + 6, borderColor: c.line }]}>
+        <View style={styles.cardHead}>
+          <ThemedText variant="display" size={20} style={{ flex: 1 }}>
+            Listas que sigues
+          </ThemedText>
+        </View>
+        {followed.map((list) => (
+          <ListRow key={list.id} list={list} preview={preview(list.id)} count={count(list.id)} author={lookup(list.ownerId)?.displayName} />
+        ))}
+        {followed.length === 0 ? (
+          <View style={{ gap: 14 }}>
+            <ThemedText variant="muted" size={13}>
+              Sigue listas de otros jugadores para tenerlas siempre a mano.
+            </ThemedText>
+            <DarkButton label="Ir a Descubrir" onPress={() => router.navigate('/')} />
+          </View>
+        ) : null}
+      </View>
+    </IgnScreen>
+  );
+}
+
+function ListRow({ list, preview, count, author }: { list: GameList; preview: Parameters<typeof Mosaic>[0]['games']; count: number; author?: string }) {
+  const c = useIgnColors();
+  return (
+    <Pressable onPress={() => router.push(`/list/${list.id}`)} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}>
+      <Mosaic list={list} games={preview} size={56} radius={8} />
+      <View style={{ flex: 1 }}>
+        <ThemedText size={16} numberOfLines={1}>
+          {list.name}
         </ThemedText>
-      ) : (
-        <View style={styles.grid}>{followed.map((list) => card(list, true))}</View>
-      )}
-    </ScrollView>
+        <ThemedText variant="muted" size={12}>
+          {author ? `${author} · ` : ''}
+          {count} {count === 1 ? 'juego' : 'juegos'}
+        </ThemedText>
+      </View>
+      {list.visibility === 'private' ? <Ionicons name="lock-closed" size={16} color={c.muted} /> : <Ionicons name="globe-outline" size={16} color={c.muted} />}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 14 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  half: { width: '47.5%' },
+  search: { paddingHorizontal: 20, gap: 4, marginBottom: 20 },
+  h2: { paddingHorizontal: 20, marginTop: 6, marginBottom: 14 },
+  hRow: { paddingHorizontal: 20, gap: 14 },
+  newTile: { width: 150, height: 150, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  card: { marginHorizontal: 20, marginTop: 30, padding: 18, gap: 6, borderWidth: StyleSheet.hairlineWidth },
+  cardHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10 },
 });

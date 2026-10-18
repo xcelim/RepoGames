@@ -72,28 +72,44 @@ const STATUS_RANK: Record<PlayStatus, number> = Object.fromEntries(
   STATUS_ORDER.map((status, index) => [status, index]),
 ) as Record<PlayStatus, number>;
 
-export function sortEntries(
-  entries: Entry[],
-  sort: ListSort,
-  mode: DurationMode,
-  descending = false,
-): Entry[] {
+const releaseKey = (g: GameRecord) => g.releaseDate ?? (g.year ? `${g.year}-12-31` : null);
+const updatedKey = (e: Entry) => e.userGame?.updatedAt ?? e.item.addedAt;
+
+// Ordena las filas. Lo que no tiene dato (sin nota, sin fecha...) va siempre al final.
+export function sortEntries(entries: Entry[], sort: ListSort, mode: DurationMode): Entry[] {
   const list = [...entries];
-  const byTitle = (a: Entry, b: Entry) => a.game.title.localeCompare(b.game.title, 'es');
+  const byRank = (a: Entry, b: Entry) => a.rank - b.rank;
+  const nullsLast = <T>(get: (e: Entry) => T | null | undefined, cmp: (x: T, y: T) => number) =>
+    (a: Entry, b: Entry) => {
+      const x = get(a);
+      const y = get(b);
+      if (x == null && y == null) return byRank(a, b);
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return cmp(x, y) || byRank(a, b);
+    };
+  const num = (x: number, y: number) => x - y;
+  const str = (x: string, y: string) => x.localeCompare(y, 'es');
+  const hours = (e: Entry) => e.game[mode] ?? e.game.main ?? null;
   const compare: Record<ListSort, (a: Entry, b: Entry) => number> = {
-    manual: (a, b) => a.rank - b.rank,
-    release: (a, b) => (a.game.year ?? 9999) - (b.game.year ?? 9999) || a.rank - b.rank,
-    // Sin nota, al final.
-    rating: (a, b) => (b.userGame?.rating ?? -1) - (a.userGame?.rating ?? -1) || a.rank - b.rank,
-    title: byTitle,
-    duration: (a, b) => gameHours(a.game, mode) - gameHours(b.game, mode) || a.rank - b.rank,
+    manual: byRank,
+    'updated-new': (a, b) => updatedKey(b).localeCompare(updatedKey(a)) || byRank(a, b),
+    'updated-old': (a, b) => updatedKey(a).localeCompare(updatedKey(b)) || byRank(a, b),
+    az: (a, b) => str(a.game.title, b.game.title),
+    za: (a, b) => str(b.game.title, a.game.title),
+    'critic-high': nullsLast((e) => e.game.criticRating, (x, y) => num(y, x)),
+    'critic-low': nullsLast((e) => e.game.criticRating, num),
+    'release-new': nullsLast((e) => releaseKey(e.game), (x, y) => str(y, x)),
+    'release-old': nullsLast((e) => releaseKey(e.game), str),
+    'hltb-long': nullsLast(hours, (x, y) => num(y, x)),
+    'hltb-short': nullsLast(hours, num),
+    'mine-high': nullsLast((e) => e.userGame?.rating, (x, y) => num(y, x)),
+    'mine-low': nullsLast((e) => e.userGame?.rating, num),
     status: (a, b) =>
-      (a.userGame ? STATUS_RANK[a.userGame.status] : 99) -
-        (b.userGame ? STATUS_RANK[b.userGame.status] : 99) || a.rank - b.rank,
-    added: (a, b) => b.item.addedAt.localeCompare(a.item.addedAt) || a.rank - b.rank,
+      (a.userGame ? STATUS_RANK[a.userGame.status] : 99) - (b.userGame ? STATUS_RANK[b.userGame.status] : 99) ||
+      byRank(a, b),
   };
-  list.sort(compare[sort]);
-  return descending ? list.reverse() : list;
+  return list.sort(compare[sort] ?? byRank);
 }
 
 export type EntryFilter = {

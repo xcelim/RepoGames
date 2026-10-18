@@ -59,6 +59,7 @@ type Actions = {
   signOut: () => void;
 
   upsertGame: (game: GameRecord) => void;
+  patchGames: (patches: (Partial<GameRecord> & { id: string })[]) => void;
   setStatus: (gameId: string, status: PlayStatus) => void;
   updateUserGame: (gameId: string, patch: Partial<UserGame>) => void;
   removeFromLibrary: (gameId: string) => void;
@@ -226,6 +227,15 @@ export const useStore = create<Store>()(
 
         upsertGame: (game) => set({ games: { ...get().games, [game.id]: game } }),
 
+        patchGames: (patches) => {
+          if (!patches.length) return;
+          const games = { ...get().games };
+          for (const patch of patches) {
+            if (games[patch.id]) games[patch.id] = { ...games[patch.id], ...patch };
+          }
+          set({ games });
+        },
+
         setStatus: (gameId, status) => {
           const profileId = requireProfile();
           const key = userGameKey(profileId, gameId);
@@ -261,7 +271,7 @@ export const useStore = create<Store>()(
         updateUserGame: (gameId, patch) => {
           const profileId = requireProfile();
           const key = userGameKey(profileId, gameId);
-          if (!get().userGames[key]) get().setStatus(gameId, 'backlog');
+          if (!get().userGames[key]) get().setStatus(gameId, 'library');
           const current = get().userGames[key];
           set({
             userGames: {
@@ -427,7 +437,7 @@ export const useStore = create<Store>()(
     },
     {
       name: 'saga-quest-v2',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         let state = persisted as State;
         // v1 traía un catálogo escrito a mano; v2 descargaba la serie entera. Desde v3 las
@@ -447,6 +457,9 @@ export const useStore = create<Store>()(
             pendingSeeds: [...new Set([...(state.pendingSeeds ?? []), ...reset])],
           };
         }
+        // v4: las fichas guardan desarrolladora, fecha y nota de la crítica (para las
+        // pantallas estilo IGN): se vuelven a descargar las bibliotecas oficiales.
+        if (version < 4) state = { ...state, officialLoadedAt: {} };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),

@@ -18,6 +18,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 
 import { loadAllOfficial } from '@/api/official';
@@ -91,7 +92,7 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: skin.colors.bg }}>
       <StatusBar style={skin.dark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -106,13 +107,16 @@ export default function RootLayout() {
         <Stack.Screen name="user/[id]" />
         <Stack.Screen name="game/[id]/index" />
         <Stack.Screen name="game/[id]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="game/[id]/review" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="search" />
-        <Stack.Screen name="list/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="list/edit" />
+        <Stack.Screen name="library/[status]" />
+        <Stack.Screen name="discover/[kind]" />
         <Stack.Screen name="list/pick" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="accounts" options={{ presentation: 'modal' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
       </Stack>
-    </>
+    </GestureHandlerRootView>
   );
 }

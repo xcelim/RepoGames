@@ -15,6 +15,9 @@ export type OnlineResult = {
   main: number | null; // horas
   extra: number | null;
   full: number | null;
+  developer?: string | null;
+  releaseDate?: string | null; // AAAA-MM-DD
+  popularity?: number; // nº de valoraciones (para ordenar)
 };
 
 // La ficha completa de un juego.
@@ -37,6 +40,13 @@ export type GameDetails = {
   rating: number | null; // 0-100
   ratingCount: number | null;
   ratingLabel: string; // "IGDB", "Metacritic"...
+  criticRating?: number | null; // 0-100, media de la prensa
+  criticCount?: number | null;
+  userRating?: number | null; // 0-100, media de los jugadores
+  userCount?: number | null;
+  themes?: string[];
+  modes?: string[];
+  ageRating?: string | null;
   timeToBeat: { main: number | null; extra: number | null; full: number | null } | null;
   url: string | null;
 };

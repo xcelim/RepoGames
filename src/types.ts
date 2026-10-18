@@ -45,6 +45,9 @@ export type GameRecord = {
   rawgId: number | null;
   igdbQuery: string | null;
   coverUrl: string | null;
+  developer?: string | null;
+  releaseDate?: string | null; // AAAA-MM-DD
+  criticRating?: number | null; // 0-100
   source: 'catalog' | 'igdb' | 'rawg' | 'custom';
   createdBy: string | null; // perfil que lo creó (null = catálogo)
 };
@@ -60,6 +63,7 @@ export type Profile = {
 
 // Estado del juego en tu biblioteca personal (como IGN Playlist).
 export type PlayStatus =
+  | 'library' // en "Mis juegos", sin estado concreto
   | 'wishlist'
   | 'backlog'
   | 'playing'
@@ -84,6 +88,9 @@ export type UserGame = {
   finishedAt: string | null;
   owned: boolean;
   favorite: boolean;
+  recommend?: boolean | null;
+  spoilers?: boolean;
+  reviewPrivate?: boolean;
   addedAt: string;
   updatedAt: string;
 };
@@ -116,9 +123,16 @@ export type ListItem = {
 
 export type ListSort =
   | 'manual'
-  | 'release'
-  | 'rating'
-  | 'title'
-  | 'duration'
-  | 'status'
-  | 'added';
+  | 'updated-new'
+  | 'updated-old'
+  | 'az'
+  | 'za'
+  | 'critic-high'
+  | 'critic-low'
+  | 'release-new'
+  | 'release-old'
+  | 'hltb-long'
+  | 'hltb-short'
+  | 'mine-high'
+  | 'mine-low'
+  | 'status';

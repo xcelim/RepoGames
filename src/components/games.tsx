@@ -27,16 +27,20 @@ export function GameCover({
   game,
   width,
   url: forcedUrl,
+  square,
+  radius,
 }: {
   game: GameRecord;
   width: number;
   url?: string | null;
+  square?: boolean;
+  radius?: number;
 }) {
   const skin = useSkin();
   const cover = useCover(forcedUrl ? undefined : game);
   const url = forcedUrl ?? cover;
   const [c1, c2] = gameColors(game);
-  const height = width * (4 / 3);
+  const height = square ? width : width * (4 / 3);
   const words = game.title.replace(/[^A-Za-z0-9 ]/g, ' ').split(' ').filter(Boolean);
   const important = words.filter((w) => /^[A-Z0-9]/.test(w));
   const initials = (important.length ? important : words)
@@ -48,7 +52,7 @@ export function GameCover({
     <View
       style={[
         styles.cover,
-        { width, height, borderRadius: Math.min(skin.radius, 12), backgroundColor: c1 },
+        { width, height, borderRadius: radius ?? Math.min(skin.radius, 12), backgroundColor: c1 },
       ]}
     >
       <LinearGradient

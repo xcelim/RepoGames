@@ -8,17 +8,21 @@ Tu registro de videojuegos, al estilo de IGN Playlist pero con estética cyberpu
 
 ## Qué hace
 
-- **Biblioteca personal**: cada juego con estado (Lo quiero, Pendiente, Jugando, En pausa, Terminado, 100 %, Abandonado), nota del 1 al 10, plataforma en la que lo juegas, horas, fechas de inicio y fin, «lo tengo», favorito y reseña con lo mejor y lo peor.
-- **Listas / bibliotecas**: créalas con nombre, descripción, colores e icono; públicas o privadas; ordénalas a mano con flechas; ordena por lanzamiento, tu nota, duración, título, estado o fecha; filtra por estado, plataforma o texto; selección múltiple para cambiar el estado o quitar varios juegos; compártelas como texto.
-- **Bibliotecas oficiales** (públicas): Persona, Fire Emblem, Final Fantasy, The Legend of Zelda, Kirby, Super Mario, Xenoblade y Metroid. Solo los juegos canónicos de cada saga, en su mejor versión jugable (src/data/canon.ts dice cuáles); portadas, horas y fichas se descargan de la API de IGDB. Vienen añadidas a cada perfil nuevo; desde Inicio puedes volver a copiarlas o seguirlas.
-- **Comunidad**: las listas públicas de otros usuarios se pueden ver, seguir o copiar a tu perfil («remix»).
-- **Cuentas**: varios perfiles en el mismo móvil, cada uno con sus datos. Con Supabase, cuentas reales con correo.
-- **Perfil y estadísticas**: juegos, terminados, nota media, horas, gráfica de notas, estados y plataformas.
-- **Todos los juegos que existen**: buscador conectado a las API de **IGDB** (portadas, capturas, tráileres, compañías y tiempos para terminarlos) y **RAWG** (más de 500.000 juegos). Se usan las dos a la vez y se quitan duplicados. Las claves van dentro de la app: nadie tiene que configurar nada.
-- **Ficha de juego al estilo IGN**: cabecera con imagen, nota de la crítica, cuánto dura, resumen, capturas, vídeos y detalles. Tu estado, nota, plataforma y reseña se cambian desde el botón «Editar».
-- Juegos creados a mano con portada (enlace), horas y sinopsis, editables después.
-- **7 estéticas**: Neón, Cozy, Game Boy, Teyvat, Synthwave, Visor HUD y Pastel.
-- Copia de seguridad: exporta e importa todos tus datos.
+Funciona como **IGN Playlist** (mismas pantallas, menús y navegación) con las estéticas de Saga Quest.
+
+- **4 pestañas como IGN**: Descubrir, Biblioteca, Listas y Perfil. Títulos grandes que se encogen al bajar.
+- **Descubrir**: listas destacadas (las canónicas de cada saga), mejor valorados del año, lo que se juega esta semana (numerado), próximos lanzamientos y listas de la comunidad. Botón «Añadir ⊕» en cada portada.
+- **Biblioteca**: «Jugando ahora» y la tarjeta de estados (Mis juegos, Deseados, Pendientes, Jugando, En pausa, Terminados, Abandonados) con su contador; cada una abre su rejilla con orden.
+- **Listas**: actualizadas recientemente (mosaico de portadas), Mis listas y Listas que sigues. Cada lista: cabecera con mosaico, autor, desplegable «Ordenar» con las 13 ordenaciones de IGN (orden del autor, actualizados, A-Z, Z-A, nota de la crítica, lanzamiento, duración y tus notas, en los dos sentidos), estadísticas (juegos · horas · pública/privada) y rejilla de 2 columnas con número y estado.
+- **Editar lista**: ajustes plegables y juegos que se reordenan **arrastrando el asa**.
+- **Ficha de juego**: portada con su estado, nota de la crítica, tu nota, nota de los jugadores, «Editar estado» y «•••» (organizar en listas, plataforma, reseña, más detalles, compartir y atajos de estado). Pestañas Resumen (cuánto dura, tu partida, tu reseña, imágenes y vídeo, datos), Listas y Reseñas.
+- **Reseña en 5 pasos** como IGN: nota del 1 al 10 con barra, recomendar, plataforma, qué te gustó y qué no, texto con spoilers, resumen con opción privada y pantalla para compartir.
+- **Buscador tolerante**: encuentra el juego aunque escribas mal o a medias («minecraf», «fire emblem blazing blaze», «zelda breath wild»). Busca de varias maneras en IGDB y RAWG a la vez y ordena por parecido.
+- **Bibliotecas oficiales** (públicas): Persona, Fire Emblem, Final Fantasy, The Legend of Zelda, Kirby, Super Mario, Xenoblade y Metroid. Solo los canónicos, en su mejor versión jugable (src/data/canon.ts); todos los datos llegan de la API.
+- **Comunidad**: las listas públicas de otros se pueden seguir o copiar a tu perfil.
+- **Cuentas**: varios perfiles en el mismo móvil y, con Supabase, cuentas reales.
+- **Todos los juegos que existen**: API de **IGDB** y **RAWG** con las claves dentro de la app.
+- Juegos creados a mano, **7 estéticas** y copia de seguridad.
 
 ## Claves de la API (solo una vez, para quien compila)
 

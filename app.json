@@ -2,7 +2,7 @@
   "expo": {
     "name": "Saga Quest",
     "slug": "saga-quest",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "sagaquest",
@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.xcelim.repogames",
-      "versionCode": 2,
+      "versionCode": 3,
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {

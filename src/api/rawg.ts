@@ -1,5 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { rankByQuery } from '@/utils/fuzzy';
+
 import { BUILT_IN } from './keys';
 import type { GameDetails, OnlineResult } from './types';
 
@@ -69,6 +71,8 @@ type RawgGame = {
   rating?: number;
   metacritic?: number | null;
   playtime?: number;
+  added?: number;
+  ratings_count?: number;
   platforms?: { platform: { name: string } }[] | null;
   genres?: { name: string }[];
   short_screenshots?: { image: string }[];
@@ -79,7 +83,6 @@ type RawgDetail = RawgGame & {
   background_image_additional?: string | null;
   developers?: { name: string }[];
   publishers?: { name: string }[];
-  ratings_count?: number;
   website?: string;
 };
 
@@ -90,15 +93,8 @@ function score(game: RawgGame): number | null {
   return game.rating ? Math.round((game.rating / 5) * 100) : null;
 }
 
-export async function searchRawg(text: string): Promise<OnlineResult[]> {
-  const q = text.trim();
-  if (q.length < 2) return [];
-  const data = await get<{ results: RawgGame[] }>('/games', {
-    search: q,
-    search_precise: 'true',
-    page_size: '30',
-  });
-  return data.results.map((game) => ({
+function toResult(game: RawgGame): OnlineResult {
+  return {
     source: 'rawg' as const,
     sourceId: game.id,
     title: game.name,
@@ -110,13 +106,27 @@ export async function searchRawg(text: string): Promise<OnlineResult[]> {
     main: game.playtime ? game.playtime : null,
     extra: null,
     full: null,
-  }));
+    developer: null,
+    releaseDate: game.released ?? null,
+    popularity: game.added ?? game.ratings_count ?? 0,
+  };
+}
+
+// precise = false: el buscador "difuso" de RAWG, que aguanta erratas.
+export async function searchRawg(text: string, precise = false): Promise<OnlineResult[]> {
+  const q = text.trim();
+  if (q.length < 2) return [];
+  const params: Record<string, string> = { search: q, page_size: '40' };
+  if (precise) params.search_precise = 'true';
+  const data = await get<{ results: RawgGame[] }>('/games', params);
+  const results = data.results.map(toResult);
+  return precise ? results : rankByQuery(q, results, (r) => r.title, (r) => r.popularity ?? 0);
 }
 
 export async function rawgDetails(by: { id?: number; title?: string; year?: number | null }): Promise<GameDetails | null> {
   let id = by.id;
   if (!id && by.title) {
-    const results = await searchRawg(by.title);
+    const results = await searchRawg(by.title, true);
     const match =
       results.find((r) => by.year && r.year === by.year) ??
       results.find((r) => r.title.toLowerCase() === by.title!.toLowerCase()) ??
@@ -151,6 +161,10 @@ export async function rawgDetails(by: { id?: number; title?: string; year?: numb
     rating: score(game),
     ratingCount: game.ratings_count ?? null,
     ratingLabel: game.metacritic ? 'Metacritic' : 'RAWG',
+    criticRating: game.metacritic ?? null,
+    criticCount: null,
+    userRating: game.rating ? Math.round((game.rating / 5) * 100) : null,
+    userCount: game.ratings_count ?? null,
     timeToBeat: game.playtime ? { main: game.playtime, extra: null, full: null } : null,
     url: `https://rawg.io/games/${game.slug}`,
   };
@@ -158,25 +172,13 @@ export async function rawgDetails(by: { id?: number; title?: string; year?: numb
 
 // Todos los juegos de una serie: busca el primero y pide su "game-series".
 export async function rawgSeries(name: string): Promise<OnlineResult[]> {
-  const results = await searchRawg(name);
+  const results = await searchRawg(name, true);
   const anchor = results[0];
   if (!anchor) return [];
   const data = await get<{ results: RawgGame[] }>(`/games/${anchor.sourceId}/game-series`, { page_size: '40' });
   const all = [
     anchor,
-    ...data.results.map((game) => ({
-      source: 'rawg' as const,
-      sourceId: game.id,
-      title: game.name,
-      year: yearOf(game.released),
-      platforms: (game.platforms ?? []).map((p) => p.platform.name).join(', '),
-      coverUrl: game.background_image ?? null,
-      summary: null,
-      rating: score(game),
-      main: game.playtime ? game.playtime : null,
-      extra: null,
-      full: null,
-    })),
+    ...data.results.map(toResult),
   ];
   return all.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
 }
@@ -190,7 +192,7 @@ export async function rawgResolve(
   for (const entry of entries) {
     let best: { r: OnlineResult; score: number } | null = null;
     for (const name of [entry.q, ...(entry.alt ?? [])]) {
-      const results = await searchRawg(name).catch(() => [] as OnlineResult[]);
+      const results = await searchRawg(name, true).catch(() => [] as OnlineResult[]);
       for (const r of results) {
         let score = norm(r.title) === norm(name) ? 100 : norm(r.title).includes(norm(name)) ? 25 : 0;
         if (r.year === entry.year) score += 40;

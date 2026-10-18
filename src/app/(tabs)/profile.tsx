@@ -1,12 +1,12 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { SectionTitle } from '@/components/lists';
+import { Card, CoverTile, Donut, HeaderIcon, IgnScreen, StatusIcon } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
-import { Avatar, MenuRow, Panel, StatTile } from '@/components/ui';
-import { FINISHED, STATUS_META, STATUS_ORDER } from '@/data/meta';
+import { Avatar, MenuRow } from '@/components/ui';
+import { FINISHED, scoreColor, STATUS_META, STATUS_ORDER } from '@/data/meta';
 import { useMyLists } from '@/hooks/useLists';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
@@ -33,7 +33,7 @@ function Bar({ label, value, max, color }: { label: string; value: number; max: 
 
 export default function ProfileScreen() {
   const skin = useSkin();
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const profile = useCurrentProfile();
   const userGames = useStore((s) => s.userGames);
   const games = useStore((s) => s.games);
@@ -81,116 +81,158 @@ export default function ProfileScreen() {
   }, [userGames, games, profile?.id, mode]);
 
   if (!profile) return null;
-  const maxStatus = Math.max(1, ...Object.values(data.byStatus));
   const maxRating = Math.max(1, ...data.ratings);
   const maxPlatform = Math.max(1, ...data.platforms.map((p) => p[1]));
   const publicLists = myLists.filter((l) => l.visibility === 'public').length;
 
+  const donutStatuses = STATUS_ORDER.filter((st) => (data.byStatus[st] ?? 0) > 0);
+
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
-      <View style={styles.head}>
-        <Avatar name={profile.displayName} color={profile.avatarColor} size={72} />
-        <View style={styles.flex}>
-          <ThemedText variant="display" size={26} numberOfLines={1}>
-            {profile.displayName}
-          </ThemedText>
-          <ThemedText variant="muted">@{profile.username}</ThemedText>
-          <ThemedText variant="muted" size={12}>
-            {myLists.length} listas · {publicLists} públicas
-          </ThemedText>
-        </View>
-      </View>
-      {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
-
-      <View style={styles.tiles}>
-        <StatTile value={String(data.total)} label="Juegos" />
-        <StatTile value={String(data.finished)} label="Terminados" />
-        <StatTile value={data.average !== null ? String(data.average) : '–'} label="Nota media" />
-      </View>
-      <View style={styles.tiles}>
-        <StatTile value={formatHours(data.hoursPlayed)} label="Horas apuntadas" />
-        <StatTile value={formatHours(data.hoursLeft)} label="Te quedan (aprox.)" />
-      </View>
-
-      {data.topRated.length > 0 ? (
-        <Panel>
-          <ThemedText variant="bold">Tus favoritos</ThemedText>
-          {data.topRated.map(({ ug, game }, index) => (
-            <ThemedText key={ug.id}>
-              {index + 1}. {game?.title ?? '¿?'} —{' '}
-              <ThemedText variant="bold" style={{ color: skin.colors.accent }}>
-                {ug.rating}/10
-              </ThemedText>
+    <IgnScreen
+      title="Perfil"
+      right={
+        <>
+          <HeaderIcon icon="people-outline" label="Cuentas" onPress={() => router.push('/accounts')} />
+          <HeaderIcon icon="settings-outline" label="Ajustes" onPress={() => router.push('/settings')} />
+        </>
+      }
+    >
+      <View style={styles.content}>
+        <Pressable style={styles.head} onPress={() => router.push('/profile-edit')}>
+          <Avatar name={profile.displayName} color={profile.avatarColor} size={72} />
+          <View style={styles.flex}>
+            <ThemedText variant="display" size={24} numberOfLines={1}>
+              {profile.displayName}
             </ThemedText>
-          ))}
-        </Panel>
-      ) : null}
+            <ThemedText variant="muted">@{profile.username}</ThemedText>
+            <ThemedText variant="muted" size={12}>
+              {myLists.length} listas · {publicLists} públicas
+            </ThemedText>
+          </View>
+          <Ionicons name="create-outline" size={20} color={skin.colors.muted} />
+        </Pressable>
+        {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
 
-      <Panel>
-        <ThemedText variant="bold">Por estado</ThemedText>
-        {STATUS_ORDER.map((s) => (
-          <Bar
-            key={s}
-            label={STATUS_META[s].short}
-            value={data.byStatus[s] ?? 0}
-            max={maxStatus}
-            color={STATUS_META[s].color}
-          />
-        ))}
-      </Panel>
+        <Card style={styles.statsCard} padded={false}>
+          <Stat value={String(data.total)} label="JUEGOS" />
+          <Stat value={String(data.finished)} label="TERMINADOS" />
+          <Stat value={data.average !== null ? String(data.average) : '–'} label="NOTA MEDIA" />
+        </Card>
+        <Card style={styles.statsCard} padded={false}>
+          <Stat value={formatHours(data.hoursPlayed)} label="HORAS JUGADAS" />
+          <Stat value={formatHours(data.hoursLeft)} label="TE QUEDAN" />
+        </Card>
 
-      <Panel>
-        <ThemedText variant="bold">Tus notas</ThemedText>
-        <View style={styles.histogram}>
-          {data.ratings.map((count, index) => (
-            <View key={index} style={styles.histoCol}>
-              <View style={styles.histoBarArea}>
-                <View
-                  style={[
-                    styles.histoBar,
-                    {
-                      height: `${(count / maxRating) * 100}%`,
-                      backgroundColor: skin.colors.accent,
-                      borderRadius: Math.min(skin.radius, 4),
-                    },
-                  ]}
-                />
-              </View>
-              <ThemedText variant="muted" size={11}>
-                {index + 1}
-              </ThemedText>
+        <Card>
+          <ThemedText variant="display" size={19}>
+            {data.total} en tu biblioteca
+          </ThemedText>
+          <View style={styles.donut}>
+            <Donut parts={donutStatuses.map((st) => ({ value: data.byStatus[st] ?? 0, color: STATUS_META[st].color }))} size={130} stroke={18} />
+          </View>
+          <View style={styles.legend}>
+            {STATUS_ORDER.filter((st) => st !== 'library' || data.byStatus.library).map((st) => (
+              <Pressable key={st} style={styles.legendItem} onPress={() => router.push(`/library/${st === 'completed' ? 'beaten' : st}`)}>
+                <StatusIcon status={st} size={22} />
+                <ThemedText variant="bold" size={14}>
+                  {data.byStatus[st] ?? 0}
+                </ThemedText>
+                <ThemedText variant="muted" size={10} numberOfLines={1} style={{ flex: 1, letterSpacing: 0.6 }}>
+                  {STATUS_META[st].short.toUpperCase()}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+
+        {data.topRated.length > 0 ? (
+          <Card>
+            <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
+              Tus mejor valorados
+            </ThemedText>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {data.topRated.map(({ ug, game }, index) =>
+                game ? (
+                  <CoverTile
+                    key={ug.id}
+                    game={game}
+                    width={(width - 40 - 36 - 24) / 3}
+                    rank={index + 1}
+                    subtitle={`${ug.rating}/10`}
+                    onPress={() => router.push(`/game/${encodeURIComponent(game.id)}`)}
+                  />
+                ) : null,
+              )}
             </View>
-          ))}
-        </View>
-      </Panel>
+          </Card>
+        ) : null}
 
-      {data.platforms.length > 0 ? (
-        <Panel>
-          <ThemedText variant="bold">Plataformas</ThemedText>
-          {data.platforms.map(([name, count]) => (
-            <Bar key={name} label={name} value={count} max={maxPlatform} color={skin.colors.accent2} />
-          ))}
-        </Panel>
-      ) : null}
+        <Card>
+          <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
+            Tus notas
+          </ThemedText>
+          <View style={styles.histogram}>
+            {data.ratings.map((count, index) => (
+              <View key={index} style={styles.histoCol}>
+                <View style={styles.histoBarArea}>
+                  <View
+                    style={[
+                      styles.histoBar,
+                      { height: `${(count / maxRating) * 100}%`, backgroundColor: scoreColor(index + 1), borderRadius: 3 },
+                    ]}
+                  />
+                </View>
+                <ThemedText variant="muted" size={11}>
+                  {index + 1}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        </Card>
 
-      <SectionTitle title="Cuenta" />
-      <Panel>
-        <MenuRow icon="create-outline" label="Editar perfil" onPress={() => router.push('/profile-edit')} />
-        <MenuRow icon="people-outline" label="Cuentas" onPress={() => router.push('/accounts')} />
-        <MenuRow icon="settings-outline" label="Ajustes" onPress={() => router.push('/settings')} />
-        <MenuRow
-          icon="eye-outline"
-          label="Ver mi perfil público"
-          onPress={() => router.push(`/user/${profile.id}`)}
-        />
-      </Panel>
-    </ScrollView>
+        {data.platforms.length > 0 ? (
+          <Card style={{ gap: 8 }}>
+            <ThemedText variant="display" size={19} style={{ marginBottom: 4 }}>
+              Plataformas
+            </ThemedText>
+            {data.platforms.map(([name, count]) => (
+              <Bar key={name} label={name} value={count} max={maxPlatform} color={skin.colors.accent} />
+            ))}
+          </Card>
+        ) : null}
+
+        <Card>
+          <MenuRow icon="create-outline" label="Editar perfil" onPress={() => router.push('/profile-edit')} />
+          <MenuRow icon="people-outline" label="Cuentas" onPress={() => router.push('/accounts')} />
+          <MenuRow icon="settings-outline" label="Ajustes y estética" onPress={() => router.push('/settings')} />
+          <MenuRow icon="eye-outline" label="Ver mi perfil público" onPress={() => router.push(`/user/${profile.id}`)} />
+        </Card>
+      </View>
+    </IgnScreen>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.stat}>
+      <ThemedText variant="bold" size={20}>
+        {value}
+      </ThemedText>
+      <ThemedText variant="muted" size={10} style={{ letterSpacing: 0.8 }}>
+        {label}
+      </ThemedText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 14 },
+  content: { paddingHorizontal: 20, gap: 16 },
+  statsCard: { flexDirection: 'row', paddingVertical: 16 },
+  stat: { flex: 1, alignItems: 'center', gap: 4 },
+  donut: { alignItems: 'center', marginVertical: 18 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+  legendItem: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   tiles: { flexDirection: 'row', gap: 8 },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

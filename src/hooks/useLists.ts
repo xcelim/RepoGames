@@ -83,3 +83,39 @@ export function useListCount(): (listId: string) => number {
       counts[listId] ?? 0;
   }, [items, remoteItems]);
 }
+
+// Primeras portadas de cada lista (para los mosaicos) y su número de juegos.
+export function useListPreview(): (listId: string, n?: number) => GameRecord[] {
+  const items = useStore((s) => s.items);
+  const games = useStore((s) => s.games);
+  const remoteItems = useRemote((s) => s.items);
+  const remoteGames = useRemote((s) => s.games);
+  return useMemo(() => {
+    const byList: Record<string, { position: number; gameId: string }[]> = {};
+    const local = Object.values(items);
+    const localLists = new Set(local.map((i) => i.listId));
+    for (const item of [...local, ...Object.values(remoteItems).filter((i) => !localLists.has(i.listId))]) {
+      (byList[item.listId] ??= []).push(item);
+    }
+    for (const arr of Object.values(byList)) arr.sort((a, b) => a.position - b.position);
+    return (listId: string, n = 4) =>
+      (byList[listId] ?? [])
+        .map((i) => games[i.gameId] ?? remoteGames[i.gameId])
+        .filter((g): g is GameRecord => !!g)
+        .slice(0, n);
+  }, [items, games, remoteItems, remoteGames]);
+}
+
+// Las listas que sigues.
+export function useFollowedLists(): GameList[] {
+  const follows = useStore((s) => s.follows);
+  const profileId = useStore((s) => s.currentProfileId);
+  const lists = useStore((s) => s.lists);
+  const remote = useRemote((s) => s.lists);
+  return useMemo(() => {
+    const ids = profileId ? (follows[profileId] ?? []) : [];
+    return ids
+      .map((id) => lists[id] ?? OFFICIAL_LISTS.find((l) => l.id === id) ?? remote[id])
+      .filter((l): l is GameList => !!l);
+  }, [follows, profileId, lists, remote]);
+}

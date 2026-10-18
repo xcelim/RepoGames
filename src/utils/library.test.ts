@@ -85,17 +85,16 @@ describe('sortEntries', () => {
     expect(sortEntries(entries, 'manual', 'main').map((e) => e.game.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('ordena por nota y deja los que no tienen nota al final', () => {
-    expect(sortEntries(entries, 'rating', 'main').map((e) => e.game.id)).toEqual(['b', 'a', 'c']);
+  it('ordena por nota y deja los que no tienen nota al final (en los dos sentidos)', () => {
+    expect(sortEntries(entries, 'mine-high', 'main').map((e) => e.game.id)).toEqual(['b', 'a', 'c']);
+    expect(sortEntries(entries, 'mine-low', 'main').map((e) => e.game.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('ordena por lanzamiento y por duración, también al revés', () => {
-    expect(sortEntries(entries, 'release', 'main').map((e) => e.game.id)).toEqual(['b', 'c', 'a']);
-    expect(sortEntries(entries, 'duration', 'full', true).map((e) => e.game.id)).toEqual([
-      'a',
-      'c',
-      'b',
-    ]);
+  it('ordena por lanzamiento, duración y alfabeto como IGN', () => {
+    expect(sortEntries(entries, 'release-old', 'main').map((e) => e.game.id)).toEqual(['b', 'c', 'a']);
+    expect(sortEntries(entries, 'release-new', 'main').map((e) => e.game.id)).toEqual(['a', 'c', 'b']);
+    expect(sortEntries(entries, 'hltb-long', 'full').map((e) => e.game.id)).toEqual(['a', 'c', 'b']);
+    expect(sortEntries(entries, 'za', 'main').map((e) => e.game.id)).toEqual(['c', 'b', 'a']);
   });
 });
 

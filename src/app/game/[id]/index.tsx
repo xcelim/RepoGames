@@ -1,105 +1,61 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/Button';
-import { GameCover, gameColors, RatingBadge, StatusPill } from '@/components/games';
+import { GameCover, gameColors } from '@/components/games';
+import { useGameSheets } from '@/components/gameSheets';
+import {
+  BlurHero,
+  Card,
+  DarkButton,
+  DotsButton,
+  formatScore,
+  formatUsDate,
+  IgnScreen,
+  Mosaic,
+  PieIcon,
+  PlatformChips,
+  ScoreHex,
+  ScoreSquare,
+  scoreLabel,
+  splitPlatforms,
+  StatusBadge,
+  StatusIcon,
+  useIgnColors,
+} from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
-import { Chip, EmptyState, IconButton, Panel, type IconName } from '@/components/ui';
-import { OFFICIAL_SERIES, officialListId } from '@/data/catalog';
+import { Avatar } from '@/components/ui';
+import { OFFICIAL_LISTS } from '@/data/catalog';
 import { STATUS_META } from '@/data/meta';
 import { useGameDetails } from '@/hooks/useIgdb';
-import { useGame } from '@/hooks/useLists';
+import { useCommunityLists, useGame, useListCount, useListPreview, useMyLists } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
-import { useSkin } from '@/theme/useSkin';
 import { formatDate } from '@/utils/format';
 import { userGameKey } from '@/utils/library';
+import type { GameDetails } from '@/api/types';
+import type { GameRecord } from '@/types';
 
-function Heading({ children }: { children: string }) {
-  const skin = useSkin();
-  return (
-    <ThemedText variant="display" size={20} style={{ color: skin.colors.text }}>
-      {children}
-    </ThemedText>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <View style={styles.infoRow}>
-      <ThemedText variant="muted" size={13} style={styles.infoLabel}>
-        {label}
-      </ThemedText>
-      <ThemedText size={14} style={styles.flex}>
-        {value}
-      </ThemedText>
-    </View>
-  );
-}
-
-function TimeTile({ label, hours, highlight }: { label: string; hours: number | null; highlight?: boolean }) {
-  const skin = useSkin();
-  return (
-    <View
-      style={[
-        styles.timeTile,
-        {
-          backgroundColor: highlight ? skin.colors.accent : skin.colors.panel,
-          borderColor: skin.colors.line,
-          borderWidth: skin.borderWidth,
-          borderRadius: Math.min(skin.radius, 14),
-        },
-      ]}
-    >
-      <ThemedText
-        variant="display"
-        size={24}
-        style={{ color: highlight ? skin.colors.onAccent : skin.colors.text }}
-      >
-        {hours ? `${hours} h` : '–'}
-      </ThemedText>
-      <ThemedText size={11} style={{ color: highlight ? skin.colors.onAccent : skin.colors.muted }}>
-        {label}
-      </ThemedText>
-    </View>
-  );
-}
+type Tab = 'overview' | 'lists' | 'reviews';
 
 export default function GameScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameId = decodeURIComponent(id ?? '');
-  const skin = useSkin();
+  const c = useIgnColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const game = useGame(gameId);
   const { details, loading } = useGameDetails(game);
-  const [moreText, setMoreText] = useState(false);
+  const [tab, setTab] = useState<Tab>('overview');
+  const sheets = useGameSheets();
 
-  const profileId = useStore((s) => s.currentProfileId);
-  const userGame = useStore((s) =>
-    s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined,
-  );
+  const userGame = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
   const storedGame = useStore((s) => s.games[gameId]);
   const upsertGame = useStore((s) => s.upsertGame);
-  const lists = useStore((s) => s.lists);
-  const items = useStore((s) => s.items);
-  const mode = useStore((s) => s.durationMode);
 
-  // Guarda en el juego los datos que faltaban (horas, portada) para las listas y estadísticas.
+  // Guarda en el juego lo que faltaba (horas, portada, desarrolladora...) para listas y estadísticas.
   useEffect(() => {
     if (!storedGame || !details) return;
     const t = details.timeToBeat;
@@ -110,391 +66,551 @@ export default function GameScreen() {
       full: storedGame.full ?? t?.full ?? null,
       synopsis: storedGame.synopsis ?? details.summary,
       platforms: storedGame.platforms || details.platforms.join(', '),
+      developer: storedGame.developer ?? details.developers[0] ?? null,
+      releaseDate: storedGame.releaseDate ?? details.releaseDate,
+      criticRating: storedGame.criticRating ?? details.criticRating ?? details.rating,
     };
     const changed = (Object.keys(patch) as (keyof typeof patch)[]).some((k) => patch[k] !== storedGame[k]);
     if (changed) upsertGame({ ...storedGame, ...patch });
   }, [details, storedGame, upsertGame]);
 
-  const inLists = useMemo(() => {
-    const ids = new Set(Object.values(items).filter((i) => i.gameId === gameId).map((i) => i.listId));
-    return Object.values(lists).filter((l) => ids.has(l.id) && l.ownerId === profileId);
-  }, [items, lists, gameId, profileId]);
-
   if (!game) {
     return (
-      <View style={[styles.flex, { paddingTop: insets.top + 40 }]}>
-        <EmptyState icon="help-circle-outline" title="No encuentro este juego">
-          <Button label="Volver" kind="ghost" onPress={() => router.back()} />
-        </EmptyState>
-      </View>
+      <IgnScreen title="Juego" back>
+        <ThemedText variant="muted" style={{ paddingHorizontal: 20 }}>
+          No encuentro este juego.
+        </ThemedText>
+      </IgnScreen>
     );
   }
 
-  const saga = OFFICIAL_SERIES.find((s) => s.id === game.series);
-  const [c1, c2] = gameColors(game);
-  const hero = details?.heroUrl ?? details?.screenshots[0] ?? details?.coverUrl ?? game.coverUrl;
   const cover = game.coverUrl ?? details?.coverUrl ?? null;
+  const developer = details?.developers[0] ?? game.developer ?? null;
+  const release = details?.releaseDate ?? game.releaseDate ?? null;
+  const platforms = details?.platforms.length ? details.platforms : splitPlatforms(game.platforms);
+  const critic = details?.criticRating ?? details?.rating ?? game.criticRating ?? null;
+  const users = details?.userRating ?? null;
+  const status = userGame?.status;
+  const coverW = Math.min(width * 0.52, 230);
+
+  const header = (
+    <View style={{ paddingTop: insets.top + 6 }}>
+      <BlurHero url={cover} colors={gameColors(game)} height={insets.top + 50 + coverW * 0.75} />
+      <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backRow} hitSlop={10}>
+        <Ionicons name="chevron-back" size={20} color="#fff" />
+        <ThemedText size={16} style={{ color: '#fff' }}>
+          Atrás
+        </ThemedText>
+      </Pressable>
+      <View style={styles.coverWrap}>
+        <View>
+          <GameCover game={game} width={coverW} url={cover} square radius={c.radius} />
+          {status ? (
+            <View style={styles.coverBadge}>
+              <StatusBadge status={status} />
+            </View>
+          ) : null}
+        </View>
+      </View>
+      <Pressable disabled={!details?.url} onPress={() => details?.url && Linking.openURL(details.url)} style={styles.titleRow}>
+        <ThemedText variant="display" size={26} style={styles.title}>
+          {game.title}
+        </ThemedText>
+        {details?.url ? <Ionicons name="arrow-up-outline" size={20} color={c.text} style={{ transform: [{ rotate: '45deg' }] }} /> : null}
+      </Pressable>
+      <ThemedText variant="muted" size={13} style={styles.center}>
+        {[developer, formatUsDate(release) ?? game.year].filter(Boolean).join(' · ')}
+      </ThemedText>
+      {platforms.length ? (
+        <View style={styles.platforms}>
+          <PlatformChips platforms={platforms} size="md" max={8} />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <IgnScreen title={game.title} header={header} collapseAt={coverW + 140}>
+      <View style={styles.block}>
+        <Card style={styles.scores} padded={false}>
+          <ScoreCol label="Crítica" onPress={() => details?.url && Linking.openURL(details.url)}>
+            <ScoreHex score={critic != null ? critic / 10 : null} size={44} />
+          </ScoreCol>
+          <ScoreCol label="Tu nota" onPress={() => router.push(`/game/${encodeURIComponent(game.id)}/review`)}>
+            <ScoreSquare score={userGame?.rating ?? null} size={44} />
+          </ScoreCol>
+          <ScoreCol label={details?.userCount ? `${details.userCount} notas` : 'Jugadores'}>
+            <ScoreSquare score={users != null ? Math.round(users) / 10 : null} size={44} />
+          </ScoreCol>
+          <ScoreCol label={userGame?.recommend == null ? 'Recomendado' : 'Lo recomiendas'}>
+            <ScoreSquare score={null} size={44} neutral={userGame?.recommend == null ? '–' : userGame.recommend ? 'Sí' : 'No'} />
+          </ScoreCol>
+        </Card>
+        <View style={styles.editRow}>
+          <DarkButton label="Editar estado" onPress={() => sheets.openStatus(game)} style={{ flex: 1 }} />
+          <DotsButton onPress={() => sheets.openMore(game)} />
+        </View>
+      </View>
+
+      <View style={[styles.tabs, { borderBottomColor: c.line }]}>
+        {(
+          [
+            ['overview', 'Resumen'],
+            ['lists', 'Listas'],
+            ['reviews', 'Reseñas'],
+          ] as [Tab, string][]
+        ).map(([key, label]) => (
+          <Pressable key={key} onPress={() => setTab(key)} style={[styles.tab, tab === key && { borderBottomColor: c.text }]}>
+            <ThemedText variant={tab === key ? 'bold' : 'body'} size={14} style={{ color: tab === key ? c.text : c.muted }}>
+              {label}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.tabBody}>
+        {tab === 'overview' ? (
+          <Overview game={game} details={details} loading={loading} />
+        ) : tab === 'lists' ? (
+          <ListsTab gameId={game.id} onOrganize={() => sheets.openOrganize(game)} />
+        ) : (
+          <ReviewsTab gameId={game.id} />
+        )}
+      </View>
+      {sheets.element}
+    </IgnScreen>
+  );
+}
+
+function ScoreCol({ label, children, onPress }: { label: string; children: React.ReactNode; onPress?: () => void }) {
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} style={styles.scoreCol}>
+      {children}
+      <ThemedText variant="muted" size={10} numberOfLines={1} style={{ textDecorationLine: 'underline' }}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+// ---------- Resumen ----------
+
+function Overview({ game, details, loading }: { game: GameRecord; details: GameDetails | null; loading: boolean }) {
+  const c = useIgnColors();
+  const gameId = game.id;
+  const userGame = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
+  const [gallery, setGallery] = useState<number | null>(null);
+  const [moreText, setMoreText] = useState(false);
+  const [showSpoilers, setShowSpoilers] = useState(false);
+  const { width } = useWindowDimensions();
+
   const times = {
     main: game.main ?? details?.timeToBeat?.main ?? null,
     extra: game.extra ?? details?.timeToBeat?.extra ?? null,
     full: game.full ?? details?.timeToBeat?.full ?? null,
   };
-  const release = formatDate(details?.releaseDate) ?? (game.year ? String(game.year) : null);
-  const platforms = details?.platforms.length ? details.platforms.join(', ') : game.platforms;
-  const description = game.synopsis ?? details?.summary ?? null;
-  const original = game.synopsis && details?.summary ? details.summary : null;
-  const statusMeta = userGame ? STATUS_META[userGame.status] : null;
-  const edit = () => router.push(`/game/${encodeURIComponent(game.id)}/edit`);
-  const heroHeight = Math.round(width * 0.62);
-  const hasPlay =
-    userGame &&
-    (userGame.platform ||
-      userGame.hoursPlayed ||
-      userGame.startedAt ||
-      userGame.finishedAt ||
-      userGame.review ||
-      userGame.liked.length ||
-      userGame.disliked.length);
+  const known = [times.main, times.extra, times.full].filter((h): h is number => h != null);
+  const average = known.length ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : null;
+  const shots = details?.screenshots ?? [];
+  const video = details?.videoIds[0];
+  const summary = details?.summary ?? game.synopsis;
+  const innerW = width - 40 - 36;
 
-  const openTrailer = (videoId?: string) =>
-    Linking.openURL(
-      videoId
-        ? `https://www.youtube.com/watch?v=${videoId}`
-        : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${game.title} trailer`)}`,
-    );
-
-  const share = () => {
-    const rating = userGame?.rating ? ` · mi nota: ${userGame.rating}/10` : '';
-    Share.share({ message: `🎮 ${game.title}${game.year ? ` (${game.year})` : ''}${rating}\nVisto en Saga Quest` });
-  };
+  const fields: [string, string[] | string | null | undefined][] = [
+    ['Desarrolladores', details?.developers ?? (game.developer ? [game.developer] : [])],
+    ['Distribuidoras', details?.publishers],
+    ['Fecha de lanzamiento', formatUsDate(details?.releaseDate ?? game.releaseDate) ?? (game.year ? String(game.year) : null)],
+    ['Franquicia', details?.franchise],
+    ['Géneros', details?.genres],
+    ['Temáticas', details?.themes],
+    ['Modos', details?.modes],
+    ['Plataformas', details?.platforms.length ? details.platforms : splitPlatforms(game.platforms)],
+  ];
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 48 }} showsVerticalScrollIndicator={false}>
-      {/* ---------- Cabecera ---------- */}
-      <View style={{ height: heroHeight }}>
-        <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-        {hero ? <Image source={hero} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} /> : null}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.45)', 'transparent', skin.colors.bg]}
-          locations={[0, 0.45, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.heroTop, { top: insets.top + 6 }]}>
-          <IconButton icon="chevron-back" label="Volver" color="#fff" onPress={() => router.back()} />
-          <View style={styles.flex} />
-          <IconButton icon="share-social-outline" label="Compartir" color="#fff" onPress={share} />
-        </View>
-      </View>
+    <View style={{ gap: 18 }}>
+      {loading && !details ? <ActivityIndicator color={c.text} /> : null}
 
-      <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <GameCover game={game} width={108} url={cover} />
-          <View style={styles.titleText}>
-            <ThemedText variant="display" size={26}>
-              {game.title}
+      <Card>
+        <Pressable onPress={() => Linking.openURL(`https://howlongtobeat.com/?q=${encodeURIComponent(game.title)}`)} style={styles.cardTitleRow}>
+          <ThemedText variant="display" size={19}>
+            Cuánto dura
+          </ThemedText>
+          <Ionicons name="arrow-up-outline" size={18} color={c.text} style={{ transform: [{ rotate: '45deg' }] }} />
+        </Pressable>
+        <View style={[styles.bigCircle, { backgroundColor: c.inverseBg }]}>
+          <ThemedText variant="bold" size={22} style={{ color: c.inverseText }}>
+            {average != null ? `${average} h` : '–'}
+          </ThemedText>
+          <ThemedText variant="bold" size={9} style={{ color: c.inverseText, letterSpacing: 1 }}>
+            MEDIA
+          </ThemedText>
+        </View>
+        {(
+          [
+            [0.25, times.main, 'historia principal'],
+            [0.5, times.extra, 'historia + secundarias'],
+            [1, times.full, 'completándolo todo'],
+          ] as [number, number | null, string][]
+        ).map(([fraction, hours, label]) => (
+          <View key={label} style={styles.hltbRow}>
+            <PieIcon fraction={fraction} size={22} />
+            <ThemedText size={15}>
+              <ThemedText variant="bold" size={15}>
+                {hours != null ? `${formatScore(hours)} h ` : '– h '}
+              </ThemedText>
+              {label}
             </ThemedText>
-            {release ? (
-              <ThemedText variant="muted" size={13}>
-                {release}
-              </ThemedText>
-            ) : null}
-            {details?.developers.length ? (
-              <ThemedText variant="muted" size={13} numberOfLines={1}>
-                {details.developers.join(', ')}
-              </ThemedText>
-            ) : null}
           </View>
-        </View>
+        ))}
+        {userGame?.hoursPlayed ? (
+          <ThemedText variant="muted" size={12} style={{ marginTop: 6 }}>
+            Llevas {userGame.hoursPlayed} h jugadas.
+          </ThemedText>
+        ) : null}
+      </Card>
 
-        {/* ---------- Notas ---------- */}
-        <View style={styles.scores}>
-          {details?.rating ? (
-            <View style={styles.score}>
-              <View style={[styles.scoreCircle, { borderColor: skin.colors.accent2 }]}>
-                <ThemedText variant="display" size={22}>
-                  {details.rating}
+      {userGame ? (
+        <Card>
+          <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
+            Tu partida
+          </ThemedText>
+          <View style={styles.partRow}>
+            <StatusIcon status={userGame.status} size={34} />
+            <View style={{ flex: 1 }}>
+              <ThemedText variant="bold" size={15}>
+                {STATUS_META[userGame.status].label}
+              </ThemedText>
+              <ThemedText variant="muted" size={10} style={{ letterSpacing: 0.8 }}>
+                {STATUS_META[userGame.status].caption}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.partGrid}>
+            <Part label="Plataforma" value={userGame.platform} />
+            <Part label="Horas jugadas" value={userGame.hoursPlayed != null ? `${userGame.hoursPlayed} h` : null} />
+            <Part label="Empezado" value={userGame.startedAt ? formatDate(userGame.startedAt) : null} />
+            <Part label="Terminado" value={userGame.finishedAt ? formatDate(userGame.finishedAt) : null} />
+            <Part label="Lo tienes" value={userGame.owned ? 'Sí' : 'No'} />
+            <Part label="Favorito" value={userGame.favorite ? '★' : '–'} />
+          </View>
+          <Pressable onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/edit`)} style={{ marginTop: 12 }}>
+            <ThemedText variant="bold" size={12} style={{ textDecorationLine: 'underline' }}>
+              EDITAR DETALLES
+            </ThemedText>
+          </Pressable>
+        </Card>
+      ) : null}
+
+      <Card>
+        <ThemedText variant="display" size={19} style={{ marginBottom: 14 }}>
+          Tu reseña
+        </ThemedText>
+        {userGame?.rating ? (
+          <View style={{ gap: 12 }}>
+            <View style={styles.partRow}>
+              <ScoreHex score={userGame.rating} size={46} />
+              <ThemedText variant="display" size={22}>
+                {scoreLabel(userGame.rating)}
+              </ThemedText>
+            </View>
+            {userGame.review ? (
+              userGame.spoilers && !showSpoilers ? (
+                <Pressable onPress={() => setShowSpoilers(true)} style={[styles.spoiler, { backgroundColor: c.soft, borderRadius: c.radius }]}>
+                  <Ionicons name="eye-off-outline" size={18} color={c.muted} />
+                  <ThemedText variant="muted" size={13}>
+                    Contiene spoilers. Toca para leerla.
+                  </ThemedText>
+                </Pressable>
+              ) : (
+                <ThemedText size={15} style={{ lineHeight: 22 }}>
+                  {userGame.review}
                 </ThemedText>
-              </View>
-              <ThemedText variant="muted" size={11}>
-                {details.ratingLabel}
-                {details.ratingCount ? ` · ${details.ratingCount}` : ''}
-              </ThemedText>
-            </View>
-          ) : null}
-          <Pressable style={styles.score} onPress={edit}>
-            {userGame?.rating ? (
-              <RatingBadge rating={userGame.rating} size="lg" />
-            ) : (
-              <View style={[styles.scoreCircle, { borderColor: skin.colors.line, borderStyle: 'dashed' }]}>
-                <Ionicons name="star-outline" size={24} color={skin.colors.muted} />
-              </View>
-            )}
-            <ThemedText variant="muted" size={11}>
-              {userGame?.rating ? 'Tu nota' : 'Puntuar'}
-            </ThemedText>
-          </Pressable>
-          {userGame?.favorite ? (
-            <View style={styles.score}>
-              <View style={[styles.scoreCircle, { borderColor: '#e66cc4' }]}>
-                <Ionicons name="heart" size={26} color="#e66cc4" />
-              </View>
-              <ThemedText variant="muted" size={11}>
-                Favorito
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
-
-        {/* ---------- Acciones ---------- */}
-        <View style={styles.actions}>
-          <Pressable
-            onPress={edit}
-            style={({ pressed }) => [
-              styles.mainAction,
-              {
-                backgroundColor: statusMeta ? statusMeta.color : skin.colors.accent,
-                borderRadius: Math.min(skin.radius, 14),
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-          >
-            <Ionicons name={(statusMeta?.icon ?? 'add') as IconName} size={20} color="#fff" />
-            <ThemedText variant="bold" style={styles.white}>
-              {statusMeta ? statusMeta.label : 'Añadir a mi biblioteca'}
-            </ThemedText>
-          </Pressable>
-          <IconButton
-            icon="folder-open-outline"
-            label="Añadir a una lista"
-            filled
-            onPress={() => router.push(`/list/pick?gameId=${encodeURIComponent(game.id)}`)}
-          />
-          <IconButton icon="create-outline" label="Editar" filled onPress={edit} />
-        </View>
-
-        {/* ---------- Tu partida (solo lectura) ---------- */}
-        {hasPlay ? (
-          <Pressable onPress={edit}>
-            <Panel>
-              <View style={styles.rowBetween}>
-                <Heading>Tu partida</Heading>
-                {userGame ? <StatusPill status={userGame.status} /> : null}
-              </View>
-              <InfoRow label="Plataforma" value={userGame?.platform} />
-              <InfoRow label="Horas" value={userGame?.hoursPlayed ? `${userGame.hoursPlayed} h` : null} />
-              <InfoRow label="Empezado" value={formatDate(userGame?.startedAt)} />
-              <InfoRow label="Terminado" value={formatDate(userGame?.finishedAt)} />
-              <InfoRow label="Lo mejor" value={userGame?.liked.join(', ')} />
-              <InfoRow label="Lo peor" value={userGame?.disliked.join(', ')} />
-              {userGame?.review ? <ThemedText style={styles.review}>“{userGame.review}”</ThemedText> : null}
-            </Panel>
-          </Pressable>
-        ) : null}
-
-        {loading ? <ActivityIndicator color={skin.colors.accent} /> : null}
-
-        {/* ---------- Cuánto dura ---------- */}
-        {times.main || times.extra || times.full ? (
-          <View style={styles.section}>
-            <Heading>Cuánto dura</Heading>
-            <View style={styles.times}>
-              <TimeTile label="Historia" hours={times.main} highlight={mode === 'main'} />
-              <TimeTile label="+ Secundarias" hours={times.extra} highlight={mode === 'extra'} />
-              <TimeTile label="100 %" hours={times.full} highlight={mode === 'full'} />
-            </View>
-          </View>
-        ) : null}
-
-        {/* ---------- Resumen ---------- */}
-        {description ? (
-          <View style={styles.section}>
-            <Heading>Resumen</Heading>
-            <ThemedText numberOfLines={moreText ? undefined : 6}>{description}</ThemedText>
-            {description.length > 280 ? (
-              <ThemedText
-                variant="bold"
-                size={13}
-                style={{ color: skin.colors.accent }}
-                onPress={() => setMoreText((v) => !v)}
-              >
-                {moreText ? 'Ver menos' : 'Leer más'}
-              </ThemedText>
+              )
             ) : null}
+            {userGame.liked.length || userGame.disliked.length ? (
+              <View style={styles.tags}>
+                {userGame.liked.map((t) => (
+                  <Tag key={`l${t}`} label={t} up />
+                ))}
+                {userGame.disliked.map((t) => (
+                  <Tag key={`d${t}`} label={t} />
+                ))}
+              </View>
+            ) : null}
+            <DarkButton label="Editar reseña" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} style={{ alignSelf: 'flex-start' }} />
           </View>
-        ) : null}
+        ) : (
+          <View style={{ gap: 12 }}>
+            <ThemedText variant="muted" size={14}>
+              Aún no lo has valorado. Ponle nota, di qué te gustó y escribe tu reseña.
+            </ThemedText>
+            <DarkButton label="Valorar este juego" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} style={{ alignSelf: 'flex-start' }} />
+          </View>
+        )}
+      </Card>
 
+      {video || shots.length ? (
+        <Card>
+          <ThemedText variant="display" size={19} style={{ marginBottom: 14 }}>
+            Imágenes y capturas
+          </ThemedText>
+          {video ? (
+            <Pressable onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${video}`)} style={[styles.video, { borderRadius: c.radius }]}>
+              <Image source={`https://img.youtube.com/vi/${video}/hqdefault.jpg`} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <View style={styles.play}>
+                <Ionicons name="play" size={30} color="#fff" style={{ marginLeft: 4 }} />
+              </View>
+            </Pressable>
+          ) : null}
+          <View style={styles.shots}>
+            {shots.slice(0, 4).map((url, i) => (
+              <Pressable key={url} onPress={() => setGallery(i)} style={{ width: (innerW - 10) / 2, height: ((innerW - 10) / 2) * 0.75, borderRadius: c.radius, overflow: 'hidden' }}>
+                <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+                {i === 3 && shots.length > 4 ? (
+                  <View style={styles.moreShots}>
+                    <ThemedText variant="bold" size={13} style={{ color: '#fff', letterSpacing: 1 }}>
+                      {shots.length} IMÁGENES
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+      ) : null}
+
+      <Card>
+        <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
+          Resumen
+        </ThemedText>
+        {summary ? (
+          <ThemedText size={14} style={{ lineHeight: 22 }} numberOfLines={moreText ? undefined : 7} onPress={() => setMoreText((m) => !m)}>
+            {summary}
+          </ThemedText>
+        ) : (
+          <ThemedText variant="muted" size={14}>
+            {loading ? 'Cargando…' : 'Sin descripción.'}
+          </ThemedText>
+        )}
         {game.version || game.note ? (
-          <Panel>
-            <View style={styles.rowStart}>
-              <Ionicons name="sparkles" size={18} color={skin.colors.accent} />
-              <ThemedText variant="bold">Versión recomendada</ThemedText>
-            </View>
-            {game.version ? <ThemedText>{game.version}</ThemedText> : null}
+          <View style={styles.field}>
+            <ThemedText variant="bold" size={14}>
+              Versión recomendada
+            </ThemedText>
+            {game.version ? <ThemedText size={14}>{game.version}</ThemedText> : null}
             {game.note ? (
               <ThemedText variant="muted" size={13}>
                 {game.note}
               </ThemedText>
             ) : null}
-          </Panel>
-        ) : null}
-
-        {/* ---------- Capturas y vídeos ---------- */}
-        {details?.screenshots.length ? (
-          <View style={styles.section}>
-            <Heading>Capturas</Heading>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
-              {details.screenshots.map((url) => (
-                <Image
-                  key={url}
-                  source={url}
-                  style={[styles.shot, { borderRadius: Math.min(skin.radius, 12) }]}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ))}
-            </ScrollView>
           </View>
         ) : null}
-
-        <View style={styles.section}>
-          <Heading>Vídeos</Heading>
-          {details?.videoIds.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
-              {details.videoIds.slice(0, 8).map((videoId) => (
-                <Pressable key={videoId} onPress={() => openTrailer(videoId)}>
-                  <Image
-                    source={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                    style={[styles.shot, { borderRadius: Math.min(skin.radius, 12) }]}
-                    contentFit="cover"
-                  />
-                  <View style={styles.play}>
-                    <Ionicons name="play-circle" size={52} color="rgba(255,255,255,0.9)" />
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            <Button kind="ghost" label="▶ Buscar tráiler en YouTube" onPress={() => openTrailer()} />
-          )}
-        </View>
-
-        {/* ---------- Detalles ---------- */}
-        <View style={styles.section}>
-          <Heading>Detalles</Heading>
-          <Panel>
-            <InfoRow label="Lanzamiento" value={release} />
-            <InfoRow label="Plataformas" value={platforms} />
-            <InfoRow label="Géneros" value={details?.genres.join(', ')} />
-            <InfoRow label="Desarrolla" value={details?.developers.join(', ')} />
-            <InfoRow label="Distribuye" value={details?.publishers.join(', ')} />
-            <InfoRow label="Saga" value={saga?.name ?? details?.franchise} />
-          </Panel>
-        </View>
-
-        {original ? (
-          <View style={styles.section}>
-            <Heading>Descripción original</Heading>
-            <ThemedText variant="muted" size={13}>
-              {original}
-            </ThemedText>
-          </View>
-        ) : null}
-
-        {details?.storyline ? (
-          <View style={styles.section}>
-            <Heading>Argumento</Heading>
-            <ThemedText variant="muted" size={13}>
-              {details.storyline}
-            </ThemedText>
-          </View>
-        ) : null}
-
-        <View style={styles.section}>
-          <Heading>En tus listas</Heading>
-          <View style={styles.wrap}>
-            {inLists.map((l) => (
-              <Chip key={l.id} label={l.name} icon="folder" onPress={() => router.push(`/list/${l.id}`)} />
-            ))}
-            <Chip
-              label="Añadir a una lista"
-              icon="add"
-              onPress={() => router.push(`/list/pick?gameId=${encodeURIComponent(game.id)}`)}
-            />
-          </View>
-        </View>
-
-        {saga ? (
-          <Button kind="ghost" label={`Ver la saga ${saga.name}`} onPress={() => router.push(`/list/${officialListId(saga.id)}`)} />
-        ) : null}
-
-        <View style={styles.links}>
+        {fields.map(([label, value]) => {
+          const text = Array.isArray(value) ? value.join(', ') : value;
+          if (!text) return null;
+          return (
+            <View key={label} style={styles.field}>
+              <ThemedText variant="bold" size={14}>
+                {label}
+              </ThemedText>
+              <ThemedText size={14} style={{ textDecorationLine: 'underline' }}>
+                {text}
+              </ThemedText>
+            </View>
+          );
+        })}
+        {details ? (
           <ThemedText
             variant="muted"
-            size={12}
-            style={styles.link}
-            onPress={() => Linking.openURL(`https://howlongtobeat.com/?q=${encodeURIComponent(game.title)}`)}
+            size={11}
+            style={{ marginTop: 18, textDecorationLine: 'underline' }}
+            onPress={() => details.url && Linking.openURL(details.url)}
           >
-            HowLongToBeat
+            Datos de {details.source === 'rawg' ? 'RAWG (rawg.io)' : 'IGDB (igdb.com)'}
           </ThemedText>
-          {details?.url ? (
-            <ThemedText variant="muted" size={12} style={styles.link} onPress={() => Linking.openURL(details.url!)}>
-              Datos de {details.source === 'igdb' ? 'IGDB' : 'RAWG'}
-            </ThemedText>
-          ) : null}
-        </View>
-
-        {!details && !loading ? (
-          <Panel>
-            <ThemedText variant="muted" size={13}>
-              Conecta IGDB o RAWG en Ajustes para ver portada, capturas, vídeos, compañías y tiempos
-              de cualquier juego.
-            </ThemedText>
-            <Button kind="ghost" label="Ir a Ajustes" onPress={() => router.push('/settings')} />
-          </Panel>
         ) : null}
+      </Card>
+
+      <Gallery shots={shots} index={gallery} onClose={() => setGallery(null)} />
+    </View>
+  );
+}
+
+function Part({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <View style={styles.part}>
+      <ThemedText variant="muted" size={11}>
+        {label}
+      </ThemedText>
+      <ThemedText size={14}>{value || '–'}</ThemedText>
+    </View>
+  );
+}
+
+function Tag({ label, up }: { label: string; up?: boolean }) {
+  const c = useIgnColors();
+  return (
+    <View style={[styles.tag, { backgroundColor: c.soft }]}>
+      <Ionicons name={up ? 'thumbs-up' : 'thumbs-down'} size={12} color={up ? '#6aa834' : '#e5484d'} />
+      <ThemedText size={12}>{label}</ThemedText>
+    </View>
+  );
+}
+
+function Gallery({ shots, index, onClose }: { shots: string[]; index: number | null; onClose: () => void }) {
+  const { width, height } = useWindowDimensions();
+  return (
+    <Modal visible={index != null} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.galleryBg}>
+        <ScrollView horizontal pagingEnabled contentOffset={{ x: (index ?? 0) * width, y: 0 }} showsHorizontalScrollIndicator={false}>
+          {shots.map((url) => (
+            <View key={url} style={{ width, height, justifyContent: 'center' }}>
+              <Image source={url.replace('t_screenshot_big', 't_1080p')} style={{ width, height: width * 0.5625 }} contentFit="contain" />
+            </View>
+          ))}
+        </ScrollView>
+        <Pressable onPress={onClose} style={styles.galleryClose} hitSlop={12}>
+          <Ionicons name="close" size={30} color="#fff" />
+        </Pressable>
       </View>
-    </ScrollView>
+    </Modal>
+  );
+}
+
+// ---------- Listas ----------
+
+function ListsTab({ gameId, onOrganize }: { gameId: string; onOrganize: () => void }) {
+  const c = useIgnColors();
+  const items = useStore((s) => s.items);
+  const mine = useMyLists();
+  const community = useCommunityLists();
+  const preview = useListPreview();
+  const count = useListCount();
+  const containing = useMemo(() => new Set(Object.values(items).filter((i) => i.gameId === gameId).map((i) => i.listId)), [items, gameId]);
+  const myIn = mine.filter((l) => containing.has(l.id));
+  const others = [...OFFICIAL_LISTS, ...community].filter((l) => containing.has(l.id));
+
+  const row = (list: (typeof mine)[number]) => (
+    <Pressable key={list.id} onPress={() => router.push(`/list/${list.id}`)} style={styles.listRow}>
+      <Mosaic list={list} games={preview(list.id)} size={52} radius={8} />
+      <View style={{ flex: 1 }}>
+        <ThemedText size={15} numberOfLines={1}>
+          {list.name}
+        </ThemedText>
+        <ThemedText variant="muted" size={12}>
+          {count(list.id)} juegos
+        </ThemedText>
+      </View>
+      <Ionicons name={list.visibility === 'private' ? 'lock-closed' : 'globe-outline'} size={15} color={c.muted} />
+    </Pressable>
+  );
+
+  return (
+    <View style={{ gap: 18 }}>
+      <Card>
+        <ThemedText variant="display" size={19} style={{ marginBottom: 8 }}>
+          En tus listas
+        </ThemedText>
+        {myIn.length ? myIn.map(row) : <ThemedText variant="muted">Todavía no está en ninguna de tus listas.</ThemedText>}
+        <DarkButton label="Organizar en listas" icon="add-circle-outline" onPress={onOrganize} style={{ marginTop: 12 }} />
+      </Card>
+      {others.length ? (
+        <Card>
+          <ThemedText variant="display" size={19} style={{ marginBottom: 8 }}>
+            Listas públicas con este juego
+          </ThemedText>
+          {others.map(row)}
+        </Card>
+      ) : null}
+    </View>
+  );
+}
+
+// ---------- Reseñas ----------
+
+function ReviewsTab({ gameId }: { gameId: string }) {
+  const c = useIgnColors();
+  const profileId = useStore((s) => s.currentProfileId);
+  const profiles = useStore((s) => s.profiles);
+  const userGames = useStore((s) => s.userGames);
+  const reviews = Object.values(userGames)
+    .filter((u) => u.gameId === gameId && (u.rating != null || u.review) && (u.profileId === profileId || !u.reviewPrivate))
+    .sort((a, b) => (a.profileId === profileId ? -1 : b.profileId === profileId ? 1 : b.updatedAt.localeCompare(a.updatedAt)));
+  const mineDone = reviews.some((r) => r.profileId === profileId);
+
+  return (
+    <View style={{ gap: 18 }}>
+      {!mineDone ? <DarkButton label="Escribir una reseña" icon="create-outline" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} /> : null}
+      {reviews.map((r) => {
+        const p = profiles[r.profileId];
+        return (
+          <Card key={r.id} style={{ gap: 12 }}>
+            <View style={styles.partRow}>
+              <Avatar name={p?.displayName ?? '?'} color={p?.avatarColor ?? '#888'} size={36} />
+              <View style={{ flex: 1 }}>
+                <ThemedText variant="bold" size={15}>
+                  {p?.displayName ?? 'Jugador'}
+                  {r.profileId === profileId ? ' (tú)' : ''}
+                </ThemedText>
+                <ThemedText variant="muted" size={11}>
+                  {[r.platform, STATUS_META[r.status].short, r.recommend === true ? 'Lo recomienda' : r.recommend === false ? 'No lo recomienda' : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </ThemedText>
+              </View>
+              {r.rating != null ? <ScoreSquare score={r.rating} size={40} /> : null}
+            </View>
+            {r.review ? <ThemedText size={14} style={{ lineHeight: 21 }}>{r.spoilers ? `⚠️ Spoilers · ${r.review}` : r.review}</ThemedText> : null}
+            {r.profileId === profileId ? (
+              <Pressable onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)}>
+                <ThemedText variant="bold" size={12} style={{ textDecorationLine: 'underline' }}>
+                  EDITAR {r.reviewPrivate ? '· SOLO LA VES TÚ' : ''}
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </Card>
+        );
+      })}
+      {reviews.length === 0 ? (
+        <ThemedText variant="muted" size={14} style={{ textAlign: 'center', color: c.muted }}>
+          Nadie ha reseñado este juego todavía.
+        </ThemedText>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  white: { color: '#ffffff' },
-  heroTop: { position: 'absolute', left: 8, right: 8, flexDirection: 'row' },
-  content: { paddingHorizontal: 16, gap: 20, marginTop: -70 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 14 },
-  titleText: { flex: 1, gap: 2, paddingBottom: 4 },
-  scores: { flexDirection: 'row', gap: 18 },
-  score: { alignItems: 'center', gap: 4 },
-  scoreCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  mainAction: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-  },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowStart: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  infoRow: { flexDirection: 'row', gap: 12 },
-  infoLabel: { width: 96 },
-  review: { fontStyle: 'italic' },
-  section: { gap: 10 },
-  times: { flexDirection: 'row', gap: 8 },
-  timeTile: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 2 },
-  gallery: { gap: 10, paddingRight: 16 },
-  shot: { width: 260, height: 146 },
-  play: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  links: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
-  link: { textDecorationLine: 'underline' },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 16, height: 40, alignSelf: 'flex-start' },
+  coverWrap: { alignItems: 'center', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, elevation: 10 },
+  coverBadge: { position: 'absolute', right: 8, bottom: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingHorizontal: 24 },
+  title: { textAlign: 'center', flexShrink: 1 },
+  center: { textAlign: 'center', marginTop: 6 },
+  platforms: { alignItems: 'center', marginTop: 10 },
+  block: { paddingHorizontal: 20, marginTop: 18, gap: 14 },
+  scores: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 6 },
+  scoreCol: { flex: 1, alignItems: 'center', gap: 8 },
+  editRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tabs: { flexDirection: 'row', marginTop: 20, borderBottomWidth: StyleSheet.hairlineWidth },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBody: { padding: 20 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 },
+  bigCircle: { width: 110, height: 110, borderRadius: 55, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  hltbRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  partRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  partGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, rowGap: 12 },
+  part: { width: '50%', gap: 2 },
+  spoiler: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  video: { height: 190, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  play: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#e62117', alignItems: 'center', justifyContent: 'center' },
+  shots: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  moreShots: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  field: { marginTop: 16, gap: 3 },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  galleryBg: { flex: 1, backgroundColor: '#000' },
+  galleryClose: { position: 'absolute', top: 50, right: 20 },
 });

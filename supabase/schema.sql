@@ -55,6 +55,9 @@ create table if not exists public.games (
   rawg_id bigint,
   igdb_query text,
   cover_url text,
+  developer text,
+  release_date date,
+  critic_rating smallint,
   source text not null check (source in ('catalog', 'igdb', 'rawg', 'custom')),
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now()
@@ -92,7 +95,7 @@ create index if not exists list_items_list_idx on public.list_items (list_id, po
 create table if not exists public.user_games (
   profile_id uuid not null references public.profiles (id) on delete cascade,
   game_id text not null references public.games (id) on delete cascade,
-  status text not null check (status in ('wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'dropped')),
+  status text not null check (status in ('library', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'dropped')),
   rating smallint check (rating between 1 and 10),
   platform text,
   liked text[] not null default '{}',
@@ -103,6 +106,9 @@ create table if not exists public.user_games (
   finished_at date,
   owned boolean not null default false,
   favorite boolean not null default false,
+  recommend boolean,
+  spoilers boolean not null default false,
+  review_private boolean not null default false,
   added_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (profile_id, game_id)
@@ -179,3 +185,14 @@ create policy "follows own" on public.list_follows for all
 alter table public.games add column if not exists rawg_id bigint;
 alter table public.games drop constraint if exists games_source_check;
 alter table public.games add constraint games_source_check check (source in ('catalog', 'igdb', 'rawg', 'custom'));
+
+-- Migración a la versión 3 (pantallas estilo IGN).
+alter table public.games add column if not exists developer text;
+alter table public.games add column if not exists release_date date;
+alter table public.games add column if not exists critic_rating smallint;
+alter table public.user_games add column if not exists recommend boolean;
+alter table public.user_games add column if not exists spoilers boolean not null default false;
+alter table public.user_games add column if not exists review_private boolean not null default false;
+alter table public.user_games drop constraint if exists user_games_status_check;
+alter table public.user_games add constraint user_games_status_check
+  check (status in ('library', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'dropped'));
