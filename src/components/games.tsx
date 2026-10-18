@@ -67,7 +67,12 @@ export function GameCover({
         </ThemedText>
       ) : null}
       {url ? (
-        <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} />
+        // La portada siempre entera (sin recortar). Si no encaja en el hueco, una copia
+        // borrosa de la misma imagen rellena los lados.
+        <>
+          <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={18} />
+          <Image source={url} style={StyleSheet.absoluteFill} contentFit="contain" transition={250} />
+        </>
       ) : null}
     </View>
   );

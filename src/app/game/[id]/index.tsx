@@ -91,7 +91,7 @@ export default function GameScreen() {
   const critic = details?.criticRating ?? details?.rating ?? game.criticRating ?? null;
   const users = details?.userRating ?? null;
   const status = userGame?.status;
-  const coverW = Math.min(width * 0.52, 230);
+  const coverW = Math.min(width * 0.5, 220);
 
   const header = (
     <View style={{ paddingTop: insets.top + 6 }}>
@@ -104,7 +104,7 @@ export default function GameScreen() {
       </Pressable>
       <View style={styles.coverWrap}>
         <View>
-          <GameCover game={game} width={coverW} url={cover} square radius={c.radius} />
+          <GameCover game={game} width={coverW} url={cover} radius={c.radius} />
           {status ? (
             <View style={styles.coverBadge}>
               <StatusBadge status={status} />
@@ -130,7 +130,7 @@ export default function GameScreen() {
   );
 
   return (
-    <IgnScreen title={game.title} header={header} collapseAt={coverW + 140}>
+    <IgnScreen title={game.title} header={header} collapseAt={coverW * 1.33 + 140}>
       <View style={styles.block}>
         <Card style={styles.scores} padded={false}>
           <ScoreCol label="Crítica" onPress={() => details?.url && Linking.openURL(details.url)}>

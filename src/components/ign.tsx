@@ -302,7 +302,7 @@ export function CoverTile({
   return (
     <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={350} style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}>
       <View>
-        <GameCover game={game} width={width} square radius={c.radius} />
+        <GameCover game={game} width={width} radius={c.radius} />
         {status ? (
           <View style={styles.coverBadge}>
             <StatusBadge status={status} />
