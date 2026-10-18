@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OFFICIAL_SERIES } from '@/data/catalog';
 import { LIST_COLORS, STATUS_META, STATUS_ORDER } from '@/data/meta';
+import { rawgImage } from '@/api/rawg';
 import { useCover } from '@/hooks/useIgdb';
 import { useSkin } from '@/theme/useSkin';
 import type { GameRecord, PlayStatus, UserGame } from '@/types';
@@ -39,6 +40,7 @@ export function GameCover({
   const skin = useSkin();
   const cover = useCover(forcedUrl ? undefined : game);
   const url = forcedUrl ?? cover;
+  const src = url && url.includes('media.rawg.io/media/games/') ? rawgImage(url, 640) : url;
   const [c1, c2] = gameColors(game);
   const height = square ? width : width * (4 / 3);
   const words = game.title.replace(/[^A-Za-z0-9 ]/g, ' ').split(' ').filter(Boolean);
@@ -66,13 +68,16 @@ export function GameCover({
           {initials}
         </ThemedText>
       ) : null}
-      {url ? (
-        // La portada siempre entera (sin recortar). Si no encaja en el hueco, una copia
-        // borrosa de la misma imagen rellena los lados.
-        <>
-          <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={18} />
-          <Image source={url} style={StyleSheet.absoluteFill} contentFit="contain" transition={250} />
-        </>
+      {src ? (
+        // La portada siempre entera (sin recortar); si no encaja, se ven los colores del juego a los lados.
+        <Image
+          source={src}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          transition={120}
+          cachePolicy="memory-disk"
+          recyclingKey={game.id}
+        />
       ) : null}
     </View>
   );

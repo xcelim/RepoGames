@@ -17,7 +17,6 @@ const CACHE_PREFIX = 'igdb:';
 const IMAGE_BASE = 'https://images.igdb.com/igdb/image/upload';
 
 let token: { value: string; expiresAt: number } | null = null;
-let queue: Promise<unknown> = Promise.resolve();
 
 export const igdbImage = (id: string, size: 't_cover_big' | 't_screenshot_big' | 't_1080p' | 't_720p') =>
   `${IMAGE_BASE}/${size}/${id}.jpg`;
@@ -55,24 +54,38 @@ export async function hasIgdbCredentials(): Promise<boolean> {
   return !!BUILT_IN.proxyUrl || (await getCredentials()) !== null;
 }
 
-// ---------- Token de Twitch ----------
+// ---------- Token de Twitch (se guarda en el móvil: dura semanas) ----------
+
+const TOKEN_KEY = 'igdb:token';
+let tokenLoading: Promise<string> | null = null;
 
 async function getToken({ clientId, secret }: Credentials): Promise<string> {
-  if (token && token.expiresAt > Date.now() + 60_000) {
+  if (token && token.expiresAt > Date.now() + 60_000) return token.value;
+  if (tokenLoading) return tokenLoading;
+  tokenLoading = (async () => {
+    try {
+      const saved = await AsyncStorage.getItem(TOKEN_KEY);
+      if (saved) {
+        const t = JSON.parse(saved) as { value: string; expiresAt: number; clientId: string };
+        if (t.clientId === clientId && t.expiresAt > Date.now() + 3600_000) {
+          token = { value: t.value, expiresAt: t.expiresAt };
+          return t.value;
+        }
+      }
+    } catch {
+      // sin token guardado
+    }
+    const params = new URLSearchParams({ client_id: clientId, client_secret: secret, grant_type: 'client_credentials' });
+    const response = await fetch(`https://id.twitch.tv/oauth2/token?${params}`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Twitch rechazó las claves (${response.status})`);
+    const data: { access_token: string; expires_in: number } = await response.json();
+    token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+    AsyncStorage.setItem(TOKEN_KEY, JSON.stringify({ ...token, clientId })).catch(() => undefined);
     return token.value;
-  }
-  const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: secret,
-    grant_type: 'client_credentials',
+  })().finally(() => {
+    tokenLoading = null;
   });
-  const response = await fetch(`https://id.twitch.tv/oauth2/token?${params}`, { method: 'POST' });
-  if (!response.ok) {
-    throw new Error(`Twitch rechazó las claves (${response.status})`);
-  }
-  const data: { access_token: string; expires_in: number } = await response.json();
-  token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return token.value;
+  return tokenLoading;
 }
 
 export async function testConnection(): Promise<void> {
@@ -81,18 +94,71 @@ export async function testConnection(): Promise<void> {
   await getToken(credentials);
 }
 
-// ---------- Cola: como mucho 4 peticiones por segundo ----------
+// ---------- Cola con prioridades (IGDB admite 4 peticiones por segundo) ----------
+// Lo que pides tú (buscar, abrir una ficha) pasa por delante de lo que se descarga
+// en segundo plano (bibliotecas oficiales, datos que faltan, la copia sin conexión).
 
-function enqueue<T>(task: () => Promise<T>): Promise<T> {
-  const run = queue.then(task);
-  queue = run
-    .catch(() => undefined)
-    .then(() => new Promise((resolve) => setTimeout(resolve, 260)));
-  return run;
+export type Priority = 'high' | 'normal' | 'low';
+const ORDER: Record<Priority, number> = { high: 0, normal: 1, low: 2 };
+const lanes: (() => void)[][] = [[], [], []];
+const starts: number[] = [];
+let inflight = 0;
+let pumpTimer: ReturnType<typeof setTimeout> | null = null;
+
+function pump() {
+  for (;;) {
+    const now = Date.now();
+    while (starts.length && now - starts[0] >= 1000) starts.shift();
+    const next = lanes[0].length ? 0 : lanes[1].length ? 1 : lanes[2].length ? 2 : -1;
+    if (next < 0) return;
+    // Lo de segundo plano deja siempre un hueco libre para lo que pides tú.
+    const limit = next === 2 ? 3 : 4;
+    if (inflight >= 8 || starts.length >= limit) {
+      if (!pumpTimer) {
+        const wait = starts.length ? Math.max(30, 1000 - (now - starts[0])) : 60;
+        pumpTimer = setTimeout(() => {
+          pumpTimer = null;
+          pump();
+        }, wait);
+      }
+      return;
+    }
+    starts.push(now);
+    inflight += 1;
+    lanes[next].shift()!();
+  }
 }
 
-// Hace una consulta a un endpoint de IGDB (dentro de la cola).
-async function query<T>(endpoint: string, body: string): Promise<T> {
+function enqueue<T>(task: () => Promise<T>, priority: Priority = 'normal'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    lanes[ORDER[priority]].push(() => {
+      task()
+        .then(resolve, reject)
+        .finally(() => {
+          inflight -= 1;
+          pump();
+        });
+    });
+    pump();
+  });
+}
+
+class RateLimited extends Error {}
+
+// Hace una consulta a un endpoint de IGDB (dentro de la cola). Si IGDB pide calma (429), reintenta.
+async function query<T>(endpoint: string, body: string, priority: Priority = 'normal', attempt = 0): Promise<T> {
+  try {
+    return await rawQuery<T>(endpoint, body, priority);
+  } catch (error) {
+    if (error instanceof RateLimited && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+      return query<T>(endpoint, body, priority, attempt + 1);
+    }
+    throw error;
+  }
+}
+
+async function rawQuery<T>(endpoint: string, body: string, priority: Priority): Promise<T> {
   const credentials = await getCredentials();
   if (!credentials && BUILT_IN.proxyUrl) {
     // Servidor intermedio: él pone las claves.
@@ -102,13 +168,14 @@ async function query<T>(endpoint: string, body: string): Promise<T> {
         headers: { 'Content-Type': 'text/plain' },
         body,
       });
+      if (response.status === 429) throw new RateLimited('IGDB 429');
       if (!response.ok) throw new Error(`IGDB respondió ${response.status}`);
       return (await response.json()) as T;
-    });
+    }, priority);
   }
   if (!credentials) throw new Error('La app no tiene acceso a IGDB');
+  const accessToken = await getToken(credentials);
   return enqueue(async () => {
-    const accessToken = await getToken(credentials);
     const response = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
       method: 'POST',
       headers: {
@@ -118,9 +185,14 @@ async function query<T>(endpoint: string, body: string): Promise<T> {
       },
       body,
     });
+    if (response.status === 429) throw new RateLimited('IGDB 429');
+    if (response.status === 401) {
+      token = null;
+      AsyncStorage.removeItem(TOKEN_KEY).catch(() => undefined);
+    }
     if (!response.ok) throw new Error(`IGDB respondió ${response.status}`);
     return (await response.json()) as T;
-  });
+  }, priority);
 }
 
 const clean = (text: string) => text.replace(/"/g, '').trim();
@@ -130,12 +202,13 @@ const toHours = (seconds?: number) =>
 
 type IgdbTimeToBeat = { game_id: number; hastily?: number; normally?: number; completely?: number };
 
-async function timesToBeat(ids: number[]): Promise<Record<number, IgdbTimeToBeat>> {
+async function timesToBeat(ids: number[], priority: Priority = 'low'): Promise<Record<number, IgdbTimeToBeat>> {
   if (ids.length === 0) return {};
   try {
     const rows = await query<IgdbTimeToBeat[]>(
       'game_time_to_beats',
       `fields game_id,hastily,normally,completely; where game_id = (${ids.join(',')}); limit 500;`,
+      priority,
     );
     return Object.fromEntries(rows.map((row) => [row.game_id, row]));
   } catch {
@@ -192,32 +265,52 @@ const stemWhere = (stems: string[]) => stems.map((s) => `name ~ *"${s}"*`).join(
 // Busca de varias maneras a la vez para aguantar erratas y nombres a medias:
 // 1) el buscador de IGDB, 2) "contiene" con el principio de cada palabra,
 // 3) lo mismo quitando la última palabra (por si está mal escrita).
-export async function searchIgdb(text: string): Promise<OnlineResult[]> {
+const searchCache = new Map<string, OnlineResult[]>();
+
+// Busca de varias maneras a la vez para aguantar erratas y nombres a medias:
+// el buscador de IGDB y "contiene" con el principio de cada palabra (y sin la última,
+// por si está mal escrita). Va por delante de todo lo demás y avisa en cuanto
+// llega cada parte (onPartial), así los resultados salen al momento.
+export async function searchIgdb(text: string, onPartial?: (results: OnlineResult[]) => void): Promise<OnlineResult[]> {
   const q = clean(text);
   if (q.length < 2) return [];
+  const key = q.toLowerCase();
+  const cached = searchCache.get(key);
+  if (cached) return cached;
   const stems = searchStems(q);
   const bodies = [`search "${q}"; ${LIST_FIELDS} where version_parent = null; limit 30;`];
-  const containsTail = 'version_parent = null; sort total_rating_count desc; limit 40;';
+  const containsTail = 'version_parent = null; sort total_rating_count desc; limit 30;';
   if (stems.length) bodies.push(`${LIST_FIELDS} where ${stemWhere(stems)} & ${containsTail}`);
   if (stems.length >= 3) bodies.push(`${LIST_FIELDS} where ${stemWhere(stems.slice(0, -1))} & ${containsTail}`);
-  if (stems.length >= 2) {
-    // La palabra más larga suele ser la más distintiva.
-    const longest = [...stems].sort((a, b) => b.length - a.length)[0];
-    bodies.push(`${LIST_FIELDS} where name ~ *"${longest}"* & ${containsTail}`);
-  }
-  const batches = await Promise.all(bodies.map((body) => query<IgdbSearchGame[]>('games', body).catch(() => null)));
-  if (batches.every((b) => b === null)) throw new Error('IGDB no respondió');
+
   const seen = new Set<number>();
   const games: IgdbSearchGame[] = [];
-  for (const batch of batches) {
-    for (const g of batch ?? []) {
-      if (g.version_parent || seen.has(g.id)) continue;
-      seen.add(g.id);
-      games.push(g);
-    }
-  }
-  const ranked = rankByQuery(q, games, (g) => g.name, (g) => g.total_rating_count ?? 0).slice(0, 30);
-  return withTimes(ranked);
+  const rank = () =>
+    rankByQuery(q, games, (g) => g.name, (g) => g.total_rating_count ?? 0)
+      .slice(0, 30)
+      .map((g) => toResult(g));
+  let failures = 0;
+  await Promise.all(
+    bodies.map((body) =>
+      query<IgdbSearchGame[]>('games', body, 'high')
+        .then((batch) => {
+          for (const g of batch) {
+            if (g.version_parent || seen.has(g.id)) continue;
+            seen.add(g.id);
+            games.push(g);
+          }
+          onPartial?.(rank());
+        })
+        .catch(() => {
+          failures += 1;
+        }),
+    ),
+  );
+  if (failures === bodies.length) throw new Error('IGDB no respondió');
+  const results = rank();
+  searchCache.set(key, results);
+  if (searchCache.size > 60) searchCache.delete(searchCache.keys().next().value!);
+  return results;
 }
 
 // ---------- Descubrir ----------
@@ -320,12 +413,15 @@ function toDetails(game: IgdbDetailGame, t?: IgdbTimeToBeat): GameDetails {
 }
 
 // Busca la ficha por id de IGDB o por nombre (se queda con el mejor resultado).
-export async function igdbDetails(by: { id?: number; title?: string; year?: number | null }): Promise<GameDetails | null> {
+export async function igdbDetails(
+  by: { id?: number; title?: string; year?: number | null },
+  priority: Priority = 'high',
+): Promise<GameDetails | null> {
   let games: IgdbDetailGame[];
   if (by.id) {
-    games = await query<IgdbDetailGame[]>('games', `${DETAIL_FIELDS} where id = ${by.id};`);
+    games = await query<IgdbDetailGame[]>('games', `${DETAIL_FIELDS} where id = ${by.id};`, priority);
   } else if (by.title) {
-    games = await query<IgdbDetailGame[]>('games', `search "${clean(by.title)}"; ${DETAIL_FIELDS} limit 10;`);
+    games = await query<IgdbDetailGame[]>('games', `search "${clean(by.title)}"; ${DETAIL_FIELDS} limit 10;`, priority);
     games = games.filter((g) => !g.version_parent);
     if (by.year) {
       const sameYear = games.filter(
@@ -340,7 +436,7 @@ export async function igdbDetails(by: { id?: number; title?: string; year?: numb
   }
   const game = games[0];
   if (!game) return null;
-  const times = await timesToBeat([game.id]);
+  const times = await timesToBeat([game.id], priority);
   return toDetails(game, times[game.id]);
 }
 
@@ -350,12 +446,40 @@ export async function clearIgdbCache(): Promise<void> {
 }
 
 // Solo la portada (para las listas): una consulta ligera.
+// Portadas por id: se juntan las que se piden a la vez y van en UNA sola consulta.
+let coverBatch: Map<number, ((url: string | null) => void)[]> | null = null;
+function coverById(id: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!coverBatch) {
+      const batch: Map<number, ((url: string | null) => void)[]> = new Map();
+      coverBatch = batch;
+      setTimeout(() => {
+        coverBatch = null;
+        const ids = [...batch.keys()];
+        query<{ id: number; cover?: { image_id: string } }[]>(
+          'games',
+          `fields cover.image_id; where id = (${ids.join(',')}); limit ${ids.length};`,
+        )
+          .then((rows) => {
+            const byId = new Map(rows.map((r) => [r.id, r.cover ? igdbImage(r.cover.image_id, 't_cover_big') : null]));
+            for (const [gid, cbs] of batch) cbs.forEach((cb) => cb(byId.get(gid) ?? null));
+          })
+          .catch(() => {
+            for (const cbs of batch.values()) cbs.forEach((cb) => cb(null));
+          });
+      }, 40);
+    }
+    const list = coverBatch.get(id) ?? [];
+    list.push(resolve);
+    coverBatch.set(id, list);
+  });
+}
+
 export async function igdbCover(by: { id?: number; title?: string; year?: number | null }): Promise<string | null> {
   type Row = { cover?: { image_id: string }; first_release_date?: number; version_parent?: number };
   const fields = 'fields cover.image_id,first_release_date,version_parent;';
-  const rows = by.id
-    ? await query<Row[]>('games', `${fields} where id = ${by.id};`)
-    : await query<Row[]>('games', `search "${clean(by.title ?? '')}"; ${fields} limit 10;`);
+  if (by.id) return coverById(by.id);
+  const rows = await query<Row[]>('games', `search "${clean(by.title ?? '')}"; ${fields} limit 10;`);
   const candidates = rows.filter((r) => r.cover && !r.version_parent);
   const sameYear = candidates.find(
     (r) => by.year && r.first_release_date && new Date(r.first_release_date * 1000).getUTCFullYear() === by.year,
@@ -380,6 +504,7 @@ async function seriesGames(field: 'collections' | 'franchises', id: number): Pro
       return await query<IgdbSeriesGame[]>(
         'games',
         `${SERIES_FIELDS} where ${where}; sort first_release_date asc; limit 200;`,
+        'low',
       );
     } catch {
       // Prueba con el siguiente filtro (los nombres de campo han cambiado entre versiones de IGDB).
@@ -393,11 +518,13 @@ async function findGroup(endpoint: 'collections' | 'franchises', name: string): 
   const exact = await query<{ id: number; name: string }[]>(
     endpoint,
     `fields name; where name ~ "${clean(name)}"; limit 5;`,
+    'low',
   ).catch(() => []);
   if (exact.length) return exact[0].id;
   const found = await query<{ id: number; name: string }[]>(
     endpoint,
     `search "${clean(name)}"; fields name; limit 10;`,
+    'low',
   ).catch(() => []);
   return (found.find((g) => g.name.toLowerCase() === wanted) ?? found[0])?.id ?? null;
 }
@@ -442,6 +569,7 @@ async function findOne(entry: { q: string; year: number; alt?: string[] }): Prom
     const found = await query<Candidate[]>(
       'games',
       `search "${clean(name)}"; ${LIST_FIELDS} limit 15;`,
+      'low',
     ).catch(() => [] as Candidate[]);
     for (const game of found) {
       const score = scoreCandidate(game, name, entry.year);
@@ -468,7 +596,7 @@ export async function igdbBasics(ids: number[]): Promise<OnlineResult[]> {
   const out: OnlineResult[] = [];
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
-    const games = await query<IgdbSearchGame[]>('games', `${LIST_FIELDS} where id = (${chunk.join(',')}); limit 200;`);
+    const games = await query<IgdbSearchGame[]>('games', `${LIST_FIELDS} where id = (${chunk.join(',')}); limit 200;`, 'low');
     out.push(...games.map((g) => toResult(g)));
   }
   return out;

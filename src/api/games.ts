@@ -18,23 +18,15 @@ export async function onlineSources(): Promise<{ igdb: boolean; rawg: boolean }>
 
 export type SearchOutcome = { results: OnlineResult[]; errors: string[] };
 
-// Busca en las dos a la vez y quita duplicados (mismo título y año).
-export async function searchOnline(text: string): Promise<SearchOutcome> {
-  const sources = await onlineSources();
-  const errors: string[] = [];
-  const run = async (enabled: boolean, fn: (t: string) => Promise<OnlineResult[]>) => {
-    if (!enabled) return [];
-    try {
-      return await fn(text);
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : 'Error');
-      return [];
-    }
-  };
-  const [igdb, rawg] = await Promise.all([run(sources.igdb, searchIgdb), run(sources.rawg, searchRawg)]);
+// Junta IGDB y RAWG sin duplicados (mismo título y año) y ordena por parecido.
+function mergeResults(text: string, igdb: OnlineResult[], rawg: OnlineResult[]): OnlineResult[] {
   const seen = new Map<string, OnlineResult>();
-  for (const r of igdb) seen.set(`${norm(r.title)}|${r.year ?? ''}`, r);
-  const results = [...igdb];
+  const results: OnlineResult[] = [];
+  for (const r of igdb) {
+    const copy = { ...r };
+    seen.set(`${norm(r.title)}|${r.year ?? ''}`, copy);
+    results.push(copy);
+  }
   for (const r of rawg) {
     const key = `${norm(r.title)}|${r.year ?? ''}`;
     const twin = seen.get(key);
@@ -49,8 +41,47 @@ export async function searchOnline(text: string): Promise<SearchOutcome> {
     seen.set(key, r);
     results.push(r);
   }
-  // Orden final: lo que más se parece a lo escrito, y a igualdad, lo más popular.
-  return { results: rankByQuery(text, results, (r) => r.title, (r) => r.popularity ?? 0), errors };
+  return rankByQuery(text, results, (r) => r.title, (r) => r.popularity ?? 0);
+}
+
+// Busca en las dos a la vez. onUpdate recibe los resultados en cuanto llega cada parte,
+// así la lista aparece al momento y se va completando.
+export async function searchOnline(text: string, onUpdate?: (results: OnlineResult[]) => void): Promise<SearchOutcome> {
+  const sources = await onlineSources();
+  const errors: string[] = [];
+  let igdb: OnlineResult[] = [];
+  let rawg: OnlineResult[] = [];
+  const emit = () => onUpdate?.(mergeResults(text, igdb, rawg));
+  const tasks: Promise<void>[] = [];
+  if (sources.igdb) {
+    tasks.push(
+      searchIgdb(text, (partial) => {
+        igdb = partial;
+        emit();
+      })
+        .then((r) => {
+          igdb = r;
+          emit();
+        })
+        .catch((error) => {
+          errors.push(error instanceof Error ? error.message : 'Error');
+        }),
+    );
+  }
+  if (sources.rawg) {
+    tasks.push(
+      searchRawg(text)
+        .then((r) => {
+          rawg = r;
+          emit();
+        })
+        .catch((error) => {
+          errors.push(error instanceof Error ? error.message : 'Error');
+        }),
+    );
+  }
+  await Promise.all(tasks);
+  return { results: mergeResults(text, igdb, rawg), errors };
 }
 
 export function onlineGameId(r: { source: 'igdb' | 'rawg'; sourceId: number }): string {
@@ -117,7 +148,7 @@ export function toGameRecord(r: OnlineResult, profileId: string | null): GameRec
 
 const DETAILS_PREFIX = 'details:v2:';
 
-export async function fetchDetails(game: GameRecord): Promise<GameDetails | null> {
+export async function fetchDetails(game: GameRecord, priority: 'high' | 'low' = 'high'): Promise<GameDetails | null> {
   const cacheKey = DETAILS_PREFIX + game.id;
   const cached = await AsyncStorage.getItem(cacheKey);
   if (cached) return JSON.parse(cached) as GameDetails;
@@ -125,14 +156,14 @@ export async function fetchDetails(game: GameRecord): Promise<GameDetails | null
   const sources = await onlineSources();
   const title = game.igdbQuery ?? game.title;
   let details: GameDetails | null = null;
-  if (game.igdbId && sources.igdb) details = await igdbDetails({ id: game.igdbId });
+  if (game.igdbId && sources.igdb) details = await igdbDetails({ id: game.igdbId }, priority);
   else if (game.rawgId && sources.rawg) details = await rawgDetails({ id: game.rawgId });
-  else if (sources.igdb) details = await igdbDetails({ title, year: game.year });
+  else if (sources.igdb) details = await igdbDetails({ title, year: game.year }, priority);
   else if (sources.rawg) details = await rawgDetails({ title, year: game.year });
 
   // RAWG no tiene tiempos fiables: si hay IGDB, se los pedimos a IGDB.
   if (details?.source === 'rawg' && sources.igdb) {
-    const extra = await igdbDetails({ title: details.name, year: game.year }).catch(() => null);
+    const extra = await igdbDetails({ title: details.name, year: game.year }, priority).catch(() => null);
     if (extra) {
       details.timeToBeat = extra.timeToBeat ?? details.timeToBeat;
       details.videoIds = extra.videoIds;
@@ -153,7 +184,9 @@ export async function fetchCover(game: GameRecord): Promise<string | null> {
   if (game.coverUrl) return game.coverUrl;
   const cacheKey = COVER_PREFIX + game.id;
   const cached = await AsyncStorage.getItem(cacheKey);
-  if (cached !== null) return cached || null;
+  // "none:<fecha>" = no se encontró; se vuelve a intentar al cabo de un día.
+  if (cached !== null && !cached.startsWith('none:')) return cached || null;
+  if (cached?.startsWith('none:') && Date.now() - Number(cached.slice(5)) < 86_400_000) return null;
   const details = await AsyncStorage.getItem(DETAILS_PREFIX + game.id);
   if (details) return (JSON.parse(details) as GameDetails).coverUrl;
 
@@ -166,7 +199,7 @@ export async function fetchCover(game: GameRecord): Promise<string | null> {
     url = (results.find((r) => r.year === game.year) ?? results[0])?.coverUrl ?? null;
   }
   // Sin fuentes no guardamos nada, para volver a intentarlo cuando las configures.
-  if (sources.igdb || sources.rawg) await AsyncStorage.setItem(cacheKey, url ?? '');
+  if (sources.igdb || sources.rawg) await AsyncStorage.setItem(cacheKey, url ?? `none:${Date.now()}`);
   return url;
 }
 

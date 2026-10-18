@@ -534,7 +534,7 @@ export async function downloadProfile(): Promise<void> {
   let done = 0;
   for (const game of games) {
     try {
-      const details = await fetchDetails(game);
+      const details = await fetchDetails(game, 'low');
       const cover = game.coverUrl ?? details?.coverUrl ?? (await fetchCover(game));
       if (cover) await Image.prefetch(cover, 'disk');
     } catch {
@@ -556,7 +556,7 @@ async function refreshOfflineCopy(): Promise<void> {
     for (const game of myGames()) {
       if (!useStore.getState().offlineEnabled || !useConnection.getState().online) break;
       try {
-        const details = await fetchDetails(game);
+        const details = await fetchDetails(game, 'low');
         const cover = game.coverUrl ?? details?.coverUrl;
         if (cover) await Image.prefetch(cover, 'disk');
       } catch {

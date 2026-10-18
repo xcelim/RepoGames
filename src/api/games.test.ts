@@ -86,11 +86,12 @@ describe('búsqueda online', () => {
       'rawg:Hollow Knight: Silksong',
     ]);
     const hk = results[0];
-    expect(hk).toMatchObject({ year: 2017, rating: 90, main: 10, extra: 20, full: 50 });
+    // La búsqueda no pide los tiempos a IGDB (va más rápida); las horas llegan con la ficha.
+    expect(hk).toMatchObject({ year: 2017, rating: 90, main: 20 });
     expect(hk.coverUrl).toContain('t_cover_big/abc.jpg');
 
     const record = toGameRecord(hk, 'yo');
-    expect(record).toMatchObject({ id: 'igdb-1', igdbId: 1, rawgId: null, source: 'igdb', main: 10 });
+    expect(record).toMatchObject({ id: 'igdb-1', igdbId: 1, rawgId: null, source: 'igdb' });
   });
 
   it('obtiene la ficha completa de un juego de IGDB', async () => {

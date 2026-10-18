@@ -86,6 +86,12 @@ type RawgDetail = RawgGame & {
   website?: string;
 };
 
+// RAWG sirve imágenes a tamaño completo (varios MB): se piden reducidas.
+export function rawgImage(url: string | null | undefined, width = 640): string | null {
+  if (!url) return null;
+  return url.replace('/media/games/', `/media/resize/${width}/-/games/`).replace('/media/screenshots/', `/media/resize/${width}/-/screenshots/`);
+}
+
 const yearOf = (date?: string | null) => (date ? parseInt(date.slice(0, 4), 10) || null : null);
 
 function score(game: RawgGame): number | null {
@@ -100,7 +106,7 @@ function toResult(game: RawgGame): OnlineResult {
     title: game.name,
     year: yearOf(game.released),
     platforms: (game.platforms ?? []).map((p) => p.platform.name).join(', '),
-    coverUrl: game.background_image ?? null,
+    coverUrl: rawgImage(game.background_image),
     summary: null,
     rating: score(game),
     main: game.playtime ? game.playtime : null,
@@ -146,9 +152,9 @@ export async function rawgDetails(by: { id?: number; title?: string; year?: numb
     source: 'rawg',
     sourceId: game.id,
     name: game.name,
-    coverUrl: game.background_image ?? null,
-    heroUrl: game.background_image_additional ?? game.background_image ?? null,
-    screenshots: screenshots.slice(0, 12),
+    coverUrl: rawgImage(game.background_image),
+    heroUrl: rawgImage(game.background_image_additional ?? game.background_image, 1280),
+    screenshots: screenshots.slice(0, 12).map((u) => rawgImage(u, 1280) ?? u),
     videoIds: [],
     summary: game.description_raw || null,
     storyline: null,

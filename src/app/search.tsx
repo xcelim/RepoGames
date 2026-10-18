@@ -58,18 +58,20 @@ function SearchScreenInner() {
     onlineSources().then(setSources);
   }, []);
 
-  // Busca en IGDB medio segundo después de dejar de escribir.
+  // Busca en cuanto dejas de escribir y enseña los resultados según van llegando.
   useEffect(() => {
     const current = ++requestId.current;
     if (!online || query.trim().length < 2) return;
     const timer = setTimeout(() => {
       setLoading(true);
       setError(null);
-      searchOnline(query)
+      searchOnline(query, (partial) => {
+        if (current === requestId.current) setRemote(partial);
+      })
         .then(({ results, errors }) => {
           if (current !== requestId.current) return;
           setRemote(results);
-          if (errors.length) setError(errors.join(' · '));
+          if (errors.length && !results.length) setError(errors.join(' · '));
         })
         .catch((e: unknown) => {
           if (current === requestId.current) setError(e instanceof Error ? e.message : 'Error');
@@ -77,7 +79,7 @@ function SearchScreenInner() {
         .finally(() => {
           if (current === requestId.current) setLoading(false);
         });
-    }, 400);
+    }, 250);
     return () => clearTimeout(timer);
   }, [query, online]);
 
