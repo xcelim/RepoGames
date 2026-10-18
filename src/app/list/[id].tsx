@@ -21,6 +21,7 @@ import {
   timeAgo,
   useIgnColors,
 } from '@/components/ign';
+import { OfflineNotice, useOfflineMode } from '@/components/offline';
 import { SortSheet } from '@/components/sortSheet';
 import { ThemedText } from '@/components/ThemedText';
 import { TextField } from '@/components/ui';
@@ -53,6 +54,7 @@ export default function ListScreen() {
   const pendingSeeds = useStore((s) => s.pendingSeeds);
   const officialStatus = useOfficialStatus();
   const sheets = useGameSheets();
+  const offline = useOfflineMode();
 
   const [sort, setSort] = useState<ListSort>('manual');
   const [sortOpen, setSortOpen] = useState(false);
@@ -89,6 +91,15 @@ export default function ListScreen() {
   const owner = lookupProfile(list.ownerId);
   const following = follows?.includes(list.id) ?? false;
   const myCopy = Object.values(myLists).find((l) => l.ownerId === profileId && l.forkedFrom === list.id);
+
+  // Sin conexión solo se pueden ver tus propias listas.
+  if (offline && !mine) {
+    return (
+      <OfflineNotice title="Sin conexión" text="Las listas de otros necesitan internet. Mientras tanto puedes ver y gestionar las tuyas.">
+        <DarkButton label="Ir a mi perfil" onPress={() => router.replace('/profile')} />
+      </OfflineNotice>
+    );
+  }
 
   const share = () => {
     const lines = visible.map((e, i) => {

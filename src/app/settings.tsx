@@ -7,8 +7,7 @@ import { clearOnlineCache, onlineSources } from '@/api/games';
 import { getSavedCredentials, saveCredentials, testConnection } from '@/api/igdb';
 import { loadAllOfficial } from '@/api/official';
 import { getSavedRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
-import { cloudConfig } from '@/cloud/supabase';
-import { fetchCommunity, pullAll, pushAll, signIn, signOutCloud, signUp } from '@/cloud/sync';
+import { CloudAccountPanel, OfflineDownloadCard } from '@/components/cloudPanel';
 import { Button } from '@/components/Button';
 import { ScreenHeader } from '@/components/lists';
 import { Section } from '@/components/Section';
@@ -24,13 +23,6 @@ export default function SettingsScreen() {
   const skin = useSkin();
   const mode = useStore((s) => s.durationMode);
   const setMode = useStore((s) => s.setDurationMode);
-  const cloudUrl = useStore((s) => s.cloudUrl);
-  const cloudAnonKey = useStore((s) => s.cloudAnonKey);
-  const cloudUserId = useStore((s) => s.cloudUserId);
-  const cloudProfileId = useStore((s) => s.cloudProfileId);
-  const currentProfileId = useStore((s) => s.currentProfileId);
-  const lastSync = useStore((s) => s.lastSync);
-  const setCloudConfig = useStore((s) => s.setCloudConfig);
   const importSnapshot = useStore((s) => s.importSnapshot);
   const resetAll = useStore((s) => s.resetAll);
 
@@ -78,25 +70,6 @@ export default function SettingsScreen() {
       onlineSources().then(setSources);
     } catch (error) {
       setIgdbStatus(error instanceof Error ? error.message : 'No se pudo conectar');
-    }
-  };
-
-  // Supabase
-  const [url, setUrl] = useState(cloudUrl);
-  const [anonKey, setAnonKey] = useState(cloudAnonKey);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [cloudStatus, setCloudStatus] = useState('');
-  const configured = cloudConfig() !== null;
-  const linkedHere = !!cloudUserId && cloudProfileId === currentProfileId;
-
-  const run = async (label: string, task: () => Promise<unknown>, done: string) => {
-    setCloudStatus(label);
-    try {
-      await task();
-      setCloudStatus(done);
-    } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : 'Algo ha fallado');
     }
   };
 
@@ -286,118 +259,9 @@ export default function SettingsScreen() {
           </>
         ) : null}
 
-        <Section title="Nube · Supabase (opcional)">
-          <ThemedText variant="muted" size={13}>
-            Sin esto, todo se guarda solo en este móvil. Con un proyecto de Supabase (gratis), tus
-            listas públicas las verá todo el mundo, tendrás cuenta con correo y podrás usarla en
-            varios móviles. Crea el proyecto, ejecuta supabase/schema.sql y supabase/seed.sql del
-            repositorio y pega aquí la URL y la clave «anon public».
-          </ThemedText>
-          <TextField
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://xxxx.supabase.co"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
-          <TextField
-            value={anonKey}
-            onChangeText={setAnonKey}
-            placeholder="Clave anon public"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Button
-            kind="ghost"
-            label="Guardar proyecto"
-            onPress={() => {
-              setCloudConfig(url, anonKey);
-              setCloudStatus(url && anonKey ? 'Proyecto guardado.' : 'Nube desactivada.');
-            }}
-          />
-
-          {configured ? (
-            <Panel>
-              {linkedHere ? (
-                <>
-                  <ThemedText variant="bold">Sesión iniciada</ThemedText>
-                  <ThemedText variant="muted" size={12}>
-                    {lastSync
-                      ? `Última sincronización: ${new Date(lastSync).toLocaleString('es-ES')}`
-                      : 'Aún sin sincronizar'}
-                    . Los cambios se suben solos cada pocos segundos.
-                  </ThemedText>
-                  <Button
-                    label="Subir mis datos ahora"
-                    onPress={() => run('Subiendo…', pushAll, 'Datos subidos.')}
-                  />
-                  <Button
-                    kind="ghost"
-                    label="Bajar mis datos de la nube"
-                    onPress={() => run('Descargando…', pullAll, 'Datos descargados.')}
-                  />
-                  <Button
-                    kind="ghost"
-                    label="Actualizar listas de la comunidad"
-                    onPress={() => run('Buscando listas…', fetchCommunity, 'Listas actualizadas.')}
-                  />
-                  <Button
-                    kind="ghost"
-                    label="Cerrar sesión en la nube"
-                    onPress={() => run('Cerrando…', signOutCloud, 'Sesión cerrada.')}
-                  />
-                </>
-              ) : (
-                <>
-                  <ThemedText variant="bold">Cuenta en la nube para este perfil</ThemedText>
-                  <TextField
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Correo"
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                  <TextField
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Contraseña (mín. 6)"
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
-                  <Button
-                    label="Iniciar sesión"
-                    onPress={() =>
-                      run(
-                        'Entrando…',
-                        async () => {
-                          await signIn(email.trim(), password);
-                          await pullAll();
-                          await fetchCommunity();
-                        },
-                        'Sesión iniciada y datos descargados.',
-                      )
-                    }
-                  />
-                  <Button
-                    kind="ghost"
-                    label="Crear cuenta y subir mis datos"
-                    onPress={() =>
-                      run(
-                        'Creando cuenta…',
-                        async () => {
-                          await signUp(email.trim(), password);
-                          await pushAll();
-                        },
-                        'Cuenta creada y datos subidos.',
-                      )
-                    }
-                  />
-                </>
-              )}
-            </Panel>
-          ) : null}
-          {cloudStatus ? <ThemedText variant="muted">{cloudStatus}</ThemedText> : null}
+        <Section title="Cuenta · Supabase">
+          <CloudAccountPanel />
+          <OfflineDownloadCard />
         </Section>
 
         <Section title="Copia de seguridad">
@@ -418,7 +282,7 @@ export default function SettingsScreen() {
         </Section>
 
         <ThemedText variant="muted" size={11} style={styles.version}>
-          Saga Quest 2.0 · datos de duración aproximados (HowLongToBeat) · imágenes de IGDB
+          Saga Quest 3.0 · datos de duración aproximados (HowLongToBeat) · imágenes de IGDB
         </ThemedText>
       </ScrollView>
     </View>

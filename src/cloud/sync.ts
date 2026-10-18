@@ -1,30 +1,25 @@
+// Cuentas (Supabase Auth) y listas públicas de la comunidad.
 import { useStore } from '@/store/useStore';
-import type { GameList, GameRecord, ListItem, UserGame } from '@/types';
-import { now } from '@/utils/id';
+import type { Profile } from '@/types';
 
+import { flush, markAllDirty, syncNow, useSync } from './engine';
 import {
   fromGameRow,
   fromItemRow,
   fromListRow,
   fromProfileRow,
-  fromUserGameRow,
-  toGameRow,
-  toItemRow,
-  toListRow,
-  toProfileRow,
-  toUserGameRow,
   type GameRow,
   type ListItemRow,
   type ListRow,
   type ProfileRow,
-  type UserGameRow,
 } from './mappers';
+import { useConnection } from './net';
 import { useRemote } from './remote';
 import { getSupabase } from './supabase';
 
 function requireClient() {
   const client = getSupabase();
-  if (!client) throw new Error('Configura primero la URL y la clave de Supabase en Ajustes.');
+  if (!client) throw new Error('Esta versión de la app no tiene configurado Supabase.');
   return client;
 }
 
@@ -33,192 +28,123 @@ function check<T>(result: { data: T; error: { message: string } | null }): T {
   return result.data;
 }
 
-// ---------- Cuenta ----------
+// Mensajes de Supabase en español.
+function friendly(message: string): string {
+  if (/invalid login credentials/i.test(message)) return 'Correo o contraseña incorrectos.';
+  if (/email not confirmed/i.test(message)) return 'Confirma primero tu correo (revisa tu bandeja de entrada).';
+  if (/already registered|already been registered/i.test(message)) return 'Ya hay una cuenta con ese correo. Entra con él.';
+  if (/password should be at least/i.test(message)) return 'La contraseña debe tener al menos 6 caracteres.';
+  if (/unable to validate email|invalid email/i.test(message)) return 'Ese correo no es válido.';
+  if (/network request failed|failed to fetch/i.test(message)) return 'Sin conexión. Inténtalo cuando tengas internet.';
+  return message;
+}
 
-export async function signUp(email: string, password: string): Promise<string> {
+// Tras entrar: el perfil de la nube pasa a ser el de la app (y lo que hubiera en el móvil se sube).
+async function afterLogin(uid: string, email: string | null): Promise<void> {
   const client = requireClient();
-  const profile = currentProfile();
-  const data = check(
-    await client.auth.signUp({
-      email,
-      password,
-      options: { data: { username: profile.username, display_name: profile.displayName } },
-    }),
-  );
-  if (!data.user) throw new Error('No se pudo crear la cuenta');
-  if (!data.session) {
-    throw new Error('Cuenta creada. Confirma el correo que te ha llegado y luego inicia sesión.');
-  }
-  useStore.getState().setCloud(data.user.id);
-  return data.user.id;
+  const row = check(await client.from('profiles').select('*').eq('id', uid).maybeSingle()) as ProfileRow | null;
+  const state = useStore.getState();
+  const local = state.currentProfileId ? state.profiles[state.currentProfileId] : undefined;
+  const hadLocalData = !!local && !state.cloudUserId;
+  const profile: Profile = row
+    ? fromProfileRow(row)
+    : {
+        id: uid,
+        username: local?.username ?? (email ?? 'jugador').split('@')[0],
+        displayName: local?.displayName ?? (email ?? 'Jugador').split('@')[0],
+        bio: '',
+        avatarColor: local?.avatarColor ?? '#7b2ff7',
+        createdAt: new Date().toISOString(),
+      };
+  // Si en el móvil ya tenías un perfil (de antes de la nube), sus datos se suben a tu cuenta.
+  useStore.getState().adoptAccount(uid, email, hadLocalData ? { ...profile, avatarColor: local!.avatarColor } : profile);
+  if (hadLocalData || !row) markAllDirty(uid);
+  // Cuenta recién creada: se guarda también la estética elegida en la bienvenida.
+  else if (!row.settings?.skin) useStore.setState({ dirty: { ...useStore.getState().dirty, [`profiles|${uid}`]: Date.now() } });
+  useSync.setState({ ready: false });
+  await syncNow();
 }
 
-export async function signIn(email: string, password: string): Promise<string> {
+export async function signUp(data: { email: string; password: string; displayName: string; username: string }): Promise<'ok' | 'confirm'> {
   const client = requireClient();
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error || !data.user) throw new Error(error?.message ?? 'No se pudo iniciar sesión');
-  useStore.getState().setCloud(data.user.id);
-  return data.user.id;
-}
-
-export async function signOutCloud(): Promise<void> {
-  const client = getSupabase();
-  if (client) await client.auth.signOut();
-  useStore.getState().setCloud(null, null);
-}
-
-function currentProfile() {
-  const state = useStore.getState();
-  const profile = state.currentProfileId ? state.profiles[state.currentProfileId] : undefined;
-  if (!profile) throw new Error('No hay perfil activo');
-  return profile;
-}
-
-function linked() {
-  const state = useStore.getState();
-  if (!state.cloudUserId || !state.cloudProfileId) throw new Error('Inicia sesión en la nube primero.');
-  if (state.cloudProfileId !== state.currentProfileId) {
-    throw new Error('La nube está vinculada a otra cuenta de este móvil. Cámbiate a ella.');
-  }
-  return { uid: state.cloudUserId, localId: state.cloudProfileId };
-}
-
-// ---------- Subir: el móvil manda ----------
-
-export async function pushAll(): Promise<void> {
-  const client = requireClient();
-  const { uid, localId } = linked();
-  const state = useStore.getState();
-  const profile = state.profiles[localId];
-
-  const profileResult = await client.from('profiles').upsert(toProfileRow(profile, uid));
-  if (profileResult.error) {
-    // El nombre de usuario ya lo tiene otra persona: se guarda con un sufijo.
-    const row = { ...toProfileRow(profile, uid), username: `${profile.username}-${uid.slice(0, 4)}` };
-    check(await client.from('profiles').upsert(row));
-  }
-
-  const lists = Object.values(state.lists).filter((l) => l.ownerId === localId);
-  const listIds = new Set(lists.map((l) => l.id));
-  const items = Object.values(state.items).filter((i) => listIds.has(i.listId));
-  const userGames = Object.values(state.userGames).filter((u) => u.profileId === localId);
-
-  // Juegos que usas en tus listas o tu biblioteca.
-  const gameIds = new Set([...items.map((i) => i.gameId), ...userGames.map((u) => u.gameId)]);
-  const customGames = [...gameIds]
-    .filter((id) => state.games[id])
-    .map((id) => toGameRow(state.games[id], uid));
-  if (customGames.length) check(await client.from('games').upsert(customGames));
-
-  if (lists.length) check(await client.from('lists').upsert(lists.map((l) => toListRow(l, uid))));
-  if (items.length) check(await client.from('list_items').upsert(items.map(toItemRow)));
-  if (userGames.length) {
-    check(await client.from('user_games').upsert(userGames.map((u) => toUserGameRow(u, uid))));
-  }
-
-  // Borrar en la nube lo que ya no existe en el móvil.
-  const remoteLists = check(await client.from('lists').select('id').eq('owner_id', uid)) as { id: string }[];
-  const goneLists = remoteLists.map((r) => r.id).filter((id) => !listIds.has(id));
-  if (goneLists.length) check(await client.from('lists').delete().in('id', goneLists));
-
-  if (listIds.size) {
-    const remoteItems = check(
-      await client.from('list_items').select('id').in('list_id', [...listIds]),
-    ) as { id: string }[];
-    const localItemIds = new Set(items.map((i) => i.id));
-    const goneItems = remoteItems.map((r) => r.id).filter((id) => !localItemIds.has(id));
-    if (goneItems.length) check(await client.from('list_items').delete().in('id', goneItems));
-  }
-
-  const remoteGames = check(
-    await client.from('user_games').select('game_id').eq('profile_id', uid),
-  ) as { game_id: string }[];
-  const localGames = new Set(userGames.map((u) => u.gameId));
-  const goneGames = remoteGames.map((r) => r.game_id).filter((id) => !localGames.has(id));
-  if (goneGames.length) {
-    check(await client.from('user_games').delete().eq('profile_id', uid).in('game_id', goneGames));
-  }
-
-  const follows = state.follows[localId] ?? [];
-  check(await client.from('list_follows').delete().eq('profile_id', uid));
-  if (follows.length) {
-    check(
-      await client
-        .from('list_follows')
-        .insert(follows.map((list_id) => ({ profile_id: uid, list_id }))),
-    );
-  }
-
-  useStore.getState().setCloud(uid, now());
-}
-
-// ---------- Bajar: la nube manda (por ejemplo, en un móvil nuevo) ----------
-
-export async function pullAll(): Promise<void> {
-  const client = requireClient();
-  const { uid, localId } = linked();
-
-  const profileRow = check(
-    await client.from('profiles').select('*').eq('id', uid).maybeSingle(),
-  ) as ProfileRow | null;
-  const listRows = check(await client.from('lists').select('*').eq('owner_id', uid)) as ListRow[];
-  const listIds = listRows.map((l) => l.id);
-  const itemRows = listIds.length
-    ? (check(await client.from('list_items').select('*').in('list_id', listIds)) as ListItemRow[])
-    : [];
-  const userRows = check(
-    await client.from('user_games').select('*').eq('profile_id', uid),
-  ) as UserGameRow[];
-  const followRows = check(
-    await client.from('list_follows').select('list_id').eq('profile_id', uid),
-  ) as { list_id: string }[];
-
-  const neededGames = [
-    ...new Set([...itemRows.map((i) => i.game_id), ...userRows.map((u) => u.game_id)]),
-  ];
-  const gameRows = neededGames.length
-    ? (check(await client.from('games').select('*').in('id', neededGames)) as GameRow[])
-    : [];
-
-  const state = useStore.getState();
-  const lists: Record<string, GameList> = Object.fromEntries(
-    Object.entries(state.lists).filter(([, l]) => l.ownerId !== localId),
-  );
-  for (const row of listRows) lists[row.id] = fromListRow(row, localId);
-  const keepItems = new Set(Object.keys(lists));
-  const items: Record<string, ListItem> = Object.fromEntries(
-    Object.entries(state.items).filter(([, i]) => keepItems.has(i.listId) && !listIds.includes(i.listId)),
-  );
-  for (const row of itemRows) items[row.id] = fromItemRow(row);
-  const userGames: Record<string, UserGame> = Object.fromEntries(
-    Object.entries(state.userGames).filter(([, u]) => u.profileId !== localId),
-  );
-  for (const row of userRows) {
-    const ug = fromUserGameRow(row, localId);
-    userGames[ug.id] = ug;
-  }
-  const games: Record<string, GameRecord> = { ...state.games };
-  for (const row of gameRows) games[row.id] = fromGameRow(row);
-
-  const profiles = { ...state.profiles };
-  if (profileRow) profiles[localId] = { ...fromProfileRow(profileRow), id: localId };
-
-  state.importSnapshot({
-    profiles,
-    lists,
-    items,
-    userGames,
-    games,
-    follows: { ...state.follows, [localId]: followRows.map((f) => f.list_id) },
+  const { data: result, error } = await client.auth.signUp({
+    email: data.email.trim(),
+    password: data.password,
+    options: { data: { username: data.username.trim().toLowerCase(), display_name: data.displayName.trim() } },
   });
-  useStore.getState().setCloud(uid, now());
+  if (error) throw new Error(friendly(error.message));
+  if (!result.user) throw new Error('No se pudo crear la cuenta.');
+  // Si el proyecto pide confirmar el correo, aún no hay sesión.
+  if (!result.session) return 'confirm';
+  await afterLogin(result.user.id, result.user.email ?? data.email);
+  return 'ok';
+}
+
+export async function signIn(email: string, password: string): Promise<void> {
+  const client = requireClient();
+  const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+  if (error || !data.user) throw new Error(friendly(error?.message ?? 'No se pudo iniciar sesión'));
+  await afterLogin(data.user.id, data.user.email ?? email);
+}
+
+// Contraseña olvidada: Supabase manda un correo con un código de 6 cifras ({{ .Token }}
+// en la plantilla "Reset Password"); con ese código se pone la nueva sin salir de la app.
+export async function resetPassword(email: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.auth.resetPasswordForEmail(email.trim());
+  if (error) throw new Error(friendly(error.message));
+}
+
+export async function confirmPasswordReset(email: string, code: string, newPassword: string): Promise<void> {
+  const client = requireClient();
+  const { data, error } = await client.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'recovery' });
+  if (error || !data.user) throw new Error(friendly(error?.message ?? 'Código incorrecto o caducado'));
+  const update = await client.auth.updateUser({ password: newPassword });
+  if (update.error) throw new Error(friendly(update.error.message));
+  await afterLogin(data.user.id, data.user.email ?? email);
+}
+
+// Cerrar sesión: se sube lo pendiente y se borran del móvil los datos de la cuenta.
+export async function signOutCloud(force = false): Promise<void> {
+  const pending = Object.keys(useStore.getState().dirty).length;
+  if (pending && useConnection.getState().online) await flush().catch(() => undefined);
+  if (!force && Object.keys(useStore.getState().dirty).length) {
+    throw new Error(`Tienes ${Object.keys(useStore.getState().dirty).length} cambios sin subir. Conéctate a internet antes de cerrar sesión.`);
+  }
+  const client = getSupabase();
+  if (client) await client.auth.signOut().catch(() => undefined);
+  useStore.getState().clearLocalData();
+  useSync.setState({ ready: false, status: 'idle', error: null });
+}
+
+export async function deleteAccount(): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('delete_my_account');
+  if (error) throw new Error(error.message);
+  await client.auth.signOut().catch(() => undefined);
+  useStore.getState().clearLocalData();
+}
+
+// Al abrir la app: si Supabase recuerda la sesión, se mantiene (también sin conexión).
+export async function restoreSession(): Promise<void> {
+  const client = getSupabase();
+  if (!client) return;
+  const { data } = await client.auth.getSession();
+  const user = data.session?.user;
+  const state = useStore.getState();
+  if (user && !state.cloudUserId) await afterLogin(user.id, user.email ?? null).catch(() => undefined);
+  // La sesión caducó en el servidor y no hay forma de renovarla: hay que volver a entrar.
+  if (!user && state.cloudUserId && useConnection.getState().online) {
+    const pending = Object.keys(state.dirty).length;
+    if (!pending) state.clearLocalData();
+  }
 }
 
 // ---------- Listas públicas de toda la comunidad ----------
 
 export async function fetchCommunity(): Promise<void> {
   const client = getSupabase();
-  if (!client) return;
+  if (!client || !useConnection.getState().online) return;
   const remote = useRemote.getState();
   remote.setData({ loading: true, error: null });
   try {
@@ -242,7 +168,7 @@ export async function fetchCommunity(): Promise<void> {
       : [];
     const gameIds = [...new Set(itemRows.map((i) => i.game_id))];
     const gameRows = gameIds.length
-      ? (check(await client.from('games').select('*').in('id', gameIds)) as GameRow[])
+      ? (check(await client.from('games').select('*').in('id', gameIds.slice(0, 1000))) as GameRow[])
       : [];
 
     remote.setData({

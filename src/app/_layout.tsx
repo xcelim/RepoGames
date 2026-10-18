@@ -22,38 +22,37 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 
 import { loadAllOfficial } from '@/api/official';
-import { fetchCommunity, pushAll } from '@/cloud/sync';
+import { startSyncEngine } from '@/cloud/engine';
+import { startConnectionWatcher, useOnline } from '@/cloud/net';
+import { fetchCommunity, restoreSession } from '@/cloud/sync';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
 
 SplashScreen.preventAutoHideAsync();
 
-// Con Supabase conectado: sube los cambios unos segundos después de hacerlos.
-function useCloudAutoSync(enabled: boolean) {
+// Nube: detecta la conexión, recupera la sesión y arranca la sincronización.
+function useCloud(enabled: boolean) {
+  const online = useOnline();
   useEffect(() => {
     if (!enabled) return;
-    fetchCommunity();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = useStore.subscribe((state, prev) => {
-      if (!state.cloudUserId || state.cloudProfileId !== state.currentProfileId) return;
-      const changed =
-        state.lists !== prev.lists ||
-        state.items !== prev.items ||
-        state.userGames !== prev.userGames ||
-        state.follows !== prev.follows ||
-        state.profiles !== prev.profiles ||
-        state.games !== prev.games;
-      if (!changed) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        pushAll().catch((error) => console.warn('Supabase', error));
-      }, 4000);
-    });
+    const stopNet = startConnectionWatcher();
+    let stopSync: (() => void) | null = null;
+    restoreSession()
+      .catch(() => undefined)
+      .finally(() => {
+        stopSync = startSyncEngine();
+      });
     return () => {
-      unsubscribe();
-      if (timer) clearTimeout(timer);
+      stopNet();
+      stopSync?.();
     };
   }, [enabled]);
+  useEffect(() => {
+    if (enabled && online) {
+      fetchCommunity();
+      loadAllOfficial();
+    }
+  }, [enabled, online]);
 }
 
 export default function RootLayout() {
@@ -85,10 +84,7 @@ export default function RootLayout() {
   }, [ready]);
 
   const skin = useSkin();
-  useCloudAutoSync(ready);
-  useEffect(() => {
-    if (ready) loadAllOfficial();
-  }, [ready]);
+  useCloud(ready);
   if (!ready) return null;
 
   return (

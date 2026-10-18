@@ -8,9 +8,10 @@ import { CoverTile, IgnScreen, useIgnColors } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { useStore } from '@/store/useStore';
 import { userGameKey } from '@/utils/library';
+import { OfflineGate } from '@/components/offline';
 
 // Una sección de Descubrir entera, en rejilla de dos columnas.
-export default function DiscoverListScreen() {
+function DiscoverListScreenInner() {
   const { kind = 'best' } = useLocalSearchParams<{ kind: DiscoverKind }>();
   const { width } = useWindowDimensions();
   const c = useIgnColors();
@@ -60,3 +61,11 @@ const styles = StyleSheet.create({
   sub: { paddingHorizontal: 20, marginBottom: 20 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, rowGap: 22, paddingHorizontal: 20 },
 });
+
+export default function DiscoverListScreen() {
+  return (
+    <OfflineGate what="Descubrir">
+      <DiscoverListScreenInner />
+    </OfflineGate>
+  );
+}

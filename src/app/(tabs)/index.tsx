@@ -14,6 +14,7 @@ import { useCommunityLists, useListCount, useListPreview, useProfileLookup } fro
 import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
+import { OfflineGate } from '@/components/offline';
 
 function useOpenOnline() {
   const upsertGame = useStore((s) => s.upsertGame);
@@ -23,7 +24,7 @@ function useOpenOnline() {
   };
 }
 
-export default function DiscoverScreen() {
+function DiscoverScreenInner() {
   const { width } = useWindowDimensions();
   const preview = useListPreview();
   const count = useListCount();
@@ -189,3 +190,11 @@ const styles = StyleSheet.create({
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rankAdd: { position: 'absolute', left: 4, bottom: 4, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 14 },
 });
+
+export default function DiscoverScreen() {
+  return (
+    <OfflineGate what="Descubrir">
+      <DiscoverScreenInner />
+    </OfflineGate>
+  );
+}

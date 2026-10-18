@@ -46,6 +46,13 @@ type State = {
   cloudAnonKey: string;
   officialLoadedAt: Record<string, string>; // cuándo se descargó cada biblioteca oficial
   pendingSeeds: string[]; // copias tuyas de bibliotecas oficiales que esperan a la descarga
+  // ---- Nube ----
+  cloudEmail: string | null;
+  // Cambios hechos en el móvil que aún no están en Supabase: "tabla|clave" -> cuándo.
+  dirty: Record<string, number>;
+  // Perfil descargado para usarlo sin conexión (opcional, se puede borrar).
+  offlineEnabled: boolean;
+  downloadedAt: string | null;
 };
 
 type Actions = {
@@ -78,6 +85,12 @@ type Actions = {
   setCloudConfig: (url: string, anonKey: string) => void;
   setOfficialList: (listId: string, games: GameRecord[]) => void;
   resetAll: () => void;
+
+  // ---- Nube ----
+  seedOfficialCopies: (profileId: string) => void;
+  adoptAccount: (uid: string, email: string | null, profile: Profile) => void;
+  setOffline: (enabled: boolean, downloadedAt?: string | null) => void;
+  clearLocalData: () => void;
 };
 
 export type Store = State & Actions;
@@ -99,6 +112,10 @@ const INITIAL: State = {
   cloudAnonKey: '',
   officialLoadedAt: {},
   pendingSeeds: [],
+  cloudEmail: null,
+  dirty: {},
+  offlineEnabled: false,
+  downloadedAt: null,
 };
 
 // Copia una lista (y sus juegos) a otro perfil.
@@ -165,29 +182,8 @@ export const useStore = create<Store>()(
             avatarColor,
             createdAt: now(),
           };
-          const state = get();
-          const lists = { ...state.lists };
-          const items = { ...state.items };
-          const pending = [...state.pendingSeeds];
-          // Las bibliotecas oficiales vienen ya añadidas a tu perfil.
-          const base = Date.now();
-          for (const [index, official] of OFFICIAL_LISTS.entries()) {
-            // Fechas escalonadas para que salgan en el mismo orden que las oficiales.
-            const stamp = new Date(base - index * 1000).toISOString();
-            const copy = copyList(state, official.id, id, { createdAt: stamp, updatedAt: stamp });
-            if (!copy) continue;
-            lists[copy.list.id] = copy.list;
-            for (const item of copy.items) items[item.id] = item;
-            // Si aún no se ha descargado, se rellenará en cuanto llegue.
-            if (copy.items.length === 0) pending.push(copy.list.id);
-          }
-          set({
-            profiles: { ...state.profiles, [id]: profile },
-            currentProfileId: id,
-            lists,
-            items,
-            pendingSeeds: pending,
-          });
+          set({ profiles: { ...get().profiles, [id]: profile }, currentProfileId: id });
+          get().seedOfficialCopies(id);
           return id;
         },
 
@@ -429,6 +425,72 @@ export const useStore = create<Store>()(
           });
         },
 
+        // Las bibliotecas oficiales vienen ya añadidas a cada perfil nuevo.
+        seedOfficialCopies: (profileId) => {
+          const state = get();
+          const lists = { ...state.lists };
+          const items = { ...state.items };
+          const pending = [...state.pendingSeeds];
+          const base = Date.now();
+          for (const [index, official] of OFFICIAL_LISTS.entries()) {
+            // Fechas escalonadas para que salgan en el mismo orden que las oficiales.
+            const stamp = new Date(base - index * 1000).toISOString();
+            const copy = copyList(state, official.id, profileId, { createdAt: stamp, updatedAt: stamp });
+            if (!copy) continue;
+            lists[copy.list.id] = copy.list;
+            for (const item of copy.items) items[item.id] = item;
+            // Si aún no se ha descargado, se rellenará en cuanto llegue.
+            if (copy.items.length === 0) pending.push(copy.list.id);
+          }
+          set({ lists, items, pendingSeeds: pending });
+        },
+
+        // Al entrar con una cuenta: los datos del perfil de este móvil pasan a ser de esa cuenta.
+        adoptAccount: (uid, email, profile) => {
+          const state = get();
+          const oldId = state.currentProfileId;
+          const rekey = oldId && oldId !== uid && !state.cloudUserId;
+          const lists = Object.fromEntries(
+            Object.entries(state.lists).map(([k, l]) => [k, rekey && l.ownerId === oldId ? { ...l, ownerId: uid } : l]),
+          );
+          const userGames: Record<string, UserGame> = {};
+          for (const ug of Object.values(state.userGames)) {
+            const owner = rekey && ug.profileId === oldId ? uid : ug.profileId;
+            const key = userGameKey(owner, ug.gameId);
+            userGames[key] = { ...ug, id: key, profileId: owner };
+          }
+          const follows = { ...state.follows };
+          if (rekey && oldId) {
+            follows[uid] = [...new Set([...(follows[uid] ?? []), ...(follows[oldId] ?? [])])];
+            delete follows[oldId];
+          }
+          const profiles = { ...state.profiles };
+          if (rekey && oldId) delete profiles[oldId];
+          profiles[uid] = profile;
+          set({
+            profiles,
+            lists,
+            userGames,
+            follows,
+            currentProfileId: uid,
+            cloudUserId: uid,
+            cloudProfileId: uid,
+            cloudEmail: email,
+          });
+        },
+
+        setOffline: (offlineEnabled, downloadedAt) =>
+          set({ offlineEnabled, downloadedAt: downloadedAt === undefined ? get().downloadedAt : downloadedAt }),
+
+        // Cerrar sesión: se borra todo lo del usuario del móvil (sigue en Supabase).
+        clearLocalData: () =>
+          set({
+            ...INITIAL,
+            skin: get().skin,
+            durationMode: get().durationMode,
+            officialLoadedAt: {},
+          }),
+
         setCloudConfig: (cloudUrl, cloudAnonKey) =>
           set({ cloudUrl: cloudUrl.trim(), cloudAnonKey: cloudAnonKey.trim() }),
         resetAll: () =>
@@ -463,9 +525,62 @@ export const useStore = create<Store>()(
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),
+      // Sin la descarga para usar sin conexión, en el móvil solo se guardan los ajustes,
+      // la sesión y los cambios que aún no han llegado a Supabase (para no perderlos).
+      partialize: (state) => persistedPart(state),
     },
   ),
 );
+
+type Persisted = Partial<State>;
+
+export function persistedPart(state: Store): Persisted {
+  const { dirty } = state;
+  const data: State = {
+    skin: state.skin,
+    durationMode: state.durationMode,
+    profiles: state.profiles,
+    currentProfileId: state.currentProfileId,
+    games: state.games,
+    userGames: state.userGames,
+    lists: state.lists,
+    items: state.items,
+    follows: state.follows,
+    cloudUserId: state.cloudUserId,
+    cloudProfileId: state.cloudProfileId,
+    lastSync: state.lastSync,
+    cloudUrl: state.cloudUrl,
+    cloudAnonKey: state.cloudAnonKey,
+    officialLoadedAt: state.officialLoadedAt,
+    pendingSeeds: state.pendingSeeds,
+    cloudEmail: state.cloudEmail,
+    dirty,
+    offlineEnabled: state.offlineEnabled,
+    downloadedAt: state.downloadedAt,
+  };
+  // Sin cuenta (solo en el móvil) o con la descarga activada: se guarda todo.
+  if (!state.cloudUserId || state.offlineEnabled) return data;
+  const pick = <T>(table: string, record: Record<string, T>, keyOf: (k: string, v: T) => string) =>
+    Object.fromEntries(Object.entries(record).filter(([k, v]) => dirty[`${table}|${keyOf(k, v)}`] !== undefined));
+  // Las bibliotecas oficiales son un catálogo común (no datos tuyos): se guardan siempre
+  // para no tener que volver a pedirlas a la API cada vez que abres la app.
+  const items = {
+    ...pick('list_items', state.items, (k) => k),
+    ...Object.fromEntries(Object.entries(state.items).filter(([, i]) => i.listId.startsWith('official-'))),
+  };
+  const userGames = pick('user_games', state.userGames, (_, v: UserGame) => v.gameId);
+  const neededGames = new Set([...Object.values(items).map((i) => i.gameId), ...Object.values(userGames).map((u) => u.gameId)]);
+  return {
+    ...data,
+    profiles: state.currentProfileId && state.profiles[state.currentProfileId]
+      ? { [state.currentProfileId]: state.profiles[state.currentProfileId] }
+      : {},
+    lists: pick('lists', state.lists, (k) => k),
+    items,
+    userGames,
+    games: Object.fromEntries(Object.entries(state.games).filter(([k]) => neededGames.has(k) || dirty[`games|${k}`] !== undefined)),
+  };
+}
 
 // ---------- Hooks de lectura ----------
 

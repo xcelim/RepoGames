@@ -9,8 +9,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { Avatar, Panel } from '@/components/ui';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
+import { CloudAccountPanel, OfflineDownloadCard } from '@/components/cloudPanel';
+import { isCloudEnabled } from '@/cloud/supabase';
 
-export default function AccountsScreen() {
+function LocalAccounts() {
   const skin = useSkin();
   const insets = useSafeAreaInsets();
   const profiles = useStore((s) => s.profiles);
@@ -89,3 +91,21 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', padding: 12 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
 });
+
+// Con Supabase cada cuenta es un usuario real: aquí se ve tu sesión y se cierra.
+export default function AccountsScreen() {
+  const insets = useSafeAreaInsets();
+  if (!isCloudEnabled()) return <LocalAccounts />;
+  return (
+    <View style={styles.flex}>
+      <ScreenHeader close title="Cuenta" />
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
+        <CloudAccountPanel />
+        <OfflineDownloadCard />
+        <ThemedText variant="muted" size={12}>
+          Para usar otra cuenta, cierra sesión y entra con ella.
+        </ThemedText>
+      </ScrollView>
+    </View>
+  );
+}

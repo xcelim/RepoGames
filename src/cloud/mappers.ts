@@ -7,7 +7,9 @@ export type ProfileRow = {
   display_name: string;
   bio: string;
   avatar_color: string;
+  settings?: { skin?: string; durationMode?: string } | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type GameRow = {
@@ -77,13 +79,16 @@ export type UserGameRow = {
   updated_at: string;
 };
 
-export const toProfileRow = (p: Profile, id = p.id): ProfileRow => ({
+export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['settings']): ProfileRow => ({
   id,
-  username: p.username,
-  display_name: p.displayName,
+  // Solo letras minúsculas, números y guiones (lo exige la base de datos).
+  username: (p.username.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'jugador').slice(0, 30),
+  display_name: p.displayName || p.username,
   bio: p.bio,
   avatar_color: p.avatarColor,
+  ...(settings ? { settings } : {}),
   created_at: p.createdAt,
+  updated_at: new Date().toISOString(),
 });
 
 export const fromProfileRow = (r: ProfileRow): Profile => ({
@@ -115,7 +120,8 @@ export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => (
   release_date: g.releaseDate ?? null,
   critic_rating: g.criticRating ?? null,
   source: g.source,
-  created_by: createdBy,
+  // Los juegos de la API son comunes (sin dueño); los creados a mano son de quien los crea.
+  created_by: g.source === 'igdb' || g.source === 'rawg' ? null : createdBy,
 });
 
 export const fromGameRow = (r: GameRow): GameRecord => ({

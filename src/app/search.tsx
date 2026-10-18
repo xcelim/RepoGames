@@ -22,6 +22,7 @@ import type { GameRecord } from '@/types';
 import { uuid } from '@/utils/id';
 import { itemsOfList, userGameKey } from '@/utils/library';
 import { notify } from '@/utils/notify';
+import { OfflineGate } from '@/components/offline';
 
 function normalize(text: string): string {
   return stripAccents(text).toLowerCase();
@@ -29,7 +30,7 @@ function normalize(text: string): string {
 
 type Row = { key: string; game: GameRecord; external?: boolean; source?: string };
 
-export default function SearchScreen() {
+function SearchScreenInner() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
   const skin = useSkin();
   const insets = useSafeAreaInsets();
@@ -331,3 +332,11 @@ const styles = StyleSheet.create({
   attribution: { textAlign: 'center', textDecorationLine: 'underline' },
   twoCols: { flexDirection: 'row', gap: 8 },
 });
+
+export default function SearchScreen() {
+  return (
+    <OfflineGate what="El buscador">
+      <SearchScreenInner />
+    </OfflineGate>
+  );
+}

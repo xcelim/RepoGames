@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { Card, CoverTile, Donut, HeaderIcon, IgnScreen, StatusIcon } from '@/components/ign';
+import { OfflineDownloadCard } from '@/components/cloudPanel';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar, MenuRow } from '@/components/ui';
 import { FINISHED, scoreColor, STATUS_META, STATUS_ORDER } from '@/data/meta';
@@ -113,6 +114,8 @@ export default function ProfileScreen() {
         </Pressable>
         {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
 
+        <OfflineDownloadCard />
+
         <Card style={styles.statsCard} padded={false}>
           <Stat value={String(data.total)} label="JUEGOS" />
           <Stat value={String(data.finished)} label="TERMINADOS" />
@@ -203,7 +206,7 @@ export default function ProfileScreen() {
 
         <Card>
           <MenuRow icon="create-outline" label="Editar perfil" onPress={() => router.push('/profile-edit')} />
-          <MenuRow icon="people-outline" label="Cuentas" onPress={() => router.push('/accounts')} />
+          <MenuRow icon="people-outline" label="Cuenta y sincronización" onPress={() => router.push('/accounts')} />
           <MenuRow icon="settings-outline" label="Ajustes y estética" onPress={() => router.push('/settings')} />
           <MenuRow icon="eye-outline" label="Ver mi perfil público" onPress={() => router.push(`/user/${profile.id}`)} />
         </Card>

@@ -38,23 +38,20 @@ GitHub Actions las mete en la APK al compilar. Para compilar en local, ponlas en
 
 Si vas a publicar la app para otra gente, mejor no meter las claves en la APK (se pueden extraer): despliega `supabase/functions/games` (un servidor intermedio que guarda las claves) y añade solo el secreto `GAMES_PROXY_URL` con su dirección. Instrucciones dentro del archivo.
 
-## Conectar Supabase (para que las listas públicas las vea todo el mundo)
+## Base de datos (Supabase)
 
-1. Crea un proyecto gratis en [supabase.com](https://supabase.com).
-2. En **SQL Editor**, ejecuta `supabase/schema.sql` y después `supabase/seed.sql` (las 8 bibliotecas oficiales).
-3. En **Project Settings → API**, copia la *Project URL* y la clave *anon public*.
-4. En la app: **Ajustes → Nube**, pega las dos y pulsa «Guardar proyecto». Después crea tu cuenta con correo y contraseña: tus datos se suben y, a partir de ahí, se sincronizan solos.
+Todo se guarda en Supabase: tu perfil y tus ajustes, tus listas (públicas y privadas) con su orden, tu biblioteca (estado, nota, plataforma, horas, fechas, reseña…) y las listas que sigues. Se entra con correo y contraseña y se ve igual en cualquier móvil.
 
-También puedes ponerlas al compilar con un `.env`:
+1. **SQL Editor** → ejecuta `supabase/schema.sql` (tablas, normas RLS, borrar cuenta y tiempo real) y después `supabase/seed.sql` (las 8 bibliotecas oficiales). Los dos se pueden volver a ejecutar sin perder datos.
+2. **Authentication → Sign In / Providers → Email**: desactiva «Confirm email» si quieres entrar nada más registrarte. Si lo dejas activado, el usuario confirma desde el correo y luego entra.
+3. **Authentication → Emails → Reset Password**: añade `{{ .Token }}` a la plantilla para que la app pueda cambiar la contraseña con un código.
+4. **Project Settings → API**: copia la *Project URL* y la clave *anon public* y guárdalas en GitHub (Settings → Secrets and variables → Actions) como `SUPABASE_URL` y `SUPABASE_ANON_KEY`. El siguiente APK ya va conectado.
 
-```
-EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-```
+La clave *anon* es pública por diseño: lo que protege los datos son las normas Row Level Security (las listas privadas solo las lee su dueño y nadie puede cambiar lo de otro).
 
-La clave *anon* es pública por diseño: la seguridad la ponen las políticas Row Level Security del esquema (las listas privadas solo las lee su dueño y nadie puede editar lo de otro).
+**Cómo se guarda**: la app escribe primero en el móvil y lo sube a Supabase enseguida. Cada subida se comprueba; si falla (sin red, error), el cambio queda pendiente y se reintenta al volver la conexión. Al abrir la app, al volver internet o si cambias algo en otro móvil (tiempo real), se descarga lo último sin pisar lo que tengas pendiente.
 
-Tablas: `profiles`, `games`, `lists`, `list_items`, `user_games` (estado, nota, plataforma y reseña de cada usuario) y `list_follows`. Si cambias las bibliotecas oficiales, regenera el seed con `node scripts/generate-seed.js`.
+**Sin conexión**: la app lo detecta sola y pasa al modo perfil (solo tu biblioteca y tus listas; Descubrir, buscar y las listas de otros se desactivan). Para tener tu perfil en el móvil sin internet, descárgalo desde **Perfil → Usar sin conexión** (opcional; también se puede borrar la descarga para liberar espacio). Lo que cambies sin conexión se sube al volver.
 
 ## Desarrollo
 

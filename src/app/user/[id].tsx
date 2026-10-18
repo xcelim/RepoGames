@@ -11,8 +11,9 @@ import { OFFICIAL_LISTS, OFFICIAL_PROFILE_ID } from '@/data/catalog';
 import { FINISHED } from '@/data/meta';
 import { useListCount, useProfileLookup } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
+import { OfflineGate } from '@/components/offline';
 
-export default function UserScreen() {
+function UserScreenInner() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const profile = useProfileLookup()(id);
@@ -87,3 +88,11 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   half: { width: '47.5%' },
 });
+
+export default function UserScreen() {
+  return (
+    <OfflineGate what="El perfil de otros jugadores">
+      <UserScreenInner />
+    </OfflineGate>
+  );
+}
