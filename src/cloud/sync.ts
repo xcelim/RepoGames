@@ -19,7 +19,7 @@ import {
 } from './mappers';
 import { useConnection } from './net';
 import { useRemote } from './remote';
-import { getSupabase } from './supabase';
+import { cloudConfig, getSupabase } from './supabase';
 
 function requireClient() {
   const client = getSupabase();
@@ -115,7 +115,11 @@ export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
     options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
   });
   if (error || !data.url) throw new Error(friendly(error?.message ?? 'No se pudo abrir Google'));
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  // La puerta de entrada de Supabase pide la clave pública también en el navegador:
+  // se añade al enlace (es la clave "anon", pública por diseño).
+  const anonKey = cloudConfig()?.anonKey ?? '';
+  const authUrl = data.url.includes('apikey=') ? data.url : `${data.url}${data.url.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(anonKey)}`;
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
   if (result.type !== 'success') return 'cancel';
   await completeOAuth(result.url);
   return 'ok';
