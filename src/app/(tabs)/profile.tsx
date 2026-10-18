@@ -50,6 +50,7 @@ export default function ProfileScreen() {
     let rated = 0;
     let hoursPlayed = 0;
     let hoursLeft = 0;
+    let estimated = false;
     for (const ug of mine) {
       byStatus[ug.status] = (byStatus[ug.status] ?? 0) + 1;
       if (ug.platform) byPlatform[ug.platform] = (byPlatform[ug.platform] ?? 0) + 1;
@@ -58,7 +59,14 @@ export default function ProfileScreen() {
         ratingSum += ug.rating;
         rated += 1;
       }
-      hoursPlayed += ug.hoursPlayed ?? 0;
+      if (ug.hoursPlayed != null) hoursPlayed += ug.hoursPlayed;
+      else if (ug.status === 'beaten' || ug.status === 'completed') {
+        // Sin horas apuntadas: usamos lo que dura el juego (HowLongToBeat de IGDB).
+        const g = findGame(games, ug.gameId);
+        const h = (ug.status === 'completed' ? (g?.full ?? g?.[mode]) : g?.[mode]) ?? 0;
+        if (h) estimated = true;
+        hoursPlayed += h;
+      }
       if (['backlog', 'playing', 'paused'].includes(ug.status)) {
         hoursLeft += findGame(games, ug.gameId)?.[mode] ?? 0;
       }
@@ -77,6 +85,7 @@ export default function ProfileScreen() {
       average: rated ? Math.round((ratingSum / rated) * 10) / 10 : null,
       hoursPlayed,
       hoursLeft,
+      estimated,
       topRated,
     };
   }, [userGames, games, profile?.id, mode]);
@@ -122,7 +131,7 @@ export default function ProfileScreen() {
           <Stat value={data.average !== null ? String(data.average) : '–'} label="NOTA MEDIA" />
         </Card>
         <Card style={styles.statsCard} padded={false}>
-          <Stat value={formatHours(data.hoursPlayed)} label="HORAS JUGADAS" />
+          <Stat value={formatHours(data.hoursPlayed)} label={data.estimated ? 'HORAS JUGADAS (APROX.)' : 'HORAS JUGADAS'} />
           <Stat value={formatHours(data.hoursLeft)} label="TE QUEDAN" />
         </Card>
 
