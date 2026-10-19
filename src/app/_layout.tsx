@@ -89,6 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="game/[id]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="game/[id]/review" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="search" />
+        <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="list/edit" />
         <Stack.Screen name="list/import" options={{ presentation: 'modal' }} />
         <Stack.Screen name="library/[status]" />

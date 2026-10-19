@@ -196,3 +196,22 @@ export function formatHours(hours: number): string {
   if (hours >= 1000) return `${(hours / 1000).toFixed(1).replace('.', ',')} mil h`;
   return `${Math.round(hours)} h`;
 }
+
+// Rejugadas de un juego: lo apuntado en cada lista tuya + el ajuste del total.
+export function replayStats(
+  state: { lists: Record<string, GameList>; items: Record<string, ListItem>; userGames: Record<string, UserGame> },
+  profileId: string,
+  gameId: string,
+): { fromLists: number; extra: number; total: number; perList: { list: GameList; replays: number }[] } {
+  const perList: { list: GameList; replays: number }[] = [];
+  let fromLists = 0;
+  for (const item of Object.values(state.items)) {
+    if (item.gameId !== gameId || !item.replays) continue;
+    const list = state.lists[item.listId];
+    if (!list || list.ownerId !== profileId) continue;
+    fromLists += item.replays;
+    perList.push({ list, replays: item.replays });
+  }
+  const extra = state.userGames[userGameKey(profileId, gameId)]?.replaysExtra ?? 0;
+  return { fromLists, extra, total: Math.max(0, fromLists + extra), perList };
+}

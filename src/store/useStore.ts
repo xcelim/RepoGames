@@ -15,7 +15,7 @@ import type {
   Visibility,
 } from '@/types';
 import { now, uuid } from '@/utils/id';
-import { findList, itemsOfList, moveItem, userGameKey } from '@/utils/library';
+import { findList, itemsOfList, moveItem, replayStats, userGameKey } from '@/utils/library';
 
 export type NewList = {
   name: string;
@@ -79,6 +79,8 @@ type Actions = {
   addToList: (listId: string, gameId: string) => boolean;
   removeFromList: (listId: string, gameId: string) => void;
   moveInList: (listId: string, from: number, to: number) => void;
+  updateListItem: (listId: string, gameId: string, patch: Pick<ListItem, 'note' | 'replays'>) => void;
+  setReplayTotal: (gameId: string, total: number) => void;
 
   importSnapshot: (data: Partial<State>) => void;
   setCloud: (cloudUserId: string | null, lastSync?: string | null) => void;
@@ -365,6 +367,22 @@ export const useStore = create<Store>()(
           });
           set({ items });
           touchList(listId);
+        },
+
+        updateListItem: (listId, gameId, patch) => {
+          const item = itemsOfList(get().items, listId).find((i) => i.gameId === gameId);
+          if (!item) return;
+          const next: ListItem = { ...item, ...patch };
+          if (next.replays !== undefined) next.replays = Math.max(0, Math.round(next.replays));
+          set({ items: { ...get().items, [item.id]: next } });
+          touchList(listId);
+        },
+
+        // Total de rejugadas = suma de las listas + un ajuste propio (para años sin lista).
+        setReplayTotal: (gameId, total) => {
+          const profileId = requireProfile();
+          const { fromLists } = replayStats(get(), profileId, gameId);
+          get().updateUserGame(gameId, { replaysExtra: Math.max(0, Math.round(total)) - fromLists });
         },
 
         moveInList: (listId, from, to) => {

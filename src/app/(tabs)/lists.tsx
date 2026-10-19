@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { DarkButton, HeaderIcon, IgnScreen, Mosaic, ProgressBar, useIgnColors } from '@/components/ign';
+import { DarkButton, glass, HeaderIcon, IgnScreen, Mosaic, ProgressBar, useIgnColors } from '@/components/ign';
 import { useOfflineMode } from '@/components/offline';
 import { ThemedText } from '@/components/ThemedText';
 import { TextField } from '@/components/ui';
@@ -112,7 +112,7 @@ export default function ListsScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: c.card,
+            backgroundColor: glass(c.card),
             borderRadius: c.radius + 6,
             borderColor: c.line,
           },
@@ -149,7 +149,7 @@ export default function ListsScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: c.card,
+              backgroundColor: glass(c.card),
               borderRadius: c.radius + 6,
               borderColor: c.line,
             },

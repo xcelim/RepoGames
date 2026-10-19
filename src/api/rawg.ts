@@ -41,6 +41,10 @@ export async function hasRawg(): Promise<boolean> {
   return !!BUILT_IN.proxyUrl || !!(await getRawgKey());
 }
 
+export async function rawgGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+  return get<T>(path, params);
+}
+
 async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const key = await getRawgKey();
   let url: string;

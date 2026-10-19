@@ -125,6 +125,8 @@ export type UserGame = {
   recommend?: boolean | null;
   spoilers?: boolean;
   reviewPrivate?: boolean;
+  replaysExtra?: number; // rejugadas que no están en ninguna lista (se suman al total)
+  achievements?: string[]; // logros marcados (ids de RAWG)
   addedAt: string;
   updatedAt: string;
 };
@@ -153,6 +155,8 @@ export type ListItem = {
   gameId: string;
   position: number;
   addedAt: string;
+  note?: string; // nota tuya sobre el juego dentro de esta lista
+  replays?: number; // veces que lo rejugaste "en esta lista" (p. ej. ese año)
 };
 
 export type ListSort =

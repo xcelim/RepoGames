@@ -56,6 +56,8 @@ export type ListItemRow = {
   game_id: string;
   position: number;
   added_at: string;
+  note?: string;
+  replays?: number;
 };
 
 export type UserGameRow = {
@@ -75,6 +77,8 @@ export type UserGameRow = {
   recommend?: boolean | null;
   spoilers?: boolean;
   review_private?: boolean;
+  replays_extra?: number;
+  achievements?: string[];
   added_at: string;
   updated_at: string;
 };
@@ -184,6 +188,9 @@ export const toItemRow = (i: ListItem): ListItemRow => ({
   game_id: i.gameId,
   position: i.position,
   added_at: i.addedAt,
+  // Solo se envían si se usan, así la sincronización no falla si aún no has añadido las columnas.
+  ...(i.note !== undefined ? { note: i.note } : {}),
+  ...(i.replays !== undefined ? { replays: i.replays } : {}),
 });
 
 export const fromItemRow = (r: ListItemRow): ListItem => ({
@@ -192,6 +199,8 @@ export const fromItemRow = (r: ListItemRow): ListItem => ({
   gameId: r.game_id,
   position: r.position,
   addedAt: r.added_at,
+  ...(r.note ? { note: r.note } : {}),
+  ...(r.replays ? { replays: r.replays } : {}),
 });
 
 export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
@@ -211,6 +220,8 @@ export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
   recommend: u.recommend ?? null,
   spoilers: u.spoilers ?? false,
   review_private: u.reviewPrivate ?? false,
+  ...(u.replaysExtra !== undefined ? { replays_extra: u.replaysExtra } : {}),
+  ...(u.achievements !== undefined ? { achievements: u.achievements } : {}),
   added_at: u.addedAt,
   updated_at: u.updatedAt,
 });
@@ -233,6 +244,8 @@ export const fromUserGameRow = (r: UserGameRow, localProfileId: string): UserGam
   recommend: r.recommend ?? null,
   spoilers: r.spoilers ?? false,
   reviewPrivate: r.review_private ?? false,
+  ...(r.replays_extra ? { replaysExtra: r.replays_extra } : {}),
+  ...(r.achievements?.length ? { achievements: r.achievements } : {}),
   addedAt: r.added_at,
   updatedAt: r.updated_at,
 });

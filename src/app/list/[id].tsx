@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, useWindowDimens
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { loadOfficialList, useOfficialStatus } from '@/api/official';
+import { ListItemSheet } from '@/components/details';
 import { useGameSheets } from '@/components/gameSheets';
 import {
   BlurHero,
@@ -31,7 +32,7 @@ import { SORT_LABEL } from '@/data/meta';
 import { useCover, useFillBasics } from '@/hooks/useIgdb';
 import { useList, useListEntries, useProfileLookup } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
-import type { ListSort } from '@/types';
+import type { GameRecord, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { entryStats, formatHours, sortEntries } from '@/utils/library';
 import { notify } from '@/utils/notify';
@@ -62,6 +63,7 @@ export default function ListScreen() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  const [itemGame, setItemGame] = useState<GameRecord | null>(null);
 
   useFillBasics(entries.map((e) => e.game));
   const heroCover = useCover(entries[0]?.game);
@@ -268,12 +270,26 @@ export default function ListScreen() {
       ) : null}
 
       <EntryGrid
-        entries={visible.map((e) => ({ game: e.game, status: e.userGame?.status, rank: e.rank }))}
+        entries={visible.map((e) => ({
+          game: e.game,
+          status: e.userGame?.status,
+          rank: e.rank,
+          replays: e.item.replays,
+          note: e.item.note,
+          physical: mine ? e.userGame?.owned : false,
+        }))}
         width={width}
         showRank
         onPress={(game) => router.push(`/game/${encodeURIComponent(game.id)}`)}
-        onLongPress={sheets.openMore}
+        onLongPress={mine ? setItemGame : sheets.openMore}
+        onReplays={mine ? setItemGame : undefined}
       />
+      {mine ? (
+        <ThemedText variant="muted" size={11} style={styles.hint}>
+          Toca la flecha de un juego (o mantenlo pulsado) para apuntar las veces que lo rejugaste y añadir una nota.
+        </ThemedText>
+      ) : null}
+      {itemGame ? <ListItemSheet listId={list.id} game={itemGame} onClose={() => setItemGame(null)} /> : null}
 
       <SortSheet visible={sortOpen} value={sort} onChange={setSort} onClose={() => setSortOpen(false)} />
       <Sheet visible={moreOpen} title={list.name} onClose={() => setMoreOpen(false)}>
@@ -334,5 +350,6 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 40 },
   caps: { letterSpacing: 0.8 },
+  hint: { paddingHorizontal: 20, marginTop: 22, textAlign: 'center' },
   loading: { alignItems: 'center', gap: 12, paddingVertical: 30, paddingHorizontal: 20 },
 });

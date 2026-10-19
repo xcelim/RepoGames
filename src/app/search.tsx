@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { onlineGameId, onlineSources, searchOnline, toGameRecord } from '@/api/games';
@@ -31,7 +31,7 @@ function normalize(text: string): string {
 type Row = { key: string; game: GameRecord; external?: boolean; source?: string };
 
 function SearchScreenInner() {
-  const { listId } = useLocalSearchParams<{ listId?: string }>();
+  const { listId, q } = useLocalSearchParams<{ listId?: string; q?: string }>();
   const skin = useSkin();
   const insets = useSafeAreaInsets();
   const list = useList(listId ?? '');
@@ -43,7 +43,7 @@ function SearchScreenInner() {
   const addToList = useStore((s) => s.addToList);
   const removeFromList = useStore((s) => s.removeFromList);
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(q ?? '');
   const [remote, setRemote] = useState<OnlineResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,13 +172,26 @@ function SearchScreenInner() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
-            <TextField
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Busca cualquier juego…"
-              autoFocus
-              returnKeyType="search"
-            />
+            <View style={styles.searchRow}>
+              <View style={{ flex: 1 }}>
+                <TextField
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Busca cualquier juego…"
+                  autoFocus={!q}
+                  returnKeyType="search"
+                />
+              </View>
+              {Platform.OS !== 'web' ? (
+                <Pressable
+                  accessibilityLabel="Escanear código de barras"
+                  onPress={() => router.push(listId ? `/scan?listId=${listId}` : '/scan')}
+                  style={[styles.scanBtn, { borderColor: skin.colors.line, backgroundColor: skin.colors.panel }]}
+                >
+                  <Ionicons name="barcode-outline" size={26} color={skin.colors.text} />
+                </Pressable>
+              ) : null}
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               {OFFICIAL_SERIES.map((saga) => (
                 <Chip
@@ -325,6 +338,8 @@ function SearchScreenInner() {
 }
 
 const styles = StyleSheet.create({
+  searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  scanBtn: { width: 50, height: 50, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
   content: { paddingHorizontal: 16, gap: 0 },
   headerBlock: { gap: 12, marginBottom: 6 },

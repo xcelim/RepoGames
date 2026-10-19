@@ -11,6 +11,7 @@ import type { GameRecord, PlayStatus } from '@/types';
 import { itemsOfList, userGameKey } from '@/utils/library';
 import { notify } from '@/utils/notify';
 
+import { PlayDetails } from './details';
 import { Mosaic, Sheet, SheetRow, StatusIcon, useIgnColors } from './ign';
 import { ThemedText } from './ThemedText';
 
@@ -122,6 +123,15 @@ function StatusSheet({ game, onClose }: { game: GameRecord; onClose: () => void 
             Quitar de la biblioteca
           </ThemedText>
         </Pressable>
+      ) : null}
+      {current ? (
+        <>
+          <View style={[styles.divider, { backgroundColor: c.line }]} />
+          <ThemedText variant="display" size={17} style={{ marginBottom: 10 }}>
+            Tu partida
+          </ThemedText>
+          <PlayDetails game={game} />
+        </>
       ) : null}
       <View style={[styles.divider, { backgroundColor: c.line }]} />
       <OrganizeRows game={game} onClose={onClose} />

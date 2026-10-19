@@ -8,6 +8,7 @@ import { OFFICIAL_SERIES } from '@/data/catalog';
 import { LIST_COLORS, STATUS_META, STATUS_ORDER } from '@/data/meta';
 import { rawgImage } from '@/api/rawg';
 import { useCover } from '@/hooks/useIgdb';
+import { DECOR, decorColor, type Frame } from '@/theme/decor';
 import { useSkin } from '@/theme/useSkin';
 import type { GameRecord, PlayStatus, UserGame } from '@/types';
 
@@ -50,11 +51,19 @@ export function GameCover({
     .map((w) => w[0].toUpperCase())
     .join('');
 
-  return (
+  // Marco de la estética (solo en portadas grandes; las miniaturas van limpias).
+  const decor = DECOR[skin.id];
+  const frame: Frame | null = decor && width >= 100 ? decor.frame : null;
+  const fc = decor ? decorColor(skin, decor.frameColor ?? 'accent') : skin.colors.accent;
+  const baseRadius = radius ?? Math.min(skin.radius, 12);
+  const r = frame === 'pixel' || frame === 'notch' ? 0 : frame === 'rounded' ? Math.max(baseRadius, 16) : baseRadius;
+
+  const coverView = (
     <View
       style={[
         styles.cover,
-        { width, height, borderRadius: radius ?? Math.min(skin.radius, 12), backgroundColor: c1 },
+        { width, height, borderRadius: r, backgroundColor: c1 },
+        frame === 'glow' ? { borderWidth: 1.5, borderColor: fc } : null,
       ]}
     >
       <LinearGradient
@@ -79,8 +88,81 @@ export function GameCover({
           recyclingKey={game.id}
         />
       ) : null}
+      {frame ? <FrameOverlay frame={frame} color={fc} bg={skin.colors.bg} radius={r} /> : null}
     </View>
   );
+
+  if (frame === 'offset') {
+    return (
+      <View style={{ width, height }}>
+        <View style={[styles.offset, { width, height, borderRadius: r, backgroundColor: fc }]} />
+        {coverView}
+      </View>
+    );
+  }
+  if (frame === 'glow') {
+    return <View style={[{ width, height, borderRadius: r, shadowColor: fc, shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 8, backgroundColor: c1 }]}>{coverView}</View>;
+  }
+  return coverView;
+}
+
+function Corner({ pos, color, size, thick, inset }: { pos: 'tl' | 'tr' | 'bl' | 'br'; color: string; size: number; thick: number; inset: number }) {
+  const s: Record<string, number | string> = { position: 'absolute', width: size, height: size, borderColor: color };
+  if (pos[0] === 't') Object.assign(s, { top: inset, borderTopWidth: thick });
+  else Object.assign(s, { bottom: inset, borderBottomWidth: thick });
+  if (pos[1] === 'l') Object.assign(s, { left: inset, borderLeftWidth: thick });
+  else Object.assign(s, { right: inset, borderRightWidth: thick });
+  return <View style={s} />;
+}
+
+function FrameOverlay({ frame, color, bg, radius }: { frame: Frame; color: string; bg: string; radius: number }) {
+  switch (frame) {
+    case 'thin':
+      return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + 'aa' }]} />;
+    case 'double':
+      return (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 2.5, borderColor: color }]} />
+          <View style={[styles.inset4, { borderRadius: Math.max(0, radius - 4), borderWidth: 1, borderColor: color + 'aa' }]} />
+        </View>
+      );
+    case 'pixel':
+      return (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { borderWidth: 3, borderColor: color }]} />
+          <View style={[styles.inset3, { borderWidth: 2, borderColor: 'rgba(255,255,255,0.22)' }]} />
+        </View>
+      );
+    case 'rounded':
+      return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 2.5, borderColor: color + 'cc' }]} />;
+    case 'corners':
+    case 'hud': {
+      const hud = frame === 'hud';
+      const props = { color, size: hud ? 16 : 14, thick: hud ? 2.5 : 1.5, inset: hud ? 4 : 6 };
+      return (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {hud ? <View style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + '55' }]} /> : null}
+          <Corner pos="tl" {...props} />
+          <Corner pos="tr" {...props} />
+          <Corner pos="bl" {...props} />
+          <Corner pos="br" {...props} />
+        </View>
+      );
+    }
+    case 'notch':
+      // Esquinas cortadas en diagonal.
+      return (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { borderWidth: 1, borderColor: color + '88' }]} />
+          <View style={[styles.notchTL, { borderTopColor: bg }]} />
+          <View style={[styles.notchBR, { borderBottomColor: bg }]} />
+          <View style={[styles.notchLineTL, { backgroundColor: color }]} />
+          <View style={[styles.notchLineBR, { backgroundColor: color }]} />
+        </View>
+      );
+    default:
+      return null;
+  }
 }
 
 // ---------- Estado ----------
@@ -269,6 +351,13 @@ export function GameRow({ game, userGame, rank, hours, onPress, right, selected 
 
 const styles = StyleSheet.create({
   cover: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  offset: { position: 'absolute', top: 5, left: 5 },
+  inset4: { position: 'absolute', top: 4, left: 4, right: 4, bottom: 4 },
+  inset3: { position: 'absolute', top: 3, left: 3, right: 3, bottom: 3 },
+  notchTL: { position: 'absolute', top: 0, left: 0, width: 0, height: 0, borderTopWidth: 16, borderRightWidth: 16, borderRightColor: 'transparent' },
+  notchBR: { position: 'absolute', bottom: 0, right: 0, width: 0, height: 0, borderBottomWidth: 16, borderLeftWidth: 16, borderLeftColor: 'transparent' },
+  notchLineTL: { position: 'absolute', top: 7.5, left: -3, width: 22.6, height: 1.5, transform: [{ rotate: '-45deg' }] },
+  notchLineBR: { position: 'absolute', bottom: 7.5, right: -3, width: 22.6, height: 1.5, transform: [{ rotate: '-45deg' }] },
   initials: { color: 'rgba(255,255,255,0.9)' },
   pill: {
     flexDirection: 'row',

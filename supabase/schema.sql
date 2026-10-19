@@ -132,6 +132,9 @@ create table if not exists public.list_items (
 );
 -- Un juego solo puede estar una vez en cada lista.
 create unique index if not exists list_items_list_game_key on public.list_items (list_id, game_id);
+-- Nota tuya y veces que lo rejugaste dentro de esa lista (por ejemplo, ese año).
+alter table public.list_items add column if not exists note text not null default '';
+alter table public.list_items add column if not exists replays int not null default 0 check (replays >= 0);
 create index if not exists list_items_list_idx on public.list_items (list_id, position);
 create index if not exists list_items_game_idx on public.list_items (game_id);
 
@@ -162,6 +165,10 @@ create table if not exists public.user_games (
 alter table public.user_games add column if not exists recommend boolean;
 alter table public.user_games add column if not exists spoilers boolean not null default false;
 alter table public.user_games add column if not exists review_private boolean not null default false;
+-- Rejugadas que no están en ninguna lista (el total = suma de las listas + esto).
+alter table public.user_games add column if not exists replays_extra int not null default 0;
+-- Logros que has marcado (ids de RAWG).
+alter table public.user_games add column if not exists achievements text[] not null default '{}';
 alter table public.user_games drop constraint if exists user_games_status_check;
 alter table public.user_games add constraint user_games_status_check
   check (status in ('library', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'dropped'));

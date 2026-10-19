@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AchievementsCard } from '@/components/achievements';
+import { PlayDetails } from '@/components/details';
 import { GameCover, gameColors } from '@/components/games';
 import { useGameSheets } from '@/components/gameSheets';
 import {
@@ -33,7 +35,6 @@ import { STATUS_META } from '@/data/meta';
 import { useGameDetails } from '@/hooks/useIgdb';
 import { useCommunityLists, useGame, useListCount, useListPreview, useMyLists } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
-import { formatDate } from '@/utils/format';
 import { userGameKey } from '@/utils/library';
 import type { GameDetails } from '@/api/types';
 import type { GameRecord } from '@/types';
@@ -270,6 +271,8 @@ function Overview({ game, details, loading }: { game: GameRecord; details: GameD
         ) : null}
       </Card>
 
+      {game && game.source !== 'custom' ? <AchievementsCard game={game} /> : null}
+
       {userGame ? (
         <Card>
           <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
@@ -289,10 +292,10 @@ function Overview({ game, details, loading }: { game: GameRecord; details: GameD
           <View style={styles.partGrid}>
             <Part label="Plataforma" value={userGame.platform} />
             <Part label="Horas jugadas" value={userGame.hoursPlayed != null ? `${userGame.hoursPlayed} h` : null} />
-            <Part label="Empezado" value={userGame.startedAt ? formatDate(userGame.startedAt) : null} />
-            <Part label="Terminado" value={userGame.finishedAt ? formatDate(userGame.finishedAt) : null} />
-            <Part label="Lo tienes" value={userGame.owned ? 'Sí' : 'No'} />
             <Part label="Favorito" value={userGame.favorite ? '★' : '–'} />
+          </View>
+          <View style={{ marginTop: 14 }}>
+            {game ? <PlayDetails game={game} /> : null}
           </View>
           <Pressable onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/edit`)} style={{ marginTop: 12 }}>
             <ThemedText variant="bold" size={12} style={{ textDecorationLine: 'underline' }}>

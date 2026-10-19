@@ -11,7 +11,7 @@ import { LIBRARY_ROW_META, SORT_LABEL, statusesOfRow, type LibraryRow } from '@/
 import { useStore } from '@/store/useStore';
 import type { ListItem, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
-import { sortEntries, type Entry } from '@/utils/library';
+import { replayStats, sortEntries, type Entry } from '@/utils/library';
 
 // Los juegos de la biblioteca con un estado (o todos), como en IGN.
 export default function LibraryStatusScreen() {
@@ -22,6 +22,8 @@ export default function LibraryStatusScreen() {
   const profileId = useStore((s) => s.currentProfileId);
   const userGames = useStore((s) => s.userGames);
   const games = useStore((s) => s.games);
+  const lists = useStore((s) => s.lists);
+  const items = useStore((s) => s.items);
   const mode = useStore((s) => s.durationMode);
   const [sort, setSort] = useState<ListSort>('updated-new');
   const [sortOpen, setSortOpen] = useState(false);
@@ -60,7 +62,14 @@ export default function LibraryStatusScreen() {
         </ThemedText>
       ) : null}
       <EntryGrid
-        entries={entries.map((e) => ({ game: e.game, status: e.userGame?.status, rank: e.rank }))}
+        entries={entries.map((e) => ({
+          game: e.game,
+          status: e.userGame?.status,
+          rank: e.rank,
+          replays: profileId ? replayStats({ lists, items, userGames }, profileId, e.game.id).total : 0,
+          physical: e.userGame?.owned,
+        }))}
+        onReplays={sheets.openStatus}
         width={width}
         showRank={sort === 'manual'}
         onPress={(game) => router.push(`/game/${encodeURIComponent(game.id)}`)}

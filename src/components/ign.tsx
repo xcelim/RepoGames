@@ -23,11 +23,15 @@ import { platformBadge, SCORE_LABEL, scoreColor, STATUS_META } from '@/data/meta
 import { useSkin } from '@/theme/useSkin';
 import type { GameList, GameRecord, PlayStatus } from '@/types';
 
+import { Backdrop } from './Backdrop';
 import { GameCover } from './games';
+import { ReplayBadge } from './replayBadge';
 import { ThemedText } from './ThemedText';
 import type { IconName } from './ui';
 
 // ---------- Colores derivados ----------
+
+export const glass = (hex: string) => (/^#[0-9a-f]{6}$/i.test(hex) ? `${hex}e0` : hex);
 
 export function useIgnColors() {
   const skin = useSkin();
@@ -55,7 +59,8 @@ export function Card({ children, style, padded = true }: { children: ReactNode; 
     <View
       style={[
         {
-          backgroundColor: c.card,
+          // Un pelín transparente: deja asomar los dibujos de fondo de la estética.
+          backgroundColor: glass(c.card),
           borderRadius: c.radius + 4,
           borderWidth: skin.borderWidth,
           borderColor: c.line,
@@ -119,6 +124,7 @@ export function IgnScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Backdrop />
       <Animated.ScrollView
         {...rest}
         scrollEventThrottle={16}
@@ -287,6 +293,10 @@ export function CoverTile({
   onAdd,
   subtitle,
   onLongPress,
+  replays,
+  onReplays,
+  physical,
+  note,
 }: {
   game: GameRecord;
   width: number;
@@ -296,6 +306,10 @@ export function CoverTile({
   onLongPress?: () => void;
   onAdd?: () => void;
   subtitle?: string | null;
+  replays?: number; // veces rejugado (icono arriba a la derecha)
+  onReplays?: () => void; // si se puede tocar para cambiarlo
+  physical?: boolean;
+  note?: string;
 }) {
   const c = useIgnColors();
   const sub = subtitle !== undefined ? subtitle : (game.developer ?? (game.year ? String(game.year) : null));
@@ -317,6 +331,16 @@ export function CoverTile({
             </View>
           </Pressable>
         ) : null}
+        {replays || onReplays ? (
+          <Pressable disabled={!onReplays} onPress={onReplays} hitSlop={8} style={styles.replayCorner} accessibilityLabel={`Rejugado ${replays ?? 0} veces`}>
+            <ReplayBadge count={replays ?? 0} size={Math.max(28, Math.min(36, width * 0.2))} dim={!replays} />
+          </Pressable>
+        ) : null}
+        {physical ? (
+          <View style={styles.physicalCorner} accessibilityLabel="Lo tienes en físico">
+            <Ionicons name="disc" size={14} color="#fff" />
+          </View>
+        ) : null}
       </View>
       <View style={styles.tileText}>
         {rank != null ? <RankCircle rank={rank} /> : null}
@@ -327,6 +351,11 @@ export function CoverTile({
           {sub ? (
             <ThemedText variant="muted" size={11} numberOfLines={1} style={styles.caps}>
               {sub.toUpperCase()}
+            </ThemedText>
+          ) : null}
+          {note ? (
+            <ThemedText variant="muted" size={12} numberOfLines={2} style={{ fontStyle: 'italic', marginTop: 3 }}>
+              “{note}”
             </ThemedText>
           ) : null}
         </View>
@@ -758,6 +787,8 @@ export function SectionHeader({ title, subtitle, onPress }: { title: string; sub
 }
 
 const styles = StyleSheet.create({
+  replayCorner: { position: 'absolute', top: 6, right: 6 },
+  physicalCorner: { position: 'absolute', top: 8, left: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.62)', alignItems: 'center', justifyContent: 'center' },
   largeHeader: { paddingHorizontal: 20, paddingBottom: 8, gap: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', paddingVertical: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
@@ -800,12 +831,14 @@ export function EntryGrid({
   showRank,
   onPress,
   onLongPress,
+  onReplays,
 }: {
-  entries: { game: GameRecord; status?: PlayStatus | null; rank: number }[];
+  entries: { game: GameRecord; status?: PlayStatus | null; rank: number; replays?: number; physical?: boolean; note?: string }[];
   width: number;
   showRank: boolean;
   onPress: (game: GameRecord) => void;
   onLongPress?: (game: GameRecord) => void;
+  onReplays?: (game: GameRecord) => void;
 }) {
   const tileW = (width - 20 * 2 - 14) / 2;
   return (
@@ -819,6 +852,10 @@ export function EntryGrid({
           rank={showRank ? e.rank : undefined}
           onPress={() => onPress(e.game)}
           onLongPress={onLongPress ? () => onLongPress(e.game) : undefined}
+          replays={e.replays}
+          onReplays={onReplays ? () => onReplays(e.game) : undefined}
+          physical={e.physical}
+          note={e.note}
         />
       ))}
     </View>
