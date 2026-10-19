@@ -607,3 +607,18 @@ export async function igdbBasics(ids: number[]): Promise<OnlineResult[]> {
   }
   return out;
 }
+
+// Id de Steam (appid) de un juego de IGDB, para pedir sus logros a Steam.
+export async function igdbSteamAppId(igdbId: number): Promise<number | null> {
+  const rows = await query<{ uid?: string; url?: string; category?: number; external_game_source?: number }[]>(
+    'external_games',
+    `fields uid,url,category,external_game_source; where game = ${igdbId}; limit 50;`,
+    'normal',
+  ).catch(() => []);
+  for (const r of rows) {
+    const fromUrl = r.url?.match(/store\.steampowered\.com\/app\/(\d+)/)?.[1];
+    if (fromUrl) return Number(fromUrl);
+    if ((r.category === 1 || r.external_game_source === 1) && r.uid && /^\d+$/.test(r.uid)) return Number(r.uid);
+  }
+  return null;
+}

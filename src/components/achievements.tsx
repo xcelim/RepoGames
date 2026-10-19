@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { fetchAchievements, type Achievement } from '@/api/achievements';
+import { fetchAchievements, type Achievement, type AchievementSet } from '@/api/achievements';
 import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
@@ -48,26 +48,32 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
   const ug = useStore((s) => (profileId ? s.userGames[userGameKey(profileId, game.id)] : undefined));
   const updateUserGame = useStore((s) => s.updateUserGame);
   const setStatus = useStore((s) => s.setStatus);
-  const [state, setState] = useState<{ id: string; list: Achievement[] | null; error: string | null }>({
+  const [state, setState] = useState<{ id: string; set: AchievementSet | null; error: string | null }>({
     id: game.id,
-    list: null,
+    set: null,
     error: null,
   });
+  const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
   const [open, setOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let alive = true;
     fetchAchievements(game)
-      .then((list) => alive && setState({ id: game.id, list, error: null }))
-      .catch((e: unknown) => alive && setState({ id: game.id, list: [], error: e instanceof Error ? e.message : 'Error' }));
+      .then((set) => alive && setState({ id: game.id, set, error: null }))
+      .catch(
+        (e: unknown) =>
+          alive && setState({ id: game.id, set: { source: 'rawg', list: [] }, error: e instanceof Error ? e.message : 'Error' }),
+      );
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id]);
 
-  const list = state.id === game.id ? state.list : null;
+  const set = state.id === game.id ? state.set : null;
+  const list: Achievement[] | null = set ? set.list : null;
+  const hiddenCount = list ? list.filter((a) => a.hidden).length : 0;
   const done = useMemo(() => new Set(ug?.achievements ?? []), [ug?.achievements]);
   if (list && list.length === 0) return null; // sin logros (p. ej. juegos de Nintendo)
 
@@ -128,22 +134,29 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
       {open && list ? (
         <View style={{ gap: 2 }}>
           <ThemedText variant="muted" size={11}>
-            Logros de Steam, Xbox y PlayStation según RAWG. Márcalos según los vayas consiguiendo.
+            {set?.source === 'steam'
+              ? `Logros de Steam${hiddenCount ? `, incluidos ${hiddenCount} ocultos (toca el ojo para verlos)` : ''}. Márcalos según los vayas consiguiendo.`
+              : 'Logros según RAWG (sin los ocultos). Márcalos según los vayas consiguiendo.'}
           </ThemedText>
           {shown.map((a) => {
             const has = done.has(a.id);
+            const secret = a.hidden && !has && !revealed.has(a.id);
             return (
               <Pressable key={a.id} onPress={() => toggle(a.id)} style={[styles.row, { borderBottomColor: c.line }]}>
                 {a.image ? (
-                  <Image source={{ uri: a.image }} style={[styles.icon, { opacity: has ? 1 : 0.45 }]} contentFit="cover" />
+                  <Image source={{ uri: a.image }} style={[styles.icon, { opacity: has ? 1 : 0.45 }]} contentFit="cover" blurRadius={secret ? 12 : 0} />
                 ) : (
                   <View style={[styles.icon, { backgroundColor: c.soft }]} />
                 )}
                 <View style={{ flex: 1 }}>
                   <ThemedText variant="bold" size={14} style={{ opacity: has ? 1 : 0.8 }}>
-                    {a.name}
+                    {secret ? 'Logro oculto' : a.name}
                   </ThemedText>
-                  {a.description ? (
+                  {secret ? (
+                    <ThemedText variant="muted" size={12}>
+                      Puede destripar la historia
+                    </ThemedText>
+                  ) : a.description ? (
                     <ThemedText variant="muted" size={12} numberOfLines={2}>
                       {a.description}
                     </ThemedText>
@@ -154,6 +167,15 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
                     </ThemedText>
                   ) : null}
                 </View>
+                {secret ? (
+                  <Pressable
+                    onPress={() => setRevealed((r) => new Set(r).add(a.id))}
+                    hitSlop={8}
+                    accessibilityLabel="Ver logro oculto"
+                  >
+                    <Ionicons name="eye-outline" size={22} color={c.muted} />
+                  </Pressable>
+                ) : null}
                 <Ionicons name={has ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={has ? '#6aa834' : c.muted} />
               </Pressable>
             );

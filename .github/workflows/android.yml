@@ -25,6 +25,7 @@ jobs:
       EXPO_PUBLIC_IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
       EXPO_PUBLIC_IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
       EXPO_PUBLIC_RAWG_KEY: ${{ secrets.RAWG_KEY }}
+      EXPO_PUBLIC_STEAM_KEY: ${{ secrets.STEAM_API_KEY }}
       EXPO_PUBLIC_GAMES_PROXY_URL: ${{ secrets.GAMES_PROXY_URL }}
       # Supabase: la URL del proyecto y la clave pública "anon" (es pública por diseño;
       # lo que protege los datos son las normas RLS de supabase/schema.sql).
@@ -48,7 +49,7 @@ jobs:
           if [ -z "$EXPO_PUBLIC_IGDB_CLIENT_ID" ] && [ -z "$EXPO_PUBLIC_RAWG_KEY" ] && [ -z "$EXPO_PUBLIC_GAMES_PROXY_URL" ]; then
             echo "::warning::No hay claves de la API (IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, RAWG_KEY): la app no podrá descargar juegos."
           else
-            echo "Claves de la API presentes: IGDB=$([ -n "$EXPO_PUBLIC_IGDB_CLIENT_ID" ] && echo sí || echo no) RAWG=$([ -n "$EXPO_PUBLIC_RAWG_KEY" ] && echo sí || echo no)"
+            echo "Claves de la API presentes: IGDB=$([ -n "$EXPO_PUBLIC_IGDB_CLIENT_ID" ] && echo sí || echo no) RAWG=$([ -n "$EXPO_PUBLIC_RAWG_KEY" ] && echo sí || echo no) Steam=$([ -n "$EXPO_PUBLIC_STEAM_KEY" ] && echo sí || echo no)"
           fi
           if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ] || [ -z "$EXPO_PUBLIC_SUPABASE_ANON_KEY" ]; then
             echo "::warning::Faltan SUPABASE_URL o SUPABASE_ANON_KEY: la app guardará los datos solo en el móvil."
