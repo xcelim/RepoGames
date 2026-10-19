@@ -42,7 +42,7 @@ function pctText(p: number | null) {
   return `${p < 10 ? p.toFixed(1).replace('.', ',') : Math.round(p)} % de jugadores`;
 }
 
-export function AchievementsCard({ game }: { game: GameRecord }) {
+export function AchievementsCard({ game, expanded }: { game: GameRecord; expanded?: boolean }) {
   const c = useIgnColors();
   const profileId = useStore((s) => s.currentProfileId);
   const ug = useStore((s) => (profileId ? s.userGames[userGameKey(profileId, game.id)] : undefined));
@@ -54,8 +54,8 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
     error: null,
   });
   const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
-  const [open, setOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [open, setOpen] = useState(!!expanded);
+  const [showAll, setShowAll] = useState(!!expanded);
 
   useEffect(() => {
     let alive = true;
@@ -63,7 +63,8 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
       .then((set) => alive && setState({ id: game.id, set, error: null }))
       .catch(
         (e: unknown) =>
-          alive && setState({ id: game.id, set: { source: 'rawg', list: [] }, error: e instanceof Error ? e.message : 'Error' }),
+          alive &&
+          setState({ id: game.id, set: { source: 'rawg', list: [] }, error: e instanceof Error ? e.message : 'Error' }),
       );
     return () => {
       alive = false;
@@ -88,10 +89,14 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
     if (!wasComplete && nowComplete) {
       const status = useStore.getState().userGames[userGameKey(profileId!, game.id)]?.status;
       if (status !== 'completed') {
-        Alert.alert('🏆 ¡Platino Saga Quest!', `Tienes todos los logros de ${game.title}. ¿Lo marcas como «Al 100 %»?`, [
-          { text: 'Ahora no', style: 'cancel' },
-          { text: 'Marcar al 100 %', onPress: () => setStatus(game.id, 'completed') },
-        ]);
+        Alert.alert(
+          '🏆 ¡Platino Saga Quest!',
+          `Tienes todos los logros de ${game.title}. ¿Lo marcas como «Al 100 %»?`,
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            { text: 'Marcar al 100 %', onPress: () => setStatus(game.id, 'completed') },
+          ],
+        );
       } else notify('🏆 ¡Platino Saga Quest!');
     }
   };
@@ -116,7 +121,11 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
           {list ? (
             <View style={styles.progressRow}>
               <View style={{ flex: 1 }}>
-                <ProgressBar pct={total ? (got / total) * 100 : 0} height={5} color={complete ? '#b9c6d8' : undefined} />
+                <ProgressBar
+                  pct={total ? (got / total) * 100 : 0}
+                  height={5}
+                  color={complete ? '#b9c6d8' : undefined}
+                />
               </View>
               <ThemedText variant="muted" size={12}>
                 {got}/{total}
@@ -128,7 +137,11 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
             </ThemedText>
           )}
         </View>
-        {list ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={22} color={c.muted} /> : <ActivityIndicator color={c.muted} />}
+        {list ? (
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={22} color={c.muted} />
+        ) : (
+          <ActivityIndicator color={c.muted} />
+        )}
       </Pressable>
 
       {open && list ? (
@@ -144,7 +157,12 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
             return (
               <Pressable key={a.id} onPress={() => toggle(a.id)} style={[styles.row, { borderBottomColor: c.line }]}>
                 {a.image ? (
-                  <Image source={{ uri: a.image }} style={[styles.icon, { opacity: has ? 1 : 0.45 }]} contentFit="cover" blurRadius={secret ? 12 : 0} />
+                  <Image
+                    source={{ uri: a.image }}
+                    style={[styles.icon, { opacity: has ? 1 : 0.45 }]}
+                    contentFit="cover"
+                    blurRadius={secret ? 12 : 0}
+                  />
                 ) : (
                   <View style={[styles.icon, { backgroundColor: c.soft }]} />
                 )}
@@ -176,7 +194,11 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
                     <Ionicons name="eye-outline" size={22} color={c.muted} />
                   </Pressable>
                 ) : null}
-                <Ionicons name={has ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={has ? '#6aa834' : c.muted} />
+                <Ionicons
+                  name={has ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={26}
+                  color={has ? '#6aa834' : c.muted}
+                />
               </Pressable>
             );
           })}
@@ -218,7 +240,13 @@ export function AchievementsCard({ game }: { game: GameRecord }) {
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   icon: { width: 44, height: 44, borderRadius: 8 },
   more: { alignItems: 'center', paddingVertical: 12 },
   actions: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12 },

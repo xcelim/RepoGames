@@ -42,7 +42,8 @@ import type { GameRecord } from '@/types';
 type Tab = 'overview' | 'lists' | 'reviews';
 
 export default function GameScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const fromPlatinums = from === 'platinos';
   const gameId = decodeURIComponent(id ?? '');
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
@@ -153,6 +154,12 @@ export default function GameScreen() {
         </View>
       </View>
 
+      {fromPlatinums ? (
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+          <AchievementsCard game={game} expanded />
+        </View>
+      ) : null}
+
       <View style={[styles.tabs, { borderBottomColor: c.line }]}>
         {(
           [
@@ -171,7 +178,7 @@ export default function GameScreen() {
 
       <View style={styles.tabBody}>
         {tab === 'overview' ? (
-          <Overview game={game} details={details} loading={loading} />
+          <Overview game={game} details={details} loading={loading} hideAchievements={fromPlatinums} />
         ) : tab === 'lists' ? (
           <ListsTab gameId={game.id} onOrganize={() => sheets.openOrganize(game)} />
         ) : (
@@ -196,7 +203,17 @@ function ScoreCol({ label, children, onPress }: { label: string; children: React
 
 // ---------- Resumen ----------
 
-function Overview({ game, details, loading }: { game: GameRecord; details: GameDetails | null; loading: boolean }) {
+function Overview({
+  game,
+  details,
+  loading,
+  hideAchievements,
+}: {
+  game: GameRecord;
+  details: GameDetails | null;
+  loading: boolean;
+  hideAchievements?: boolean;
+}) {
   const c = useIgnColors();
   const gameId = game.id;
   const userGame = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
@@ -271,7 +288,7 @@ function Overview({ game, details, loading }: { game: GameRecord; details: GameD
         ) : null}
       </Card>
 
-      {game && game.source !== 'custom' ? <AchievementsCard game={game} /> : null}
+      {game && game.source !== 'custom' && !hideAchievements ? <AchievementsCard game={game} /> : null}
 
       {userGame ? (
         <Card>

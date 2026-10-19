@@ -3,7 +3,12 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { Card, CoverTile, Donut, HeaderIcon, IgnScreen, StatusIcon } from '@/components/ign';
+import { PlatinumBadge } from '@/components/achievements';
+import { Collapsible } from '@/components/Collapsible';
+import { Card, CoverTile, Donut, HeaderIcon, IgnScreen, StatusIcon, useIgnColors } from '@/components/ign';
+import { Shine } from '@/components/Shine';
+import { GameCover } from '@/components/games';
+import { usePlatinums } from '@/hooks/usePlatinums';
 import { OfflineDownloadCard } from '@/components/cloudPanel';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar, MenuRow } from '@/components/ui';
@@ -21,9 +26,7 @@ function Bar({ label, value, max, color }: { label: string; value: number; max: 
         {label}
       </ThemedText>
       <View style={[styles.track, { backgroundColor: skin.colors.panel2 }]}>
-        <View
-          style={[styles.fill, { width: `${max > 0 ? (value / max) * 100 : 0}%`, backgroundColor: color }]}
-        />
+        <View style={[styles.fill, { width: `${max > 0 ? (value / max) * 100 : 0}%`, backgroundColor: color }]} />
       </View>
       <ThemedText variant="bold" size={12} style={styles.barValue}>
         {value}
@@ -80,7 +83,9 @@ export default function ProfileScreen() {
       total: mine.length,
       finished: mine.filter((g) => FINISHED.includes(g.status)).length,
       byStatus,
-      platforms: Object.entries(byPlatform).sort((a, b) => b[1] - a[1]).slice(0, 6),
+      platforms: Object.entries(byPlatform)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6),
       ratings,
       average: rated ? Math.round((ratingSum / rated) * 10) / 10 : null,
       hoursPlayed,
@@ -123,28 +128,46 @@ export default function ProfileScreen() {
         </Pressable>
         {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
 
-        <OfflineDownloadCard />
-
-        <Card style={styles.statsCard} padded={false}>
-          <Stat value={String(data.total)} label="JUEGOS" />
-          <Stat value={String(data.finished)} label="TERMINADOS" />
-          <Stat value={data.average !== null ? String(data.average) : '–'} label="NOTA MEDIA" />
+        <Card style={styles.summary} padded={false}>
+          <View style={styles.summaryRow}>
+            <Stat value={String(data.total)} label="JUEGOS" />
+            <Stat value={String(data.finished)} label="TERMINADOS" />
+            <Stat value={data.average !== null ? String(data.average) : '–'} label="NOTA MEDIA" />
+          </View>
+          <View style={[styles.summaryDivider, { backgroundColor: skin.colors.line }]} />
+          <View style={styles.summaryRow}>
+            <Stat value={formatHours(data.hoursPlayed)} label={data.estimated ? 'JUGADAS (APROX.)' : 'HORAS JUGADAS'} />
+            <Stat value={formatHours(data.hoursLeft)} label="TE QUEDAN" />
+          </View>
         </Card>
-        <Card style={styles.statsCard} padded={false}>
-          <Stat value={formatHours(data.hoursPlayed)} label={data.estimated ? 'HORAS JUGADAS (APROX.)' : 'HORAS JUGADAS'} />
-          <Stat value={formatHours(data.hoursLeft)} label="TE QUEDAN" />
-        </Card>
 
-        <Card>
-          <ThemedText variant="display" size={19}>
-            {data.total} en tu biblioteca
-          </ThemedText>
+        <PlatinumsEntry />
+
+        <Collapsible
+          id="library"
+          icon="library-outline"
+          title={`${data.total} en tu biblioteca`}
+          summary={
+            STATUS_ORDER.filter((st) => data.byStatus[st])
+              .map((st) => `${data.byStatus[st]} ${STATUS_META[st].short.toLowerCase()}`)
+              .join(' · ') || 'Aún vacía'
+          }
+          defaultOpen
+        >
           <View style={styles.donut}>
-            <Donut parts={donutStatuses.map((st) => ({ value: data.byStatus[st] ?? 0, color: STATUS_META[st].color }))} size={130} stroke={18} />
+            <Donut
+              parts={donutStatuses.map((st) => ({ value: data.byStatus[st] ?? 0, color: STATUS_META[st].color }))}
+              size={130}
+              stroke={18}
+            />
           </View>
           <View style={styles.legend}>
             {STATUS_ORDER.filter((st) => st !== 'library' || data.byStatus.library).map((st) => (
-              <Pressable key={st} style={styles.legendItem} onPress={() => router.push(`/library/${st === 'completed' ? 'beaten' : st}`)}>
+              <Pressable
+                key={st}
+                style={styles.legendItem}
+                onPress={() => router.push(`/library/${st === 'completed' ? 'beaten' : st}`)}
+              >
                 <StatusIcon status={st} size={22} />
                 <ThemedText variant="bold" size={14}>
                   {data.byStatus[st] ?? 0}
@@ -155,13 +178,18 @@ export default function ProfileScreen() {
               </Pressable>
             ))}
           </View>
-        </Card>
+        </Collapsible>
 
         {data.topRated.length > 0 ? (
-          <Card>
-            <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
-              Tus mejor valorados
-            </ThemedText>
+          <Collapsible
+            id="top"
+            icon="star-outline"
+            title="Tus mejor valorados"
+            summary={data.topRated
+              .map(({ game }) => game?.title)
+              .filter(Boolean)
+              .join(' · ')}
+          >
             <View style={{ flexDirection: 'row', gap: 12 }}>
               {data.topRated.map(({ ug, game }, index) =>
                 game ? (
@@ -176,13 +204,19 @@ export default function ProfileScreen() {
                 ) : null,
               )}
             </View>
-          </Card>
+          </Collapsible>
         ) : null}
 
-        <Card>
-          <ThemedText variant="display" size={19} style={{ marginBottom: 12 }}>
-            Tus notas
-          </ThemedText>
+        <Collapsible
+          id="ratings"
+          icon="bar-chart-outline"
+          title="Tus notas"
+          summary={
+            data.average !== null
+              ? `Media ${data.average} · ${data.ratings.reduce((a, b) => a + b, 0)} juegos puntuados`
+              : 'Aún no has puntuado ningún juego'
+          }
+        >
           <View style={styles.histogram}>
             {data.ratings.map((count, index) => (
               <View key={index} style={styles.histoCol}>
@@ -190,7 +224,11 @@ export default function ProfileScreen() {
                   <View
                     style={[
                       styles.histoBar,
-                      { height: `${(count / maxRating) * 100}%`, backgroundColor: scoreColor(index + 1), borderRadius: 3 },
+                      {
+                        height: `${(count / maxRating) * 100}%`,
+                        backgroundColor: scoreColor(index + 1),
+                        borderRadius: 3,
+                      },
                     ]}
                   />
                 </View>
@@ -200,27 +238,73 @@ export default function ProfileScreen() {
               </View>
             ))}
           </View>
-        </Card>
+        </Collapsible>
 
         {data.platforms.length > 0 ? (
-          <Card style={{ gap: 8 }}>
-            <ThemedText variant="display" size={19} style={{ marginBottom: 4 }}>
-              Plataformas
-            </ThemedText>
-            {data.platforms.map(([name, count]) => (
-              <Bar key={name} label={name} value={count} max={maxPlatform} color={skin.colors.accent} />
-            ))}
-          </Card>
+          <Collapsible
+            id="platforms"
+            icon="game-controller-outline"
+            title="Plataformas"
+            summary={data.platforms
+              .slice(0, 3)
+              .map(([name, n]) => `${name} ${n}`)
+              .join(' · ')}
+          >
+            <View style={{ gap: 8 }}>
+              {data.platforms.map(([name, count]) => (
+                <Bar key={name} label={name} value={count} max={maxPlatform} color={skin.colors.accent} />
+              ))}
+            </View>
+          </Collapsible>
         ) : null}
+
+        <OfflineDownloadCard />
 
         <Card>
           <MenuRow icon="create-outline" label="Editar perfil" onPress={() => router.push('/profile-edit')} />
           <MenuRow icon="people-outline" label="Cuenta y sincronización" onPress={() => router.push('/accounts')} />
           <MenuRow icon="settings-outline" label="Ajustes y estética" onPress={() => router.push('/settings')} />
-          <MenuRow icon="eye-outline" label="Ver mi perfil público" onPress={() => router.push(`/user/${profile.id}`)} />
+          <MenuRow
+            icon="eye-outline"
+            label="Ver mi perfil público"
+            onPress={() => router.push(`/user/${profile.id}`)}
+          />
         </Card>
       </View>
     </IgnScreen>
+  );
+}
+
+// Entrada a tus Platinos Saga Quest, con las portadas de los últimos.
+function PlatinumsEntry() {
+  const c = useIgnColors();
+  const { list } = usePlatinums();
+  return (
+    <Pressable onPress={() => router.push('/platinums')} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+      <Card style={styles.platCard}>
+        <PlatinumBadge size={44} />
+        <View style={{ flex: 1 }}>
+          <ThemedText variant="display" size={18}>
+            Platinos
+          </ThemedText>
+          <ThemedText variant="muted" size={12}>
+            {list.length
+              ? `${list.length} ${list.length === 1 ? 'juego' : 'juegos'} con todos los logros`
+              : 'Marca todos los logros de un juego para ganarlo'}
+          </ThemedText>
+        </View>
+        <View style={styles.platCovers}>
+          {list.slice(0, 3).map((p, i) => (
+            <View key={p.game.id} style={{ marginLeft: i ? -14 : 0 }}>
+              <Shine width={30} height={40} radius={4} border={1.5} badge={0}>
+                <GameCover game={p.game} width={30} radius={0} plain />
+              </Shine>
+            </View>
+          ))}
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={c.muted} />
+      </Card>
+    </Pressable>
   );
 }
 
@@ -241,6 +325,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 20, gap: 16 },
   statsCard: { flexDirection: 'row', paddingVertical: 16 },
+  summary: { paddingVertical: 6 },
+  summaryRow: { flexDirection: 'row', paddingVertical: 12 },
+  summaryDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 18 },
+  platCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  platCovers: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   donut: { alignItems: 'center', marginVertical: 18 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },

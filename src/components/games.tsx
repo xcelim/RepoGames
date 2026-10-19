@@ -31,12 +31,14 @@ export function GameCover({
   url: forcedUrl,
   square,
   radius,
+  plain,
 }: {
   game: GameRecord;
   width: number;
   url?: string | null;
   square?: boolean;
   radius?: number;
+  plain?: boolean; // sin el marco de la estética
 }) {
   const skin = useSkin();
   const cover = useCover(forcedUrl ? undefined : game);
@@ -53,7 +55,7 @@ export function GameCover({
 
   // Marco de la estética (solo en portadas grandes; las miniaturas van limpias).
   const decor = DECOR[skin.id];
-  const frame: Frame | null = decor && width >= 100 ? decor.frame : null;
+  const frame: Frame | null = decor && !plain && width >= 100 ? decor.frame : null;
   const fc = decor ? decorColor(skin, decor.frameColor ?? 'accent') : skin.colors.accent;
   const baseRadius = radius ?? Math.min(skin.radius, 12);
   const r = frame === 'pixel' || frame === 'notch' ? 0 : frame === 'rounded' ? Math.max(baseRadius, 16) : baseRadius;
