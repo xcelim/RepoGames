@@ -15,31 +15,15 @@ type CoverProps = {
 
 export function Cover({ color, color2, aspectRatio = 16 / 10, imageUrl, children }: CoverProps) {
   const skin = useSkin();
-  const colors: [string, string] =
-    skin.id === 'gameboy' ? [skin.colors.panel, skin.colors.panel2] : [color, color2];
+  const colors: [string, string] = skin.id === 'gameboy' ? [skin.colors.panel, skin.colors.panel2] : [color, color2];
 
   return (
     <View style={[styles.cover, { aspectRatio }]}>
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       {imageUrl ? (
-        <Image
-          source={imageUrl}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          transition={300}
-        />
+        <Image source={imageUrl} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} />
       ) : null}
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: skin.colors.bg, opacity: skin.dark ? 0.35 : 0.15 },
-        ]}
-      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: skin.colors.bg, opacity: skin.dark ? 0.35 : 0.15 }]} />
       {children}
     </View>
   );

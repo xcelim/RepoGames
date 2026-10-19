@@ -14,7 +14,9 @@ export default function ScanScreen() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
-  const [state, setState] = useState<{ kind: 'scanning' } | { kind: 'looking'; code: string } | { kind: 'unknown'; code: string }>({
+  const [state, setState] = useState<
+    { kind: 'scanning' } | { kind: 'looking'; code: string } | { kind: 'unknown'; code: string }
+  >({
     kind: 'scanning',
   });
   const busy = useRef(false);
@@ -112,7 +114,15 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, padding: 30 },
   whiteText: { color: '#fff', textAlign: 'center' },
   close: { position: 'absolute', right: 18, zIndex: 2 },
-  frameWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  frameWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   frame: { width: 280, height: 160, borderWidth: 3, borderColor: '#fff', borderRadius: 18 },
   panel: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 22, backgroundColor: 'rgba(0,0,0,0.65)' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' },

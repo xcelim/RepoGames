@@ -35,6 +35,7 @@ import { STATUS_META } from '@/data/meta';
 import { useGameDetails } from '@/hooks/useIgdb';
 import { useCommunityLists, useGame, useListCount, useListPreview, useMyLists } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
+import { daysSince } from '@/utils/fun';
 import { userGameKey } from '@/utils/library';
 import type { GameDetails } from '@/api/types';
 import type { GameRecord } from '@/types';
@@ -42,8 +43,7 @@ import type { GameRecord } from '@/types';
 type Tab = 'overview' | 'lists' | 'reviews';
 
 export default function GameScreen() {
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
-  const fromPlatinums = from === 'platinos';
+  const { id } = useLocalSearchParams<{ id: string }>();
   const gameId = decodeURIComponent(id ?? '');
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
@@ -154,12 +154,6 @@ export default function GameScreen() {
         </View>
       </View>
 
-      {fromPlatinums ? (
-        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
-          <AchievementsCard game={game} expanded />
-        </View>
-      ) : null}
-
       <View style={[styles.tabs, { borderBottomColor: c.line }]}>
         {(
           [
@@ -178,7 +172,7 @@ export default function GameScreen() {
 
       <View style={styles.tabBody}>
         {tab === 'overview' ? (
-          <Overview game={game} details={details} loading={loading} hideAchievements={fromPlatinums} />
+          <Overview game={game} details={details} loading={loading} />
         ) : tab === 'lists' ? (
           <ListsTab gameId={game.id} onOrganize={() => sheets.openOrganize(game)} />
         ) : (
@@ -304,6 +298,13 @@ function Overview({
               <ThemedText variant="muted" size={10} style={{ letterSpacing: 0.8 }}>
                 {STATUS_META[userGame.status].caption}
               </ThemedText>
+              {(userGame.status === 'playing' || userGame.status === 'paused') && daysSince(userGame.startedAt) != null ? (
+                <ThemedText variant="bold" size={13} style={{ marginTop: 4 }}>
+                  {daysSince(userGame.startedAt) === 0
+                    ? 'Lo has empezado hoy'
+                    : `Llevas ${daysSince(userGame.startedAt)} ${daysSince(userGame.startedAt) === 1 ? 'día' : 'días'} con él`}
+                </ThemedText>
+              ) : null}
             </View>
           </View>
           <View style={styles.partGrid}>
@@ -567,7 +568,7 @@ function ReviewsTab({ gameId }: { gameId: string }) {
         return (
           <Card key={r.id} style={{ gap: 12 }}>
             <View style={styles.partRow}>
-              <Avatar name={p?.displayName ?? '?'} color={p?.avatarColor ?? '#888'} size={36} />
+              <Avatar name={p?.displayName ?? '?'} color={p?.avatarColor ?? '#888'} uri={p?.photo} size={36} />
               <View style={{ flex: 1 }}>
                 <ThemedText variant="bold" size={15}>
                   {p?.displayName ?? 'Jugador'}

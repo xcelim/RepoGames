@@ -36,11 +36,7 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
             accessibilityState={{ selected: active }}
             style={[styles.item, active && { backgroundColor: skin.colors.accent }]}
           >
-            <ThemedText
-              variant="bold"
-              size={13}
-              style={active ? { color: skin.colors.onAccent } : undefined}
-            >
+            <ThemedText variant="bold" size={13} style={active ? { color: skin.colors.onAccent } : undefined}>
               {option.label}
             </ThemedText>
           </Pressable>

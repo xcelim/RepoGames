@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps, ReactNode } from 'react';
 import {
@@ -27,15 +28,7 @@ type IconButtonProps = {
   disabled?: boolean;
 };
 
-export function IconButton({
-  icon,
-  onPress,
-  label,
-  size = 22,
-  color,
-  filled,
-  disabled,
-}: IconButtonProps) {
+export function IconButton({ icon, onPress, label, size = 22, color, filled, disabled }: IconButtonProps) {
   const skin = useSkin();
   return (
     <Pressable
@@ -87,21 +80,12 @@ export function Chip({ label, selected, onPress, icon, color, count }: ChipProps
         },
       ]}
     >
-      {icon ? (
-        <Ionicons name={icon} size={14} color={selected ? skin.colors.onAccent : tint} />
-      ) : null}
-      <ThemedText
-        variant="bold"
-        size={13}
-        style={{ color: selected ? skin.colors.onAccent : skin.colors.text }}
-      >
+      {icon ? <Ionicons name={icon} size={14} color={selected ? skin.colors.onAccent : tint} /> : null}
+      <ThemedText variant="bold" size={13} style={{ color: selected ? skin.colors.onAccent : skin.colors.text }}>
         {label}
       </ThemedText>
       {count !== undefined ? (
-        <ThemedText
-          size={12}
-          style={{ color: selected ? skin.colors.onAccent : skin.colors.muted }}
-        >
+        <ThemedText size={12} style={{ color: selected ? skin.colors.onAccent : skin.colors.muted }}>
           {count}
         </ThemedText>
       ) : null}
@@ -171,7 +155,17 @@ export function EmptyState({
 }
 
 // ---------- Avatar ----------
-export function Avatar({ name, color, size = 44 }: { name: string; color: string; size?: number }) {
+export function Avatar({
+  name,
+  color,
+  size = 44,
+  uri,
+}: {
+  name: string;
+  color: string;
+  size?: number;
+  uri?: string | null;
+}) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -179,29 +173,20 @@ export function Avatar({ name, color, size = 44 }: { name: string; color: string
     .map((word) => word[0]?.toUpperCase())
     .join('');
   return (
-    <View
-      style={[
-        styles.avatar,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: color },
-      ]}
-    >
-      <ThemedText variant="bold" size={size * 0.38} style={styles.avatarText}>
-        {initials || '?'}
-      </ThemedText>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} contentFit="cover" />
+      ) : (
+        <ThemedText variant="bold" size={size * 0.38} style={styles.avatarText}>
+          {initials || '?'}
+        </ThemedText>
+      )}
     </View>
   );
 }
 
 // ---------- Cifra destacada ----------
-export function StatTile({
-  value,
-  label,
-  style,
-}: {
-  value: string;
-  label: string;
-  style?: StyleProp<ViewStyle>;
-}) {
+export function StatTile({ value, label, style }: { value: string; label: string; style?: StyleProp<ViewStyle> }) {
   const skin = useSkin();
   return (
     <View

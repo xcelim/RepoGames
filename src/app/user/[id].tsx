@@ -46,7 +46,7 @@ function UserScreenInner() {
       <ScreenHeader back title={`@${profile.username}`} />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
         <View style={styles.head}>
-          <Avatar name={profile.displayName} color={profile.avatarColor} size={72} />
+          <Avatar name={profile.displayName} color={profile.avatarColor} uri={profile.photo} size={72} />
           <View style={styles.flex}>
             <ThemedText variant="display" size={26}>
               {profile.displayName}

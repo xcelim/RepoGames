@@ -1,6 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { PlatinumBadge } from '@/components/achievements';
@@ -9,42 +7,17 @@ import { GameCover } from '@/components/games';
 import { IgnScreen, useIgnColors } from '@/components/ign';
 import { Shine } from '@/components/Shine';
 import { ThemedText } from '@/components/ThemedText';
-import { usePlatinums, type Platinum } from '@/hooks/usePlatinums';
+import { usePlatinums } from '@/hooks/usePlatinums';
 
 // Tus Platinos Saga Quest: juegos con todos los logros marcados.
 export default function PlatinumsScreen() {
   const c = useIgnColors();
   const { width } = useWindowDimensions();
   const { list, loading } = usePlatinums();
-  const [grid, setGrid] = useState(true);
-  const open = (p: Platinum) => router.push(`/game/${encodeURIComponent(p.game.id)}?from=platinos`);
   const tileW = (width - 40 - 18) / 2 - 6;
 
   return (
-    <IgnScreen
-      title="Platinos"
-      back
-      right={
-        <View style={[styles.switch, { backgroundColor: c.soft, borderRadius: c.radius }]}>
-          {(['list', 'grid'] as const).map((mode) => {
-            const active = (mode === 'grid') === grid;
-            return (
-              <Pressable
-                key={mode}
-                onPress={() => setGrid(mode === 'grid')}
-                accessibilityLabel={mode === 'grid' ? 'Ver en cuadrícula' : 'Ver en lista'}
-                style={[
-                  styles.switchBtn,
-                  { borderRadius: c.radius - 2, backgroundColor: active ? c.inverseBg : 'transparent' },
-                ]}
-              >
-                <Ionicons name={mode === 'grid' ? 'grid' : 'list'} size={18} color={active ? c.inverseText : c.text} />
-              </Pressable>
-            );
-          })}
-        </View>
-      }
-    >
+    <IgnScreen title="Platinos" back>
       <View style={styles.intro}>
         <PlatinumBadge size={46} />
         <View style={{ flex: 1 }}>
@@ -52,7 +25,7 @@ export default function PlatinumsScreen() {
             {list.length} {list.length === 1 ? 'platino' : 'platinos'}
           </ThemedText>
           <ThemedText variant="muted" size={12}>
-            Juegos con todos sus logros marcados. Toca uno para ver sus logros.
+            Juegos con todos sus logros. Toca uno para ver sus logros.
           </ThemedText>
         </View>
       </View>
@@ -64,57 +37,31 @@ export default function PlatinumsScreen() {
         </ThemedText>
       ) : null}
 
-      {grid ? (
-        <View style={styles.grid}>
-          {list.map((p) => (
-            <Pressable key={p.game.id} onPress={() => open(p)} style={{ width: tileW + 6 }}>
-              <Shine width={tileW} height={tileW * (4 / 3)} radius={10} border={3} badge={34}>
-                <GameCover game={p.game} width={tileW} radius={0} plain />
-              </Shine>
-              <ThemedText size={14} numberOfLines={2} style={{ marginTop: 10 }}>
-                {p.game.title}
-              </ThemedText>
-              <ThemedText variant="muted" size={11}>
-                {p.total} logros{p.ug.finishedAt ? ` · ${formatDay(p.ug.finishedAt)}` : ''}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </View>
-      ) : (
-        <View style={{ paddingHorizontal: 20 }}>
-          {list.map((p) => (
-            <Pressable key={p.game.id} onPress={() => open(p)} style={[styles.row, { borderBottomColor: c.line }]}>
-              <Shine width={58} height={58 * (4 / 3)} radius={6} border={2} badge={20}>
-                <GameCover game={p.game} width={58} radius={0} plain />
-              </Shine>
-              <View style={{ flex: 1 }}>
-                <ThemedText variant="bold" size={15} numberOfLines={2}>
-                  {p.game.title}
-                </ThemedText>
-                <ThemedText variant="muted" size={12}>
-                  {p.total}/{p.total} logros{p.ug.finishedAt ? ` · ${formatDay(p.ug.finishedAt)}` : ''}
-                </ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={c.muted} />
-            </Pressable>
-          ))}
-        </View>
-      )}
+      <View style={styles.grid}>
+        {list.map((p) => (
+          <Pressable
+            key={p.game.id}
+            onPress={() => router.push(`/platinum/${encodeURIComponent(p.game.id)}`)}
+            style={{ width: tileW + 6 }}
+          >
+            <Shine width={tileW} height={tileW * (4 / 3)} radius={10} border={3} badge={34}>
+              <GameCover game={p.game} width={tileW} radius={0} plain />
+            </Shine>
+            <ThemedText size={14} numberOfLines={2} style={{ marginTop: 10 }}>
+              {p.game.title}
+            </ThemedText>
+            <ThemedText variant="muted" size={11}>
+              {p.total} logros{p.ug.finishedAt ? ` · ${formatDay(p.ug.finishedAt)}` : ''}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
     </IgnScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  switch: { flexDirection: 'row', padding: 3, gap: 2 },
-  switchBtn: { width: 36, height: 32, alignItems: 'center', justifyContent: 'center' },
   intro: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, marginBottom: 24 },
   empty: { paddingHorizontal: 20 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, rowGap: 26, paddingHorizontal: 20 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
 });

@@ -10,15 +10,32 @@ import { useSkin } from '@/theme/useSkin';
 type Paint = { fill: string; stroke: string; sw: number };
 
 // Cada dibujo en una caja de 24×24.
-function shape(m: Motif, p: Paint): ReactElement {
-  const solid = { fill: p.fill, stroke: p.stroke, strokeWidth: p.sw, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
-  const line = { fill: 'none', stroke: p.stroke === 'none' ? p.fill : p.stroke, strokeWidth: Math.max(p.sw, 1.6), strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+export function shape(m: Motif, p: Paint): ReactElement {
+  const solid = {
+    fill: p.fill,
+    stroke: p.stroke,
+    strokeWidth: p.sw,
+    strokeLinejoin: 'round' as const,
+    strokeLinecap: 'round' as const,
+  };
+  const line = {
+    fill: 'none',
+    stroke: p.stroke === 'none' ? p.fill : p.stroke,
+    strokeWidth: Math.max(p.sw, 1.6),
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
   switch (m) {
     case 'leaf':
       return (
         <G>
           <Path d="M12 2C6 6 4 12 6 21c8-1 13-7 12-17-2-1-4-2-6-2z" {...solid} />
-          <Path d="M7 20C9 15 12 10 16 5" {...line} stroke={p.fill === 'none' ? p.stroke : 'rgba(255,255,255,0.35)'} strokeWidth={1.2} />
+          <Path
+            d="M7 20C9 15 12 10 16 5"
+            {...line}
+            stroke={p.fill === 'none' ? p.stroke : 'rgba(255,255,255,0.35)'}
+            strokeWidth={1.2}
+          />
         </G>
       );
     case 'star':
@@ -28,7 +45,16 @@ function shape(m: Motif, p: Paint): ReactElement {
     case 'triangle':
       return <Path d="M12 3 L22 20 H2 Z" {...solid} />;
     case 'ring':
-      return <Circle cx={12} cy={12} r={9} fill="none" stroke={p.fill === 'none' ? p.stroke : p.fill} strokeWidth={p.fill === 'none' ? p.sw : 3} />;
+      return (
+        <Circle
+          cx={12}
+          cy={12}
+          r={9}
+          fill="none"
+          stroke={p.fill === 'none' ? p.stroke : p.fill}
+          strokeWidth={p.fill === 'none' ? p.sw : 3}
+        />
+      );
     case 'hex':
       return <Path d="M12 2 L21 7 V17 L12 22 L3 17 V7 Z" {...solid} />;
     case 'crystal':
@@ -53,7 +79,14 @@ function shape(m: Motif, p: Paint): ReactElement {
     case 'bubble':
       return (
         <G>
-          <Circle cx={12} cy={12} r={9} fill="none" stroke={p.fill === 'none' ? p.stroke : p.fill} strokeWidth={Math.max(p.sw, 1.6)} />
+          <Circle
+            cx={12}
+            cy={12}
+            r={9}
+            fill="none"
+            stroke={p.fill === 'none' ? p.stroke : p.fill}
+            strokeWidth={Math.max(p.sw, 1.6)}
+          />
           <Path d="M8 8.5a5 5 0 0 1 4-2" {...line} />
         </G>
       );
@@ -130,7 +163,12 @@ function shape(m: Motif, p: Paint): ReactElement {
       return (
         <G>
           <Path d="M20 3C11 4 5 10 5 19c7 0 13-6 15-16z" {...solid} />
-          <Path d="M3 21L14 9" {...line} stroke={p.fill === 'none' ? p.stroke : 'rgba(255,255,255,0.4)'} strokeWidth={1.2} />
+          <Path
+            d="M3 21L14 9"
+            {...line}
+            stroke={p.fill === 'none' ? p.stroke : 'rgba(255,255,255,0.4)'}
+            strokeWidth={1.2}
+          />
         </G>
       );
     case 'sword':
@@ -179,8 +217,19 @@ function shape(m: Motif, p: Paint): ReactElement {
     case 'halo':
       return (
         <G>
-          <Path d="M2 14 A10 4 0 1 0 22 14 A10 4 0 1 0 2 14" fill="none" stroke={p.fill === 'none' ? p.stroke : p.fill} strokeWidth={p.sw} />
-          <Path d="M3 14.6 A9 3.2 0 0 0 21 14.6" fill="none" stroke={p.fill === 'none' ? p.stroke : p.fill} strokeWidth={p.sw * 0.6} opacity={0.6} />
+          <Path
+            d="M2 14 A10 4 0 1 0 22 14 A10 4 0 1 0 2 14"
+            fill="none"
+            stroke={p.fill === 'none' ? p.stroke : p.fill}
+            strokeWidth={p.sw}
+          />
+          <Path
+            d="M3 14.6 A9 3.2 0 0 0 21 14.6"
+            fill="none"
+            stroke={p.fill === 'none' ? p.stroke : p.fill}
+            strokeWidth={p.sw * 0.6}
+            opacity={0.6}
+          />
         </G>
       );
   }
@@ -208,11 +257,33 @@ function PatternLayer({ decor, skin, w, h }: { decor: Decor; skin: Skin; w: numb
           {/* Suelo en perspectiva abajo, a lo synthwave */}
           {Array.from({ length: 9 }, (_, i) => {
             const y = h - 230 + (i * i * 230) / 64;
-            return <Line key={`h${i}`} x1={0} y1={y} x2={w} y2={y} stroke={skin.colors.accent} strokeWidth={0.8} opacity={0.25 + i * 0.05} />;
+            return (
+              <Line
+                key={`h${i}`}
+                x1={0}
+                y1={y}
+                x2={w}
+                y2={y}
+                stroke={skin.colors.accent}
+                strokeWidth={0.8}
+                opacity={0.25 + i * 0.05}
+              />
+            );
           })}
           {Array.from({ length: 13 }, (_, i) => {
             const x = (w / 12) * i;
-            return <Line key={`v${i}`} x1={w / 2 + (x - w / 2) * 0.25} y1={h - 230} x2={w / 2 + (x - w / 2) * 2.2} y2={h} stroke={skin.colors.accent} strokeWidth={0.8} opacity={0.4} />;
+            return (
+              <Line
+                key={`v${i}`}
+                x1={w / 2 + (x - w / 2) * 0.25}
+                y1={h - 230}
+                x2={w / 2 + (x - w / 2) * 2.2}
+                y2={h}
+                stroke={skin.colors.accent}
+                strokeWidth={0.8}
+                opacity={0.4}
+              />
+            );
           })}
         </G>
       );
@@ -255,7 +326,16 @@ function PatternLayer({ decor, skin, w, h }: { decor: Decor; skin: Skin; w: numb
           {Array.from({ length: 12 }, (_, row) =>
             Array.from({ length: 12 }, (_, col) => {
               const r = Math.max(0, 3.2 - (row + col) * 0.17);
-              return r > 0.3 ? <Circle key={`${row}-${col}`} cx={w - col * 14 - 6} cy={row * 14 + 6} r={r} fill={skin.colors.text} opacity={0.12} /> : null;
+              return r > 0.3 ? (
+                <Circle
+                  key={`${row}-${col}`}
+                  cx={w - col * 14 - 6}
+                  cy={row * 14 + 6}
+                  r={r}
+                  fill={skin.colors.text}
+                  opacity={0.12}
+                />
+              ) : null;
             }),
           )}
         </G>
@@ -305,7 +385,10 @@ function BackdropInner({ skin, w, h }: { skin: Skin; w: number; h: number }) {
     <Svg width={w} height={h}>
       <PatternLayer decor={decor} skin={skin} w={w} h={h} />
       {big && bigPos ? (
-        <G opacity={Math.min(0.5, (big.opacity ?? (big.outline ? 0.16 : 0.1)) * 1.7)} transform={`translate(${bigPos.x} ${bigPos.y}) rotate(-12) scale(${big.size / 24}) translate(-12 -12)`}>
+        <G
+          opacity={Math.min(0.5, (big.opacity ?? (big.outline ? 0.16 : 0.1)) * 1.7)}
+          transform={`translate(${bigPos.x} ${bigPos.y}) rotate(-12) scale(${big.size / 24}) translate(-12 -12)`}
+        >
           {shape(big.motif, {
             fill: big.outline ? 'none' : decorColor(skin, big.color ?? 'accent'),
             stroke: big.outline ? decorColor(skin, big.color ?? 'accent') : 'none',
@@ -314,7 +397,11 @@ function BackdropInner({ skin, w, h }: { skin: Skin; w: number; h: number }) {
         </G>
       ) : null}
       {items.map((it, i) => (
-        <G key={i} opacity={Math.min(0.45, decor.opacity * 1.9)} transform={`translate(${it.x} ${it.y}) rotate(${it.r}) scale(${it.s / 24}) translate(-12 -12)`}>
+        <G
+          key={i}
+          opacity={Math.min(0.45, decor.opacity * 1.9)}
+          transform={`translate(${it.x} ${it.y}) rotate(${it.r}) scale(${it.s / 24}) translate(-12 -12)`}
+        >
           {shape(it.m, {
             fill: decor.outline ? 'none' : it.color,
             stroke: decor.outline ? it.color : 'none',

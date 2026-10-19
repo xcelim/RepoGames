@@ -27,11 +27,7 @@ export function Button({ label, onPress, kind = 'primary' }: ButtonProps) {
         },
       ]}
     >
-      <ThemedText
-        variant="display"
-        size={18}
-        style={{ color: primary ? skin.colors.onAccent : skin.colors.text }}
-      >
+      <ThemedText variant="display" size={18} style={{ color: primary ? skin.colors.onAccent : skin.colors.text }}>
         {label}
       </ThemedText>
     </Pressable>

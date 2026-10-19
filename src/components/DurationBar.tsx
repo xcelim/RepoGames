@@ -16,9 +16,7 @@ export function DurationBar({ label, hours, max, color }: DurationBarProps) {
         <ThemedText>{label}</ThemedText>
         <ThemedText variant="bold">{hours} h</ThemedText>
       </View>
-      <View
-        style={[styles.track, { backgroundColor: skin.colors.panel2, borderRadius: skin.radius / 4 }]}
-      >
+      <View style={[styles.track, { backgroundColor: skin.colors.panel2, borderRadius: skin.radius / 4 }]}>
         <View style={[styles.fill, { width: `${percent}%`, backgroundColor: color }]} />
       </View>
     </View>

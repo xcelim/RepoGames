@@ -29,7 +29,17 @@ type Props<T> = {
   contentPaddingBottom?: number;
 };
 
-export function DragList<T>({ data, keyOf, rowHeight, renderRow, renderHandle, onMove, header, footer, contentPaddingBottom = 60 }: Props<T>) {
+export function DragList<T>({
+  data,
+  keyOf,
+  rowHeight,
+  renderRow,
+  renderHandle,
+  onMove,
+  header,
+  footer,
+  contentPaddingBottom = 60,
+}: Props<T>) {
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollY = useScrollViewOffset(scrollRef as never);
   const { height: winH } = useWindowDimensions();
@@ -72,7 +82,12 @@ export function DragList<T>({ data, keyOf, rowHeight, renderRow, renderHandle, o
   };
 
   return (
-    <AnimatedScroll ref={scrollRef} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: contentPaddingBottom }} keyboardShouldPersistTaps="handled">
+    <AnimatedScroll
+      ref={scrollRef}
+      scrollEnabled={!dragging}
+      contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+      keyboardShouldPersistTaps="handled"
+    >
       {header}
       <View style={{ height: data.length * rowHeight }}>
         {data.map((item, index) => (
@@ -163,7 +178,12 @@ function Row({
     let shift = 0;
     if (a < index && index <= h) shift = -rowHeight;
     else if (h <= index && index < a) shift = rowHeight;
-    return { transform: [{ translateY: withTiming(shift, { duration: 140 }) }, { scale: 1 }], zIndex: 0, shadowOpacity: 0, elevation: 0 };
+    return {
+      transform: [{ translateY: withTiming(shift, { duration: 140 }) }, { scale: 1 }],
+      zIndex: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+    };
   });
 
   return (
@@ -180,6 +200,13 @@ function Row({
 }
 
 const styles = StyleSheet.create({
-  row: { position: 'absolute', left: 0, right: 0, shadowColor: '#000', shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  row: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    shadowColor: '#000',
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
   handle: { paddingHorizontal: 8, paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
 });

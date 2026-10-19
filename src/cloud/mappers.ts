@@ -1,5 +1,15 @@
 // Conversión entre los tipos de la app (camelCase) y las filas de Supabase (snake_case).
-import type { GameList, GameRecord, ListItem, PlayStatus, Profile, UserGame, Visibility } from '@/types';
+import type {
+  CompetitiveRank,
+  GameList,
+  GameRecord,
+  ListItem,
+  PlayStatus,
+  Profile,
+  Showcase,
+  UserGame,
+  Visibility,
+} from '@/types';
 
 export type ProfileRow = {
   id: string;
@@ -7,7 +17,7 @@ export type ProfileRow = {
   display_name: string;
   bio: string;
   avatar_color: string;
-  settings?: { skin?: string; durationMode?: string; onboarded?: boolean } | null;
+  settings?: { skin?: string; durationMode?: string; onboarded?: boolean; showcases?: Showcase[]; ranks?: CompetitiveRank[]; photo?: string | null; frame?: number | null } | null;
   created_at: string;
   updated_at?: string;
 };
@@ -90,7 +100,9 @@ export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['setti
   display_name: p.displayName || p.username,
   bio: p.bio,
   avatar_color: p.avatarColor,
-  ...(settings ? { settings: { ...settings, onboarded: !!p.onboarded } } : {}),
+  ...(settings
+    ? { settings: { ...settings, onboarded: !!p.onboarded, ...(p.showcases ? { showcases: p.showcases } : {}), ...(p.ranks ? { ranks: p.ranks } : {}), ...(p.photo !== undefined ? { photo: p.photo } : {}), ...(p.frame !== undefined ? { frame: p.frame } : {}) } }
+    : {}),
   created_at: p.createdAt,
   updated_at: new Date().toISOString(),
 });
@@ -103,6 +115,10 @@ export const fromProfileRow = (r: ProfileRow): Profile => ({
   avatarColor: r.avatar_color ?? '#7b2ff7',
   createdAt: r.created_at,
   onboarded: !!r.settings?.onboarded,
+  ...(Array.isArray(r.settings?.showcases) ? { showcases: r.settings.showcases } : {}),
+  ...(Array.isArray(r.settings?.ranks) ? { ranks: r.settings.ranks } : {}),
+  ...(r.settings?.photo !== undefined ? { photo: r.settings.photo } : {}),
+  ...(r.settings?.frame !== undefined ? { frame: r.settings.frame } : {}),
 });
 
 export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => ({

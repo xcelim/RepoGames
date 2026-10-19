@@ -43,4 +43,3 @@ export function ReplayBadge({ count, size = 34, dim }: { count: number; size?: n
     </View>
   );
 }
-

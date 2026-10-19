@@ -195,67 +195,66 @@ export default function SettingsScreen() {
 
         {advanced ? (
           <>
-        <Panel>
-          <ThemedText variant="bold">Tus claves (opcional)</ThemedText>
-          <ThemedText variant="muted" size={13}>
-            Conecta una o las dos (son gratis) para buscar cualquier juego que exista, con portada,
-            capturas, vídeos, compañías y tiempos para terminarlo. Lo ideal es usar las dos: IGDB
-            tiene los mejores datos y RAWG la colección más grande.
-          </ThemedText>
-        </Panel>
+            <Panel>
+              <ThemedText variant="bold">Tus claves (opcional)</ThemedText>
+              <ThemedText variant="muted" size={13}>
+                Conecta una o las dos (son gratis) para buscar cualquier juego que exista, con portada, capturas,
+                vídeos, compañías y tiempos para terminarlo. Lo ideal es usar las dos: IGDB tiene los mejores datos y
+                RAWG la colección más grande.
+              </ThemedText>
+            </Panel>
 
-        <Section title="IGDB (Twitch) · unos 300.000 juegos">
-          <ThemedText variant="muted" size={13}>
-            Crea una aplicación gratis en dev.twitch.tv/console y pega aquí su Client ID y Client
-            Secret. Se guardan cifrados en este móvil.
-          </ThemedText>
-          <TextField
-            value={clientId}
-            onChangeText={setClientId}
-            placeholder="Client ID"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <TextField
-            value={secret}
-            onChangeText={setSecret}
-            placeholder="Client Secret"
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Button label="Guardar y probar" onPress={saveKeys} />
-          {igdbStatus ? <ThemedText variant="muted">{igdbStatus}</ThemedText> : null}
-        </Section>
+            <Section title="IGDB (Twitch) · unos 300.000 juegos">
+              <ThemedText variant="muted" size={13}>
+                Crea una aplicación gratis en dev.twitch.tv/console y pega aquí su Client ID y Client Secret. Se guardan
+                cifrados en este móvil.
+              </ThemedText>
+              <TextField
+                value={clientId}
+                onChangeText={setClientId}
+                placeholder="Client ID"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TextField
+                value={secret}
+                onChangeText={setSecret}
+                placeholder="Client Secret"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Button label="Guardar y probar" onPress={saveKeys} />
+              {igdbStatus ? <ThemedText variant="muted">{igdbStatus}</ThemedText> : null}
+            </Section>
 
-        <Section title="RAWG · más de 500.000 juegos">
-          <ThemedText variant="muted" size={13}>
-            Regístrate gratis en rawg.io/apidocs, pide una clave («Get API Key») y pégala aquí.
-          </ThemedText>
-          <ThemedText
-            variant="bold"
-            size={13}
-            style={{ color: skin.colors.accent }}
-            onPress={() => Linking.openURL('https://rawg.io/apidocs')}
-          >
-            Abrir rawg.io/apidocs →
-          </ThemedText>
-          <TextField
-            value={rawgKey}
-            onChangeText={setRawgKey}
-            placeholder="Clave de RAWG"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Button label="Guardar y probar" onPress={saveRawg} />
-          {rawgStatus ? <ThemedText variant="muted">{rawgStatus}</ThemedText> : null}
-          <Button
-            kind="ghost"
-            label="Vaciar caché de fichas e imágenes"
-            onPress={() => clearOnlineCache().then(() => setRawgStatus('Caché vaciada'))}
-          />
-        </Section>
-
+            <Section title="RAWG · más de 500.000 juegos">
+              <ThemedText variant="muted" size={13}>
+                Regístrate gratis en rawg.io/apidocs, pide una clave («Get API Key») y pégala aquí.
+              </ThemedText>
+              <ThemedText
+                variant="bold"
+                size={13}
+                style={{ color: skin.colors.accent }}
+                onPress={() => Linking.openURL('https://rawg.io/apidocs')}
+              >
+                Abrir rawg.io/apidocs →
+              </ThemedText>
+              <TextField
+                value={rawgKey}
+                onChangeText={setRawgKey}
+                placeholder="Clave de RAWG"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Button label="Guardar y probar" onPress={saveRawg} />
+              {rawgStatus ? <ThemedText variant="muted">{rawgStatus}</ThemedText> : null}
+              <Button
+                kind="ghost"
+                label="Vaciar caché de fichas e imágenes"
+                onPress={() => clearOnlineCache().then(() => setRawgStatus('Caché vaciada'))}
+              />
+            </Section>
           </>
         ) : null}
 

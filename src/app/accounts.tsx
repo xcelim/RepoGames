@@ -15,8 +15,8 @@ export default function AccountsScreen() {
         <CloudAccountPanel />
         <OfflineDownloadCard />
         <ThemedText variant="muted" size={12}>
-          Para usar otra cuenta, cierra sesión y entra con ella. Tu progreso se ve en cualquier dispositivo en el que entres
-          con la misma cuenta (correo o Google).
+          Para usar otra cuenta, cierra sesión y entra con ella. Tu progreso se ve en cualquier dispositivo en el que
+          entres con la misma cuenta (correo o Google).
         </ThemedText>
       </ScrollView>
     </View>

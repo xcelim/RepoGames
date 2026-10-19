@@ -34,6 +34,7 @@ export default function LibraryScreen() {
       right={
         <>
           <HeaderIcon icon="add-circle-outline" label="Añadir juego" onPress={() => router.push('/search')} />
+          <HeaderIcon icon="dice-outline" label="Ruleta del backlog" onPress={() => router.push('/roulette')} />
           <HeaderIcon icon="copy-outline" label="Todos mis juegos" onPress={() => router.push('/library/all')} />
         </>
       }

@@ -27,16 +27,11 @@ export function ListCard({ list, count, owner, progress, width, subtitle }: List
   return (
     <Pressable
       onPress={() => router.push(`/list/${list.id}`)}
-      style={({ pressed }) => [
-        { width: width ?? '100%', transform: [{ scale: pressed ? 0.97 : 1 }] },
-      ]}
+      style={({ pressed }) => [{ width: width ?? '100%', transform: [{ scale: pressed ? 0.97 : 1 }] }]}
     >
       {/* Pestaña de la carpeta */}
       <View
-        style={[
-          styles.tab,
-          { backgroundColor: list.color, borderTopLeftRadius: radius, borderTopRightRadius: radius },
-        ]}
+        style={[styles.tab, { backgroundColor: list.color, borderTopLeftRadius: radius, borderTopRightRadius: radius }]}
       />
       <View
         style={[
@@ -57,26 +52,12 @@ export function ListCard({ list, count, owner, progress, width, subtitle }: List
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <Ionicons
-            name={list.icon as IconName}
-            size={84}
-            color="rgba(255,255,255,0.22)"
-            style={styles.bigIcon}
-          />
+          <Ionicons name={list.icon as IconName} size={84} color="rgba(255,255,255,0.22)" style={styles.bigIcon} />
           <View style={styles.badges}>
-            <Ionicons
-              name={list.visibility === 'public' ? 'globe-outline' : 'lock-closed'}
-              size={14}
-              color="#ffffff"
-            />
+            <Ionicons name={list.visibility === 'public' ? 'globe-outline' : 'lock-closed'} size={14} color="#ffffff" />
             {list.official ? <Ionicons name="checkmark-circle" size={14} color="#ffffff" /> : null}
           </View>
-          <ThemedText
-            variant="display"
-            size={22}
-            numberOfLines={2}
-            style={styles.name}
-          >
+          <ThemedText variant="display" size={22} numberOfLines={2} style={styles.name}>
             {list.name}
           </ThemedText>
         </View>
@@ -87,10 +68,7 @@ export function ListCard({ list, count, owner, progress, width, subtitle }: List
           {progress !== undefined ? (
             <View style={[styles.track, { backgroundColor: skin.colors.panel2 }]}>
               <View
-                style={[
-                  styles.fill,
-                  { width: `${Math.round(progress * 100)}%`, backgroundColor: skin.colors.accent },
-                ]}
+                style={[styles.fill, { width: `${Math.round(progress * 100)}%`, backgroundColor: skin.colors.accent }]}
               />
             </View>
           ) : null}
@@ -128,15 +106,7 @@ export function ScreenHeader({ title, back, close, right }: ScreenHeaderProps) {
 }
 
 // ---------- Título de sección con acción ----------
-export function SectionTitle({
-  title,
-  action,
-  onAction,
-}: {
-  title: string;
-  action?: string;
-  onAction?: () => void;
-}) {
+export function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   const skin = useSkin();
   return (
     <View style={styles.sectionTitle}>

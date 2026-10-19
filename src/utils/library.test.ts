@@ -1,14 +1,6 @@
 import { OFFICIAL_LISTS, OFFICIAL_SERIES } from '../data/catalog';
 import type { GameRecord, ListItem, UserGame } from '../types';
-import {
-  buildEntries,
-  entryStats,
-  filterEntries,
-  itemsOfList,
-  moveItem,
-  sortEntries,
-  userGameKey,
-} from './library';
+import { buildEntries, entryStats, filterEntries, itemsOfList, moveItem, sortEntries, userGameKey } from './library';
 
 function game(id: string, title: string, year: number, main: number): GameRecord {
   return {
@@ -74,7 +66,16 @@ const entries = buildEntries(items, games, userGames, 'yo');
 
 describe('bibliotecas oficiales', () => {
   it('solo definen la serie: los juegos vienen de la API', () => {
-    expect(OFFICIAL_SERIES.map((s) => s.id)).toEqual(['persona', 'fe', 'ff', 'zelda', 'kirby', 'mario', 'xeno', 'metroid']);
+    expect(OFFICIAL_SERIES.map((s) => s.id)).toEqual([
+      'persona',
+      'fe',
+      'ff',
+      'zelda',
+      'kirby',
+      'mario',
+      'xeno',
+      'metroid',
+    ]);
     expect(OFFICIAL_LISTS.every((l) => l.official && l.visibility === 'public')).toBe(true);
     expect(itemsOfList({}, 'official-zelda')).toEqual([]);
   });

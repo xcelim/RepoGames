@@ -92,7 +92,10 @@ export function DateField({
 
   return (
     <View>
-      <Pressable onPress={open} style={[styles.dateRow, { backgroundColor: c.card, borderColor: c.line, borderRadius: c.radius }]}>
+      <Pressable
+        onPress={open}
+        style={[styles.dateRow, { backgroundColor: c.card, borderColor: c.line, borderRadius: c.radius }]}
+      >
         <Ionicons name="calendar-outline" size={20} color={c.muted} />
         <ThemedText size={14} style={{ flex: 1 }}>
           {label}
@@ -134,8 +137,16 @@ export function PlayDetails({ game }: { game: GameRecord }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <DateField label="Empezado" value={ug.startedAt} onChange={(startedAt) => updateUserGame(game.id, { startedAt })} />
-      <DateField label="Terminado" value={ug.finishedAt} onChange={(finishedAt) => updateUserGame(game.id, { finishedAt })} />
+      <DateField
+        label="Empezado"
+        value={ug.startedAt}
+        onChange={(startedAt) => updateUserGame(game.id, { startedAt })}
+      />
+      <DateField
+        label="Terminado"
+        value={ug.finishedAt}
+        onChange={(finishedAt) => updateUserGame(game.id, { finishedAt })}
+      />
       <ToggleRow
         label="Lo tengo en físico"
         caption="En caja, no solo digital"
@@ -233,7 +244,14 @@ export function ListItemSheet({ listId, game, onClose }: { listId: string; game:
 const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   replayBox: { padding: 12, borderWidth: StyleSheet.hairlineWidth },
   replayHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

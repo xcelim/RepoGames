@@ -1,11 +1,28 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { PlatinumBadge } from '@/components/achievements';
 import { Collapsible } from '@/components/Collapsible';
-import { Card, CoverTile, Donut, HeaderIcon, IgnScreen, StatusIcon, useIgnColors } from '@/components/ign';
+import { AvatarFrame } from '@/components/AvatarFrame';
+import {
+  Card,
+  CoverTile,
+  Donut,
+  glass,
+  HeaderIcon,
+  IgnScreen,
+  ProgressBar,
+  StatusIcon,
+  useIgnColors,
+} from '@/components/ign';
+import { LevelBadge } from '@/components/LevelBadge';
+import { RankBadge } from '@/components/RankBadge';
+import { ShowcaseView } from '@/components/showcases';
+import { useLevel } from '@/hooks/useLevel';
+import { funFact } from '@/utils/fun';
+import { levelColor } from '@/utils/level';
 import { Shine } from '@/components/Shine';
 import { GameCover } from '@/components/games';
 import { usePlatinums } from '@/hooks/usePlatinums';
@@ -43,6 +60,8 @@ export default function ProfileScreen() {
   const games = useStore((s) => s.games);
   const mode = useStore((s) => s.durationMode);
   const myLists = useMyLists();
+  const lv = useLevel();
+  const [factShift, setFactShift] = useState(0);
 
   const data = useMemo(() => {
     const mine = Object.values(userGames).filter((g) => g.profileId === profile?.id);
@@ -96,6 +115,7 @@ export default function ProfileScreen() {
   }, [userGames, games, profile?.id, mode]);
 
   if (!profile) return null;
+  const fact = funFact(data.hoursPlayed, factShift);
   const maxRating = Math.max(1, ...data.ratings);
   const maxPlatform = Math.max(1, ...data.platforms.map((p) => p[1]));
   const publicLists = myLists.filter((l) => l.visibility === 'public').length;
@@ -113,8 +133,12 @@ export default function ProfileScreen() {
       }
     >
       <View style={styles.content}>
-        <Pressable style={styles.head} onPress={() => router.push('/profile-edit')}>
-          <Avatar name={profile.displayName} color={profile.avatarColor} size={72} />
+        <View style={styles.head}>
+          <Pressable onPress={() => router.push('/profile-edit')}>
+            <AvatarFrame frame={lv.frame} size={80}>
+              <Avatar name={profile.displayName} color={profile.avatarColor} uri={profile.photo} size={80} />
+            </AvatarFrame>
+          </Pressable>
           <View style={styles.flex}>
             <ThemedText variant="display" size={24} numberOfLines={1}>
               {profile.displayName}
@@ -124,9 +148,41 @@ export default function ProfileScreen() {
               {myLists.length} listas · {publicLists} públicas
             </ThemedText>
           </View>
-          <Ionicons name="create-outline" size={20} color={skin.colors.muted} />
-        </Pressable>
+          <Pressable onPress={() => router.push('/profile-edit')} hitSlop={10}>
+            <Ionicons name="create-outline" size={20} color={skin.colors.muted} />
+          </Pressable>
+        </View>
         {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
+
+        {/* Nivel (como en Steam) */}
+        <Pressable onPress={() => router.push('/level')}>
+          <Card style={styles.levelCard}>
+            <LevelBadge level={lv.level} size={42} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={styles.levelTop}>
+                <ThemedText variant="display" size={17}>
+                  Nivel {lv.level}
+                </ThemedText>
+                <ThemedText variant="muted" size={11}>
+                  {lv.into.toLocaleString('es-ES')} / {lv.need.toLocaleString('es-ES')} XP
+                </ThemedText>
+              </View>
+              <ProgressBar pct={(lv.into / lv.need) * 100} height={6} color={levelColor(lv.level)} />
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={skin.colors.muted} />
+          </Card>
+        </Pressable>
+
+        {/* Rangos competitivos */}
+        {profile.ranks?.length ? (
+          <Pressable onPress={() => router.push('/ranks')}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ranks}>
+              {profile.ranks.map((r) => (
+                <RankBadge key={r.game} rank={r} size={46} />
+              ))}
+            </ScrollView>
+          </Pressable>
+        ) : null}
 
         <Card style={styles.summary} padded={false}>
           <View style={styles.summaryRow}>
@@ -139,9 +195,38 @@ export default function ProfileScreen() {
             <Stat value={formatHours(data.hoursPlayed)} label={data.estimated ? 'JUGADAS (APROX.)' : 'HORAS JUGADAS'} />
             <Stat value={formatHours(data.hoursLeft)} label="TE QUEDAN" />
           </View>
+          {fact ? (
+            <Pressable
+              onPress={() => setFactShift((s) => s + 1)}
+              style={[styles.fact, { borderTopColor: skin.colors.line }]}
+            >
+              <Ionicons name="bulb-outline" size={16} color={skin.colors.accent} />
+              <ThemedText variant="muted" size={12} style={{ flex: 1 }}>
+                {fact}
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </Card>
 
         <PlatinumsEntry />
+
+        {/* Vitrinas */}
+        {(profile.showcases ?? []).slice(0, lv.slots).map((sc, i) => (
+          <ShowcaseView key={`${sc.type}-${i}`} showcase={sc} profile={profile} />
+        ))}
+        <View style={styles.quick}>
+          <QuickButton
+            icon="albums-outline"
+            label={profile.showcases?.length ? 'Editar vitrinas' : 'Poner vitrinas'}
+            onPress={() => router.push('/showcases')}
+          />
+          <QuickButton
+            icon="medal-outline"
+            label={profile.ranks?.length ? 'Mis rangos' : 'Añadir rangos'}
+            onPress={() => router.push('/ranks')}
+          />
+          <QuickButton icon="id-card-outline" label="Mi tarjeta" onPress={() => router.push('/player-card')} />
+        </View>
 
         <Collapsible
           id="library"
@@ -308,6 +393,32 @@ function PlatinumsEntry() {
   );
 }
 
+function QuickButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const c = useIgnColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quickBtn,
+        { backgroundColor: glass(c.card), borderColor: c.line, borderRadius: c.radius, opacity: pressed ? 0.7 : 1 },
+      ]}
+    >
+      <Ionicons name={icon} size={22} color={c.text} />
+      <ThemedText variant="bold" size={11} numberOfLines={1}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={styles.stat}>
@@ -326,6 +437,20 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, gap: 16 },
   statsCard: { flexDirection: 'row', paddingVertical: 16 },
   summary: { paddingVertical: 6 },
+  levelCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  levelTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  ranks: { gap: 4, paddingVertical: 2 },
+  fact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  quick: { flexDirection: 'row', gap: 10 },
+  quickBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth },
   summaryRow: { flexDirection: 'row', paddingVertical: 12 },
   summaryDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 18 },
   platCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },

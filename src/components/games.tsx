@@ -46,7 +46,10 @@ export function GameCover({
   const src = url && url.includes('media.rawg.io/media/games/') ? rawgImage(url, 640) : url;
   const [c1, c2] = gameColors(game);
   const height = square ? width : width * (4 / 3);
-  const words = game.title.replace(/[^A-Za-z0-9 ]/g, ' ').split(' ').filter(Boolean);
+  const words = game.title
+    .replace(/[^A-Za-z0-9 ]/g, ' ')
+    .split(' ')
+    .filter(Boolean);
   const important = words.filter((w) => /^[A-Z0-9]/.test(w));
   const initials = (important.length ? important : words)
     .slice(0, 2)
@@ -68,12 +71,7 @@ export function GameCover({
         frame === 'glow' ? { borderWidth: 1.5, borderColor: fc } : null,
       ]}
     >
-      <LinearGradient
-        colors={[c1, c2]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <LinearGradient colors={[c1, c2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       {!url ? (
         <ThemedText variant="display" size={width * 0.28} style={styles.initials}>
           {initials}
@@ -103,12 +101,42 @@ export function GameCover({
     );
   }
   if (frame === 'glow') {
-    return <View style={[{ width, height, borderRadius: r, shadowColor: fc, shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 8, backgroundColor: c1 }]}>{coverView}</View>;
+    return (
+      <View
+        style={[
+          {
+            width,
+            height,
+            borderRadius: r,
+            shadowColor: fc,
+            shadowOpacity: 0.7,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 8,
+            backgroundColor: c1,
+          },
+        ]}
+      >
+        {coverView}
+      </View>
+    );
   }
   return coverView;
 }
 
-function Corner({ pos, color, size, thick, inset }: { pos: 'tl' | 'tr' | 'bl' | 'br'; color: string; size: number; thick: number; inset: number }) {
+function Corner({
+  pos,
+  color,
+  size,
+  thick,
+  inset,
+}: {
+  pos: 'tl' | 'tr' | 'bl' | 'br';
+  color: string;
+  size: number;
+  thick: number;
+  inset: number;
+}) {
   const s: Record<string, number | string> = { position: 'absolute', width: size, height: size, borderColor: color };
   if (pos[0] === 't') Object.assign(s, { top: inset, borderTopWidth: thick });
   else Object.assign(s, { bottom: inset, borderBottomWidth: thick });
@@ -120,12 +148,22 @@ function Corner({ pos, color, size, thick, inset }: { pos: 'tl' | 'tr' | 'bl' | 
 function FrameOverlay({ frame, color, bg, radius }: { frame: Frame; color: string; bg: string; radius: number }) {
   switch (frame) {
     case 'thin':
-      return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + 'aa' }]} />;
+      return (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + 'aa' }]}
+        />
+      );
     case 'double':
       return (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <View style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 2.5, borderColor: color }]} />
-          <View style={[styles.inset4, { borderRadius: Math.max(0, radius - 4), borderWidth: 1, borderColor: color + 'aa' }]} />
+          <View
+            style={[
+              styles.inset4,
+              { borderRadius: Math.max(0, radius - 4), borderWidth: 1, borderColor: color + 'aa' },
+            ]}
+          />
         </View>
       );
     case 'pixel':
@@ -136,14 +174,23 @@ function FrameOverlay({ frame, color, bg, radius }: { frame: Frame; color: strin
         </View>
       );
     case 'rounded':
-      return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 2.5, borderColor: color + 'cc' }]} />;
+      return (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 2.5, borderColor: color + 'cc' }]}
+        />
+      );
     case 'corners':
     case 'hud': {
       const hud = frame === 'hud';
       const props = { color, size: hud ? 16 : 14, thick: hud ? 2.5 : 1.5, inset: hud ? 4 : 6 };
       return (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {hud ? <View style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + '55' }]} /> : null}
+          {hud ? (
+            <View
+              style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 1, borderColor: color + '55' }]}
+            />
+          ) : null}
           <Corner pos="tl" {...props} />
           <Corner pos="tr" {...props} />
           <Corner pos="bl" {...props} />
@@ -232,11 +279,7 @@ export function StatusPicker({
               },
             ]}
           >
-            <Ionicons
-              name={meta.icon as IconName}
-              size={20}
-              color={active ? '#ffffff' : meta.color}
-            />
+            <Ionicons name={meta.icon as IconName} size={20} color={active ? '#ffffff' : meta.color} />
             <ThemedText
               variant="bold"
               size={12}
@@ -253,13 +296,7 @@ export function StatusPicker({
 }
 
 // ---------- Selector de nota (1-10) ----------
-export function RatingPicker({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (rating: number | null) => void;
-}) {
+export function RatingPicker({ value, onChange }: { value: number | null; onChange: (rating: number | null) => void }) {
   const skin = useSkin();
   return (
     <View style={styles.ratingRow}>
@@ -280,11 +317,7 @@ export function RatingPicker({
               },
             ]}
           >
-            <ThemedText
-              variant="bold"
-              size={13}
-              style={{ color: filled ? skin.colors.onAccent : skin.colors.muted }}
-            >
+            <ThemedText variant="bold" size={13} style={{ color: filled ? skin.colors.onAccent : skin.colors.muted }}>
               {n}
             </ThemedText>
           </Pressable>
@@ -356,10 +389,42 @@ const styles = StyleSheet.create({
   offset: { position: 'absolute', top: 5, left: 5 },
   inset4: { position: 'absolute', top: 4, left: 4, right: 4, bottom: 4 },
   inset3: { position: 'absolute', top: 3, left: 3, right: 3, bottom: 3 },
-  notchTL: { position: 'absolute', top: 0, left: 0, width: 0, height: 0, borderTopWidth: 16, borderRightWidth: 16, borderRightColor: 'transparent' },
-  notchBR: { position: 'absolute', bottom: 0, right: 0, width: 0, height: 0, borderBottomWidth: 16, borderLeftWidth: 16, borderLeftColor: 'transparent' },
-  notchLineTL: { position: 'absolute', top: 7.5, left: -3, width: 22.6, height: 1.5, transform: [{ rotate: '-45deg' }] },
-  notchLineBR: { position: 'absolute', bottom: 7.5, right: -3, width: 22.6, height: 1.5, transform: [{ rotate: '-45deg' }] },
+  notchTL: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 16,
+    borderRightWidth: 16,
+    borderRightColor: 'transparent',
+  },
+  notchBR: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    borderBottomWidth: 16,
+    borderLeftWidth: 16,
+    borderLeftColor: 'transparent',
+  },
+  notchLineTL: {
+    position: 'absolute',
+    top: 7.5,
+    left: -3,
+    width: 22.6,
+    height: 1.5,
+    transform: [{ rotate: '-45deg' }],
+  },
+  notchLineBR: {
+    position: 'absolute',
+    bottom: 7.5,
+    right: -3,
+    width: 22.6,
+    height: 1.5,
+    transform: [{ rotate: '-45deg' }],
+  },
   initials: { color: 'rgba(255,255,255,0.9)' },
   pill: {
     flexDirection: 'row',

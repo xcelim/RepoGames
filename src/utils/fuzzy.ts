@@ -6,8 +6,22 @@ import { stripAccents } from './text';
 const STOP = new Set(['the', 'of', 'a', 'an', 'and', 'el', 'la', 'los', 'las', 'de', 'del', 'y', 'to', 'in']);
 
 const ROMAN: Record<string, string> = {
-  i: '1', ii: '2', iii: '3', iv: '4', v: '5', vi: '6', vii: '7', viii: '8', ix: '9', x: '10',
-  xi: '11', xii: '12', xiii: '13', xiv: '14', xv: '15', xvi: '16',
+  i: '1',
+  ii: '2',
+  iii: '3',
+  iv: '4',
+  v: '5',
+  vi: '6',
+  vii: '7',
+  viii: '8',
+  ix: '9',
+  x: '10',
+  xi: '11',
+  xii: '12',
+  xiii: '13',
+  xiv: '14',
+  xv: '15',
+  xvi: '16',
 };
 
 export function tokens(text: string): string[] {
@@ -98,7 +112,12 @@ export function searchStems(query: string): string[] {
 }
 
 // Ordena por parecido y quita lo que no se parece nada.
-export function rankByQuery<T>(query: string, items: T[], title: (item: T) => string, popularity?: (item: T) => number): T[] {
+export function rankByQuery<T>(
+  query: string,
+  items: T[],
+  title: (item: T) => string,
+  popularity?: (item: T) => number,
+): T[] {
   const scored = items.map((item, index) => {
     const base = fuzzyScore(query, title(item));
     const pop = popularity ? Math.min(0.08, Math.log10(1 + Math.max(0, popularity(item))) * 0.025) : 0;

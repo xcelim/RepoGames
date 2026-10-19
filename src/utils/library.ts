@@ -1,23 +1,12 @@
 import { OFFICIAL_LISTS } from '@/data/catalog';
 import { FINISHED, STATUS_ORDER } from '@/data/meta';
-import type {
-  DurationMode,
-  GameList,
-  GameRecord,
-  ListItem,
-  ListSort,
-  PlayStatus,
-  UserGame,
-} from '@/types';
+import type { DurationMode, GameList, GameRecord, ListItem, ListSort, PlayStatus, UserGame } from '@/types';
 
 export function userGameKey(profileId: string, gameId: string): string {
   return `${profileId}:${gameId}`;
 }
 
-export function findGame(
-  customGames: Record<string, GameRecord>,
-  gameId: string,
-): GameRecord | undefined {
+export function findGame(customGames: Record<string, GameRecord>, gameId: string): GameRecord | undefined {
   return customGames[gameId];
 }
 
@@ -25,15 +14,14 @@ export function allLists(userLists: Record<string, GameList>): GameList[] {
   return [...OFFICIAL_LISTS, ...Object.values(userLists)];
 }
 
-export function findList(
-  userLists: Record<string, GameList>,
-  listId: string,
-): GameList | undefined {
+export function findList(userLists: Record<string, GameList>, listId: string): GameList | undefined {
   return userLists[listId] ?? OFFICIAL_LISTS.find((list) => list.id === listId);
 }
 
 export function itemsOfList(items: Record<string, ListItem>, listId: string): ListItem[] {
-  return Object.values(items).filter((item) => item.listId === listId).sort((a, b) => a.position - b.position);
+  return Object.values(items)
+    .filter((item) => item.listId === listId)
+    .sort((a, b) => a.position - b.position);
 }
 
 // Una fila lista para pintar: el juego, su posición y lo que el usuario sabe de él.
@@ -79,7 +67,8 @@ const updatedKey = (e: Entry) => e.userGame?.updatedAt ?? e.item.addedAt;
 export function sortEntries(entries: Entry[], sort: ListSort, mode: DurationMode): Entry[] {
   const list = [...entries];
   const byRank = (a: Entry, b: Entry) => a.rank - b.rank;
-  const nullsLast = <T>(get: (e: Entry) => T | null | undefined, cmp: (x: T, y: T) => number) =>
+  const nullsLast =
+    <T>(get: (e: Entry) => T | null | undefined, cmp: (x: T, y: T) => number) =>
     (a: Entry, b: Entry) => {
       const x = get(a);
       const y = get(b);
@@ -97,13 +86,22 @@ export function sortEntries(entries: Entry[], sort: ListSort, mode: DurationMode
     'updated-old': (a, b) => updatedKey(a).localeCompare(updatedKey(b)) || byRank(a, b),
     az: (a, b) => str(a.game.title, b.game.title),
     za: (a, b) => str(b.game.title, a.game.title),
-    'critic-high': nullsLast((e) => e.game.criticRating, (x, y) => num(y, x)),
+    'critic-high': nullsLast(
+      (e) => e.game.criticRating,
+      (x, y) => num(y, x),
+    ),
     'critic-low': nullsLast((e) => e.game.criticRating, num),
-    'release-new': nullsLast((e) => releaseKey(e.game), (x, y) => str(y, x)),
+    'release-new': nullsLast(
+      (e) => releaseKey(e.game),
+      (x, y) => str(y, x),
+    ),
     'release-old': nullsLast((e) => releaseKey(e.game), str),
     'hltb-long': nullsLast(hours, (x, y) => num(y, x)),
     'hltb-short': nullsLast(hours, num),
-    'mine-high': nullsLast((e) => e.userGame?.rating, (x, y) => num(y, x)),
+    'mine-high': nullsLast(
+      (e) => e.userGame?.rating,
+      (x, y) => num(y, x),
+    ),
     'mine-low': nullsLast((e) => e.userGame?.rating, num),
     status: (a, b) =>
       (a.userGame ? STATUS_RANK[a.userGame.status] : 99) - (b.userGame ? STATUS_RANK[b.userGame.status] : 99) ||

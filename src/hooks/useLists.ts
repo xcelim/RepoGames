@@ -16,8 +16,7 @@ export function useGame(gameId: string): GameRecord | undefined {
 export function useProfileLookup(): (id: string) => Profile | undefined {
   const profiles = useStore((s) => s.profiles);
   const remote = useRemote((s) => s.profiles);
-  return (id: string) =>
-    id === OFFICIAL_PROFILE.id ? OFFICIAL_PROFILE : (profiles[id] ?? remote[id]);
+  return (id: string) => (id === OFFICIAL_PROFILE.id ? OFFICIAL_PROFILE : (profiles[id] ?? remote[id]));
 }
 
 export function useList(listId: string): GameList | undefined {
@@ -79,8 +78,7 @@ export function useListCount(): (listId: string) => number {
     for (const item of [...Object.values(items), ...Object.values(remoteItems)]) {
       counts[item.listId] = (counts[item.listId] ?? 0) + 1;
     }
-    return (listId: string) =>
-      counts[listId] ?? 0;
+    return (listId: string) => counts[listId] ?? 0;
   }, [items, remoteItems]);
 }
 

@@ -83,10 +83,7 @@ function SearchScreenInner() {
     return () => clearTimeout(timer);
   }, [query, online]);
 
-  const inList = useMemo(
-    () => new Set(listId ? itemsOfList(items, listId).map((i) => i.gameId) : []),
-    [items, listId],
-  );
+  const inList = useMemo(() => new Set(listId ? itemsOfList(items, listId).map((i) => i.gameId) : []), [items, listId]);
 
   const local: Row[] = useMemo(() => {
     const q = query.trim();
@@ -97,9 +94,7 @@ function SearchScreenInner() {
     const plain = normalize(q);
     const ranked = rankByQuery(q, all, (game) => game.title);
     const contains = all.filter((game) => normalize(game.title).includes(plain) && !ranked.includes(game));
-    return [...ranked, ...contains]
-      .slice(0, 12)
-      .map((game) => ({ key: game.id, game }));
+    return [...ranked, ...contains].slice(0, 12).map((game) => ({ key: game.id, game }));
   }, [query, customGames]);
 
   const external: Row[] = (query.trim().length >= 2 ? remote : [])
@@ -205,8 +200,8 @@ function SearchScreenInner() {
             {!online ? (
               <Panel>
                 <ThemedText variant="muted" size={13}>
-                  Esta versión de la app se compiló sin acceso a la API de juegos. Solo
-                  puedes buscar tus juegos y crearlos a mano.
+                  Esta versión de la app se compiló sin acceso a la API de juegos. Solo puedes buscar tus juegos y
+                  crearlos a mano.
                 </ThemedText>
               </Panel>
             ) : null}
@@ -253,7 +248,11 @@ function SearchScreenInner() {
                       sheets.openStatus(row.game);
                     }}
                   >
-                    <Ionicons name={ug ? 'checkmark-circle' : 'add-circle-outline'} size={30} color={skin.colors.text} />
+                    <Ionicons
+                      name={ug ? 'checkmark-circle' : 'add-circle-outline'}
+                      size={30}
+                      color={skin.colors.text}
+                    />
                   </Pressable>
                 )
               }

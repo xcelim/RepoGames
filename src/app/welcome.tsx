@@ -31,7 +31,9 @@ export default function WelcomeScreen() {
 function NotConfigured() {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]}>
+    <ScrollView
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]}
+    >
       <ThemedText variant="display" size={40}>
         Saga Quest
       </ThemedText>
@@ -71,14 +73,20 @@ function CloudWelcome() {
 
   const submit = () =>
     run(async () => {
-      if (!email.trim() || password.length < 6) throw new Error('Escribe tu correo y una contraseña de 6 caracteres o más.');
+      if (!email.trim() || password.length < 6)
+        throw new Error('Escribe tu correo y una contraseña de 6 caracteres o más.');
       if (mode === 'login') {
         await signIn(email, password);
         router.replace('/');
         return;
       }
       if (!name.trim()) throw new Error('Pon tu nombre.');
-      const result = await signUp({ email, password, displayName: name, username: slugify(username || name) || 'jugador' });
+      const result = await signUp({
+        email,
+        password,
+        displayName: name,
+        username: slugify(username || name) || 'jugador',
+      });
       if (result === 'confirm') {
         setMode('login');
         setMessage({ text: 'Cuenta creada. Te hemos enviado un correo: confírmalo y después entra aquí.' });
@@ -104,15 +112,16 @@ function CloudWelcome() {
           Quest
         </ThemedText>
         <ThemedText variant="muted">
-          Para usar la app necesitas una cuenta. Tus listas, tu biblioteca y tus reseñas se guardan en ella y verás tu progreso en cualquier dispositivo.
+          Para usar la app necesitas una cuenta. Tus listas, tu biblioteca y tus reseñas se guardan en ella y verás tu
+          progreso en cualquier dispositivo.
         </ThemedText>
 
         {!online ? (
           <Panel>
             <ThemedText variant="bold">Sin conexión</ThemedText>
             <ThemedText variant="muted" size={13}>
-              Para entrar o crear tu cuenta necesitas internet. Cuando ya hayas entrado podrás usar la app sin conexión si
-              descargas tu perfil.
+              Para entrar o crear tu cuenta necesitas internet. Cuando ya hayas entrado podrás usar la app sin conexión
+              si descargas tu perfil.
             </ThemedText>
           </Panel>
         ) : null}
@@ -159,7 +168,13 @@ function CloudWelcome() {
           />
           {mode === 'signup' ? (
             <>
-              <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Cómo quieres que te vean" maxLength={40} />
+              <TextField
+                label="Nombre"
+                value={name}
+                onChangeText={setName}
+                placeholder="Cómo quieres que te vean"
+                maxLength={40}
+              />
               <TextField
                 label="Usuario"
                 value={username}
@@ -190,7 +205,11 @@ function CloudWelcome() {
             autoCapitalize="none"
             autoComplete={mode === 'login' ? 'password' : 'new-password'}
           />
-          {busy ? <ActivityIndicator color={skin.colors.accent} /> : <Button label={mode === 'login' ? 'Entrar' : 'Crear cuenta'} onPress={submit} />}
+          {busy ? (
+            <ActivityIndicator color={skin.colors.accent} />
+          ) : (
+            <Button label={mode === 'login' ? 'Entrar' : 'Crear cuenta'} onPress={submit} />
+          )}
           {mode === 'login' ? (
             <ThemedText
               variant="muted"
@@ -201,7 +220,9 @@ function CloudWelcome() {
                   if (!email.trim()) throw new Error('Escribe tu correo arriba y vuelve a pulsar.');
                   await resetPassword(email);
                   setResetting(true);
-                  setMessage({ text: 'Te hemos enviado un correo con un código. Escríbelo abajo con tu nueva contraseña.' });
+                  setMessage({
+                    text: 'Te hemos enviado un correo con un código. Escríbelo abajo con tu nueva contraseña.',
+                  });
                 })
               }
             >
@@ -211,13 +232,26 @@ function CloudWelcome() {
           {message ? <Note error={message.error}>{message.text}</Note> : null}
           {resetting && mode === 'login' ? (
             <>
-              <TextField label="Código del correo" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={10} />
-              <TextField label="Nueva contraseña" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoCapitalize="none" />
+              <TextField
+                label="Código del correo"
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+              <TextField
+                label="Nueva contraseña"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                autoCapitalize="none"
+              />
               <Button
                 label="Cambiar contraseña y entrar"
                 onPress={() =>
                   run(async () => {
-                    if (newPassword.length < 6) throw new Error('La nueva contraseña debe tener al menos 6 caracteres.');
+                    if (newPassword.length < 6)
+                      throw new Error('La nueva contraseña debe tener al menos 6 caracteres.');
                     await confirmPasswordReset(email, code, newPassword);
                     router.replace('/');
                   })

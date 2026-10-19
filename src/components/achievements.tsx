@@ -8,8 +8,8 @@ import { fetchAchievements, type Achievement, type AchievementSet } from '@/api/
 import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
-import { notify } from '@/utils/notify';
 
+import { celebrate } from './Celebration';
 import { Card, ProgressBar, useIgnColors } from './ign';
 import { ThemedText } from './ThemedText';
 
@@ -88,16 +88,18 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
     const nowComplete = list ? list.every((a) => ids.includes(a.id)) : false;
     if (!wasComplete && nowComplete) {
       const status = useStore.getState().userGames[userGameKey(profileId!, game.id)]?.status;
-      if (status !== 'completed') {
-        Alert.alert(
-          '🏆 ¡Platino Saga Quest!',
-          `Tienes todos los logros de ${game.title}. ¿Lo marcas como «Al 100 %»?`,
-          [
-            { text: 'Ahora no', style: 'cancel' },
-            { text: 'Marcar al 100 %', onPress: () => setStatus(game.id, 'completed') },
-          ],
-        );
-      } else notify('🏆 ¡Platino Saga Quest!');
+      celebrate({
+        kind: 'platinum',
+        title: game.title,
+        onDone:
+          status !== 'completed'
+            ? () =>
+                Alert.alert('Platino Saga Quest', `¿Marcas ${game.title} como «Al 100 %»?`, [
+                  { text: 'Ahora no', style: 'cancel' },
+                  { text: 'Marcar al 100 %', onPress: () => setStatus(game.id, 'completed') },
+                ])
+            : undefined,
+      });
     }
   };
 

@@ -1,6 +1,14 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { finishOnboarding, isUsernameFree } from '@/cloud/sync';
@@ -55,17 +63,29 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <ThemedText variant="display" size={32}>
           Crea tu usuario
         </ThemedText>
         <ThemedText variant="muted">
-          Así te verán los demás en tus listas públicas y reseñas. Tu progreso se guarda en tu cuenta y lo verás en cualquier
-          dispositivo en el que entres.
+          Así te verán los demás en tus listas públicas y reseñas. Tu progreso se guarda en tu cuenta y lo verás en
+          cualquier dispositivo en el que entres.
         </ThemedText>
         <Panel>
-          <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Cómo quieres que te vean" maxLength={40} />
+          <TextField
+            label="Nombre"
+            value={name}
+            onChangeText={setName}
+            placeholder="Cómo quieres que te vean"
+            maxLength={40}
+          />
           <TextField
             label="Usuario"
             value={username}
@@ -109,7 +129,11 @@ export default function OnboardingScreen() {
               </ThemedText>
             </View>
           </View>
-          {busy ? <ActivityIndicator color={c.text} /> : <DarkButton label="Empezar" onPress={save} disabled={free === false} />}
+          {busy ? (
+            <ActivityIndicator color={c.text} />
+          ) : (
+            <DarkButton label="Empezar" onPress={save} disabled={free === false} />
+          )}
           {error ? (
             <ThemedText size={13} style={{ color: '#e5484d' }}>
               {error}

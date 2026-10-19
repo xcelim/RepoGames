@@ -34,7 +34,9 @@ export function OfflineNotice({
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.full, { backgroundColor: c.bg, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
+    <View
+      style={[styles.full, { backgroundColor: c.bg, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
+    >
       <Ionicons name={icon} size={64} color={c.muted} />
       <ThemedText variant="display" size={24} style={styles.center}>
         {title}
@@ -52,7 +54,10 @@ export function OfflineGate({ children, what = 'Esta pantalla' }: { children: Re
   const offline = useOfflineMode();
   if (!offline) return <>{children}</>;
   return (
-    <OfflineNotice title="Sin conexión" text={`${what} necesita internet. Mientras tanto puedes ver y gestionar tu perfil.`}>
+    <OfflineNotice
+      title="Sin conexión"
+      text={`${what} necesita internet. Mientras tanto puedes ver y gestionar tu perfil.`}
+    >
       <DarkButton label="Ir a mi perfil" onPress={() => router.replace('/profile')} />
       {router.canGoBack() ? <LightButton label="Volver" onPress={() => router.back()} /> : null}
     </OfflineNotice>
@@ -81,7 +86,11 @@ export function CloudGate({ children }: { children: ReactNode }) {
   }
   if (status === 'error') {
     return (
-      <OfflineNotice icon="alert-circle-outline" title="No se pudieron cargar tus datos" text={error ?? 'Error desconocido'}>
+      <OfflineNotice
+        icon="alert-circle-outline"
+        title="No se pudieron cargar tus datos"
+        text={error ?? 'Error desconocido'}
+      >
         <DarkButton label="Reintentar" onPress={() => syncNow()} />
       </OfflineNotice>
     );

@@ -28,7 +28,12 @@ export function useCover(game: GameRecord | undefined): string | null {
 
 // Ficha completa del juego.
 export function useGameDetails(game: GameRecord | undefined) {
-  const [state, setState] = useState<{ id?: string; details: GameDetails | null; loading: boolean; error: string | null }>({
+  const [state, setState] = useState<{
+    id?: string;
+    details: GameDetails | null;
+    loading: boolean;
+    error: string | null;
+  }>({
     details: null,
     loading: false,
     error: null,
@@ -43,7 +48,12 @@ export function useGameDetails(game: GameRecord | undefined) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setState({ id: game.id, details: null, loading: false, error: error instanceof Error ? error.message : 'Error' });
+          setState({
+            id: game.id,
+            details: null,
+            loading: false,
+            error: error instanceof Error ? error.message : 'Error',
+          });
         }
       });
     return () => {
@@ -65,7 +75,10 @@ export function useFillBasics(games: GameRecord[]): void {
     if (!key) return;
     let cancelled = false;
     const missing = useStore.getState();
-    const list = key.split('|').map((id) => missing.games[id]).filter((g): g is GameRecord => !!g);
+    const list = key
+      .split('|')
+      .map((id) => missing.games[id])
+      .filter((g): g is GameRecord => !!g);
     fillBasics(list)
       .then((patches) => {
         if (!cancelled) useStore.getState().patchGames(patches);

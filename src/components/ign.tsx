@@ -52,7 +52,15 @@ export function useIgnColors() {
 
 // ---------- Tarjeta blanca ----------
 
-export function Card({ children, style, padded = true }: { children: ReactNode; style?: StyleProp<ViewStyle>; padded?: boolean }) {
+export function Card({
+  children,
+  style,
+  padded = true,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  padded?: boolean;
+}) {
   const c = useIgnColors();
   const skin = useSkin();
   return (
@@ -111,16 +119,21 @@ export function IgnScreen({
     () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
     [scrollY],
   );
-  const barOpacity = scrollY.interpolate({ inputRange: [collapseAt - 20, collapseAt + 10], outputRange: [0, 1], extrapolate: 'clamp' });
+  const barOpacity = scrollY.interpolate({
+    inputRange: [collapseAt - 20, collapseAt + 10],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
   const goBack = typeof back === 'function' ? back : () => (router.canGoBack() ? router.back() : router.replace('/'));
 
-  const backButton = back || close ? (
-    <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
-      <Ionicons name={close ? 'close' : 'chevron-back'} size={24} color={c.text} />
-    </Pressable>
-  ) : (
-    <View style={styles.backBtn} />
-  );
+  const backButton =
+    back || close ? (
+      <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
+        <Ionicons name={close ? 'close' : 'chevron-back'} size={24} color={c.text} />
+      </Pressable>
+    ) : (
+      <View style={styles.backBtn} />
+    );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -176,7 +189,12 @@ export function IgnScreen({
 export function HeaderIcon({ icon, onPress, label }: { icon: IconName; onPress: () => void; label?: string }) {
   const c = useIgnColors();
   return (
-    <Pressable onPress={onPress} hitSlop={10} accessibilityLabel={label} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 4 })}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 4 })}
+    >
       <Ionicons name={icon} size={28} color={c.text} />
     </Pressable>
   );
@@ -216,14 +234,28 @@ export function DarkButton({
   );
 }
 
-export function LightButton({ label, onPress, style }: { label: string; onPress: () => void; style?: StyleProp<ViewStyle> }) {
+export function LightButton({
+  label,
+  onPress,
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
   const c = useIgnColors();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.darkBtn,
-        { backgroundColor: c.soft, borderRadius: c.radius, borderWidth: 1, borderColor: c.line, opacity: pressed ? 0.8 : 1 },
+        {
+          backgroundColor: c.soft,
+          borderRadius: c.radius,
+          borderWidth: 1,
+          borderColor: c.line,
+          opacity: pressed ? 0.8 : 1,
+        },
         style,
       ]}
     >
@@ -248,7 +280,16 @@ export function DotsButton({ onPress }: { onPress: () => void }) {
 export function StatusIcon({ status, size = 34 }: { status: PlayStatus; size?: number }) {
   const meta = STATUS_META[status];
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.28, backgroundColor: meta.color, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.28,
+        backgroundColor: meta.color,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       <Ionicons name={meta.icon as IconName} size={size * 0.56} color="#fff" />
     </View>
   );
@@ -274,7 +315,16 @@ export function StatusBadge({ status, compact }: { status: PlayStatus; compact?:
 export function RankCircle({ rank, size = 26 }: { rank: number; size?: number }) {
   const c = useIgnColors();
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: c.inverseBg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       <ThemedText variant="bold" size={size * 0.46} style={{ color: c.inverseText }}>
         {rank}
       </ThemedText>
@@ -314,7 +364,12 @@ export function CoverTile({
   const c = useIgnColors();
   const sub = subtitle !== undefined ? subtitle : (game.developer ?? (game.year ? String(game.year) : null));
   return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={350} style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
+    >
       <View>
         <GameCover game={game} width={width} radius={c.radius} />
         {status ? (
@@ -332,7 +387,13 @@ export function CoverTile({
           </Pressable>
         ) : null}
         {replays || onReplays ? (
-          <Pressable disabled={!onReplays} onPress={onReplays} hitSlop={8} style={styles.replayCorner} accessibilityLabel={`Rejugado ${replays ?? 0} veces`}>
+          <Pressable
+            disabled={!onReplays}
+            onPress={onReplays}
+            hitSlop={8}
+            style={styles.replayCorner}
+            accessibilityLabel={`Rejugado ${replays ?? 0} veces`}
+          >
             <ReplayBadge count={replays ?? 0} size={Math.max(28, Math.min(36, width * 0.2))} dim={!replays} />
           </Pressable>
         ) : null}
@@ -366,13 +427,28 @@ export function CoverTile({
 
 // ---------- Mosaico de portadas de una lista ----------
 
-export function Mosaic({ list, games, size, radius }: { list: Pick<GameList, 'color' | 'color2' | 'icon'>; games: GameRecord[]; size: number; radius?: number }) {
+export function Mosaic({
+  list,
+  games,
+  size,
+  radius,
+}: {
+  list: Pick<GameList, 'color' | 'color2' | 'icon'>;
+  games: GameRecord[];
+  size: number;
+  radius?: number;
+}) {
   const c = useIgnColors();
   const r = radius ?? c.radius;
   const shown = games.slice(0, 4);
   return (
     <View style={{ width: size, height: size, borderRadius: r, overflow: 'hidden' }}>
-      <LinearGradient colors={[list.color, list.color2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={[list.color, list.color2]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       {shown.length === 0 ? (
         <View style={styles.mosaicEmpty}>
           <Ionicons name={(list.icon || 'albums') as IconName} size={size * 0.38} color="rgba(255,255,255,0.9)" />
@@ -391,13 +467,28 @@ export function Mosaic({ list, games, size, radius }: { list: Pick<GameList, 'co
 }
 
 // Collage ancho (Featured Playlists): portadas en tira.
-export function Collage({ list, games, width, height }: { list: Pick<GameList, 'color' | 'color2' | 'icon'>; games: GameRecord[]; width: number; height: number }) {
+export function Collage({
+  list,
+  games,
+  width,
+  height,
+}: {
+  list: Pick<GameList, 'color' | 'color2' | 'icon'>;
+  games: GameRecord[];
+  width: number;
+  height: number;
+}) {
   const c = useIgnColors();
   const shown = games.slice(0, 4);
   const slice = shown.length ? width / Math.min(shown.length, 3) : width;
   return (
     <View style={{ width, height, borderRadius: c.radius + 2, overflow: 'hidden' }}>
-      <LinearGradient colors={[list.color, list.color2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={[list.color, list.color2]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       {shown.length ? (
         <View style={{ flexDirection: 'row', height }}>
           {shown.slice(0, 3).map((g) => (
@@ -423,32 +514,54 @@ export function BlurHero({ url, colors, height }: { url: string | null; colors: 
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height, overflow: 'hidden' }}>
       <LinearGradient colors={colors} style={StyleSheet.absoluteFill} />
       {url ? <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} /> : null}
-      <LinearGradient colors={['rgba(0,0,0,0)', c.bg]} start={{ x: 0, y: 0.35 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', c.bg]}
+        start={{ x: 0, y: 0.35 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
     </View>
   );
 }
 
 // ---------- Plataformas ----------
 
-export function PlatformChips({ platforms, max = 6, size = 'sm' }: { platforms: string[]; max?: number; size?: 'sm' | 'md' }) {
+export function PlatformChips({
+  platforms,
+  max = 6,
+  size = 'sm',
+}: {
+  platforms: string[];
+  max?: number;
+  size?: 'sm' | 'md';
+}) {
   const seen = new Set<string>();
-  const badges = platforms
-    .map(platformBadge)
-    .filter((b) => (seen.has(b.label) ? false : (seen.add(b.label), true)));
+  const badges = platforms.map(platformBadge).filter((b) => (seen.has(b.label) ? false : (seen.add(b.label), true)));
   const shown = badges.slice(0, max);
   const extra = badges.length - shown.length;
   const big = size === 'md';
   return (
     <View style={styles.chipsRow}>
       {shown.map((b) => (
-        <View key={b.label} style={[styles.platChip, { backgroundColor: b.color, paddingHorizontal: big ? 6 : 4, paddingVertical: big ? 3 : 1 }]}>
+        <View
+          key={b.label}
+          style={[
+            styles.platChip,
+            { backgroundColor: b.color, paddingHorizontal: big ? 6 : 4, paddingVertical: big ? 3 : 1 },
+          ]}
+        >
           <ThemedText variant="bold" size={big ? 11 : 8} style={{ color: '#fff' }}>
             {b.label}
           </ThemedText>
         </View>
       ))}
       {extra > 0 ? (
-        <View style={[styles.platChip, { backgroundColor: '#2a2d36', paddingHorizontal: big ? 6 : 4, paddingVertical: big ? 3 : 1 }]}>
+        <View
+          style={[
+            styles.platChip,
+            { backgroundColor: '#2a2d36', paddingHorizontal: big ? 6 : 4, paddingVertical: big ? 3 : 1 },
+          ]}
+        >
           <ThemedText variant="bold" size={big ? 11 : 8} style={{ color: '#fff' }}>
             +{extra}
           </ThemedText>
@@ -498,8 +611,21 @@ export function ScoreSquare({ score, size = 46, neutral }: { score: number | nul
   const c = useIgnColors();
   const bg = neutral ? c.soft : score == null ? c.soft : scoreColor(score);
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.16, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ThemedText variant="bold" size={size * (neutral ? 0.32 : 0.4)} style={{ color: neutral || score == null ? c.text : '#fff' }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.16,
+        backgroundColor: bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <ThemedText
+        variant="bold"
+        size={size * (neutral ? 0.32 : 0.4)}
+        style={{ color: neutral || score == null ? c.text : '#fff' }}
+      >
         {neutral ?? (score == null ? '–' : formatScore(score))}
       </ThemedText>
     </View>
@@ -517,7 +643,15 @@ export function scoreLabel(score: number | null | undefined): string {
 
 // ---------- Gráficos ----------
 
-export function Donut({ parts, size = 110, stroke = 16 }: { parts: { value: number; color: string }[]; size?: number; stroke?: number }) {
+export function Donut({
+  parts,
+  size = 110,
+  stroke = 16,
+}: {
+  parts: { value: number; color: string }[];
+  size?: number;
+  stroke?: number;
+}) {
   const c = useIgnColors();
   const total = parts.reduce((sum, p) => sum + p.value, 0);
   const r = (size - stroke) / 2;
@@ -601,7 +735,11 @@ export function Sheet({
           <ThemedText variant="bold" size={11} style={styles.sheetTitle} numberOfLines={1}>
             {title.toUpperCase()}
           </ThemedText>
-          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={{ paddingBottom: 8 }}
+            keyboardShouldPersistTaps="handled"
+          >
             {children}
           </ScrollView>
           {footer}
@@ -662,7 +800,17 @@ export function SheetRow({
 
 // ---------- Interruptor ----------
 
-export function ToggleRow({ label, value, onChange, caption }: { label: string; value: boolean; onChange: (v: boolean) => void; caption?: string }) {
+export function ToggleRow({
+  label,
+  value,
+  onChange,
+  caption,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  caption?: string;
+}) {
   const c = useIgnColors();
   return (
     <View style={[styles.toggleRow, { backgroundColor: c.card, borderColor: c.line, borderRadius: c.radius }]}>
@@ -674,7 +822,12 @@ export function ToggleRow({ label, value, onChange, caption }: { label: string; 
           </ThemedText>
         ) : null}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: c.inverseBg, false: c.soft }} thumbColor={value ? c.inverseText : c.muted} />
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: c.inverseBg, false: c.soft }}
+        thumbColor={value ? c.inverseText : c.muted}
+      />
     </View>
   );
 }
@@ -684,7 +837,10 @@ export function ToggleRow({ label, value, onChange, caption }: { label: string; 
 export function SelectBox({ label, onPress }: { label: string; onPress: () => void }) {
   const c = useIgnColors();
   return (
-    <Pressable onPress={onPress} style={[styles.selectBox, { borderColor: c.text, borderRadius: c.radius / 2, backgroundColor: c.card }]}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.selectBox, { borderColor: c.text, borderRadius: c.radius / 2, backgroundColor: c.card }]}
+    >
       <ThemedText size={14} numberOfLines={1} style={{ flex: 1 }}>
         {label}
       </ThemedText>
@@ -714,7 +870,10 @@ export function GameLine({
   const date = formatUsDate(game.releaseDate) ?? (game.year ? String(game.year) : null);
   const line = [date, game.developer].filter(Boolean).join(' · ');
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.gameLine, { borderBottomColor: c.line, opacity: pressed ? 0.7 : 1 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.gameLine, { borderBottomColor: c.line, opacity: pressed ? 0.7 : 1 }]}
+    >
       {rank != null ? <RankCircle rank={rank} /> : null}
       <View>
         <GameCover game={game} width={64} square radius={6} />
@@ -767,7 +926,15 @@ export function timeAgo(iso: string | null | undefined): string {
 
 // ---------- Cabecera de sección con flecha ----------
 
-export function SectionHeader({ title, subtitle, onPress }: { title: string; subtitle?: string; onPress?: () => void }) {
+export function SectionHeader({
+  title,
+  subtitle,
+  onPress,
+}: {
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+}) {
   const c = useIgnColors();
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={styles.sectionHeader}>
@@ -788,7 +955,17 @@ export function SectionHeader({ title, subtitle, onPress }: { title: string; sub
 
 const styles = StyleSheet.create({
   replayCorner: { position: 'absolute', top: 6, right: 6 },
-  physicalCorner: { position: 'absolute', top: 8, left: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.62)', alignItems: 'center', justifyContent: 'center' },
+  physicalCorner: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   largeHeader: { paddingHorizontal: 20, paddingBottom: 8, gap: 8 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', paddingVertical: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
@@ -798,13 +975,44 @@ const styles = StyleSheet.create({
   smallBarInner: { height: 46, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   smallTitle: { flex: 1, textAlign: 'center', letterSpacing: 1 },
   backBtn: { width: 32, alignItems: 'flex-start' },
-  darkBtn: { minHeight: 48, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  darkBtn: {
+    minHeight: 48,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
   dots: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingLeft: 7, paddingRight: 3, paddingVertical: 2 },
-  badgeIcon: { width: 15, height: 15, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingLeft: 7,
+    paddingRight: 3,
+    paddingVertical: 2,
+  },
+  badgeIcon: {
+    width: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   coverBadge: { position: 'absolute', right: 6, bottom: 6 },
   lineBadge: { position: 'absolute', right: -4, bottom: -4 },
-  addPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingLeft: 8, paddingRight: 3, paddingVertical: 2 },
+  addPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 999,
+    paddingLeft: 8,
+    paddingRight: 3,
+    paddingVertical: 2,
+  },
   tileText: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'flex-start' },
   caps: { letterSpacing: 0.8, marginTop: 2 },
   mosaicEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -817,8 +1025,21 @@ const styles = StyleSheet.create({
   sheetScroll: { flexGrow: 0 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 8 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1 },
-  selectBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
-  gameLine: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  selectBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  gameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   sectionHeader: { paddingHorizontal: 20, gap: 4, marginBottom: 12 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });
@@ -833,7 +1054,15 @@ export function EntryGrid({
   onLongPress,
   onReplays,
 }: {
-  entries: { game: GameRecord; status?: PlayStatus | null; rank: number; replays?: number; physical?: boolean; note?: string }[];
+  entries: {
+    game: GameRecord;
+    status?: PlayStatus | null;
+    rank: number;
+    replays?: number;
+    physical?: boolean;
+    note?: string;
+    subtitle?: string;
+  }[];
   width: number;
   showRank: boolean;
   onPress: (game: GameRecord) => void;
@@ -856,6 +1085,7 @@ export function EntryGrid({
           onReplays={onReplays ? () => onReplays(e.game) : undefined}
           physical={e.physical}
           note={e.note}
+          subtitle={e.subtitle}
         />
       ))}
     </View>
@@ -872,7 +1102,14 @@ export function ProgressBar({ pct, height = 6, color }: { pct: number; height?: 
   const c = useIgnColors();
   return (
     <View style={{ height, borderRadius: height / 2, backgroundColor: c.soft, overflow: 'hidden' }}>
-      <View style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', backgroundColor: color ?? '#6aa834', borderRadius: height / 2 }} />
+      <View
+        style={{
+          width: `${Math.max(0, Math.min(100, pct))}%`,
+          height: '100%',
+          backgroundColor: color ?? '#6aa834',
+          borderRadius: height / 2,
+        }}
+      />
     </View>
   );
 }

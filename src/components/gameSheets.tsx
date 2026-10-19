@@ -11,6 +11,7 @@ import type { GameRecord, PlayStatus } from '@/types';
 import { itemsOfList, userGameKey } from '@/utils/library';
 import { notify } from '@/utils/notify';
 
+import { celebrate } from './Celebration';
 import { PlayDetails } from './details';
 import { Mosaic, Sheet, SheetRow, StatusIcon, useIgnColors } from './ign';
 import { ThemedText } from './ThemedText';
@@ -33,7 +34,12 @@ export function useGameSheets() {
   const open = useCallback((kind: Kind) => (game: GameRecord) => setState({ game, kind }), []);
   const close = useCallback(() => setState(null), []);
   const element = state ? (
-    <GameSheetsHost game={state.game} kind={state.kind} onKind={(kind) => setState({ game: state.game, kind })} onClose={close} />
+    <GameSheetsHost
+      game={state.game}
+      kind={state.kind}
+      onKind={(kind) => setState({ game: state.game, kind })}
+      onClose={close}
+    />
   ) : null;
   return {
     openStatus: open('status'),
@@ -84,7 +90,13 @@ function StatusSheet({ game, onClose }: { game: GameRecord; onClose: () => void 
 
   const choose = (status: PlayStatus) => {
     ensure(game);
+    const wasFinished = current?.status === 'beaten' || current?.status === 'completed';
     setStatus(game.id, status);
+    if (!wasFinished && (status === 'beaten' || status === 'completed')) {
+      // Cerramos el menú para que se vea la celebración.
+      onClose();
+      celebrate({ kind: 'finish', title: game.title });
+    }
     notify(`${game.title}: ${STATUS_META[status].short}`);
   };
   const currentStatus = current?.status === 'completed' ? 'beaten' : current?.status;
@@ -158,7 +170,11 @@ function MoreSheet({ game, onClose, onKind }: { game: GameRecord; onClose: () =>
 
   return (
     <Sheet visible title={game.title} onClose={onClose}>
-      <SheetRow label="Organizar en listas" right={<Ionicons name="add-circle-outline" size={24} color={c.text} />} onPress={() => onKind('organize')} />
+      <SheetRow
+        label="Organizar en listas"
+        right={<Ionicons name="add-circle-outline" size={24} color={c.text} />}
+        onPress={() => onKind('organize')}
+      />
       <SheetRow
         label="Plataforma en la que juegas"
         caption={current?.platform ? current.platform.toUpperCase() : undefined}
@@ -179,7 +195,9 @@ function MoreSheet({ game, onClose, onKind }: { game: GameRecord; onClose: () =>
         label="Compartir juego"
         right={<Ionicons name="share-outline" size={22} color={c.text} />}
         onPress={() => {
-          Share.share({ message: `${game.title}${game.year ? ` (${game.year})` : ''} — en mi biblioteca de Saga Quest 🎮` }).catch(() => undefined);
+          Share.share({
+            message: `${game.title}${game.year ? ` (${game.year})` : ''} — en mi biblioteca de Saga Quest 🎮`,
+          }).catch(() => undefined);
         }}
         last
       />
@@ -201,7 +219,10 @@ function MoreSheet({ game, onClose, onKind }: { game: GameRecord; onClose: () =>
             </ThemedText>
           </Pressable>
         ))}
-        <Pressable onPress={() => onKind('status')} style={[styles.quick, { backgroundColor: c.soft, borderRadius: c.radius }]}>
+        <Pressable
+          onPress={() => onKind('status')}
+          style={[styles.quick, { backgroundColor: c.soft, borderRadius: c.radius }]}
+        >
           <View style={[styles.moreIcon, { backgroundColor: c.inverseBg }]}>
             <Ionicons name="ellipsis-horizontal" size={16} color={c.inverseText} />
           </View>
@@ -264,7 +285,11 @@ function OrganizeRows({ game, onClose }: { game: GameRecord; onClose: () => void
             right={
               <View style={styles.rowRight}>
                 {list.visibility === 'private' ? <Ionicons name="lock-closed" size={14} color={c.muted} /> : null}
-                <Ionicons name={inList ? 'checkmark-circle' : 'add-circle-outline'} size={26} color={inList ? c.accent : c.text} />
+                <Ionicons
+                  name={inList ? 'checkmark-circle' : 'add-circle-outline'}
+                  size={26}
+                  color={inList ? c.accent : c.text}
+                />
               </View>
             }
             onPress={() => {
@@ -306,7 +331,13 @@ function PlatformSheet({ game, onClose }: { game: GameRecord; onClose: () => voi
           label={p}
           caption={released.includes(p) ? 'SALIÓ EN ESTA PLATAFORMA' : undefined}
           selected={current?.platform === p}
-          right={<Ionicons name={current?.platform === p ? 'radio-button-on' : 'radio-button-off'} size={22} color={c.text} />}
+          right={
+            <Ionicons
+              name={current?.platform === p ? 'radio-button-on' : 'radio-button-off'}
+              size={22}
+              color={c.text}
+            />
+          }
           onPress={() => {
             ensure(game);
             updateUserGame(game.id, { platform: current?.platform === p ? null : p });

@@ -11,6 +11,7 @@ import { fetchCommunity, restoreSession } from '@/cloud/sync';
 import { useStore } from '@/store/useStore';
 import { loadFonts } from '@/theme/fonts';
 import { SKINS } from '@/theme/skins';
+import { CelebrationHost } from '@/components/Celebration';
 import { useSkin } from '@/theme/useSkin';
 
 SplashScreen.preventAutoHideAsync();
@@ -89,6 +90,12 @@ export default function RootLayout() {
         <Stack.Screen name="game/[id]/review" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="search" />
         <Stack.Screen name="platinums" />
+        <Stack.Screen name="platinum/[id]" />
+        <Stack.Screen name="level" />
+        <Stack.Screen name="showcases" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="ranks" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="player-card" />
+        <Stack.Screen name="roulette" />
         <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="list/edit" />
         <Stack.Screen name="list/import" options={{ presentation: 'modal' }} />
@@ -99,6 +106,7 @@ export default function RootLayout() {
         <Stack.Screen name="accounts" options={{ presentation: 'modal' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
       </Stack>
+      <CelebrationHost />
     </GestureHandlerRootView>
   );
 }

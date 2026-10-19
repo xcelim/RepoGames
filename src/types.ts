@@ -93,7 +93,17 @@ export type Profile = {
   avatarColor: string;
   createdAt: string;
   onboarded?: boolean; // ya ha creado su usuario (nombre, @usuario, color)
+  showcases?: Showcase[]; // vitrinas del perfil (se desbloquean con el nivel)
+  ranks?: CompetitiveRank[]; // insignias de rango en juegos competitivos
+  photo?: string | null; // foto de perfil (imagen pequeña en base64)
+  frame?: number | null; // marco elegido (índice de FRAMES; null = sin marco; sin definir = el mejor)
 };
+
+// Tu rango en un competitivo: juego (de la lista o escrito a mano), rango y división.
+export type CompetitiveRank = { game: string; tier: string; division?: string };
+
+export type ShowcaseType = 'favorites' | 'completionist' | 'rare' | 'recent' | 'replays' | 'stats';
+export type Showcase = { type: ShowcaseType; gameIds?: string[] };
 
 // Estado del juego en tu biblioteca personal (como IGN Playlist).
 export type PlayStatus =

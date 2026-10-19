@@ -11,6 +11,7 @@ import { LIBRARY_ROW_META, SORT_LABEL, statusesOfRow, type LibraryRow } from '@/
 import { useStore } from '@/store/useStore';
 import type { ListItem, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
+import { daysSince } from '@/utils/fun';
 import { replayStats, sortEntries, type Entry } from '@/utils/library';
 
 // Los juegos de la biblioteca con un estado (o todos), como en IGN.
@@ -68,6 +69,10 @@ export default function LibraryStatusScreen() {
           rank: e.rank,
           replays: profileId ? replayStats({ lists, items, userGames }, profileId, e.game.id).total : 0,
           physical: e.userGame?.owned,
+          subtitle:
+            e.userGame?.status === 'playing' && daysSince(e.userGame.startedAt) != null
+              ? `Día ${daysSince(e.userGame.startedAt)! + 1}`
+              : undefined,
         }))}
         onReplays={sheets.openStatus}
         width={width}
