@@ -1,26 +1,73 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { ListCard, ScreenHeader } from '@/components/lists';
-import { ThemedText } from '@/components/ThemedText';
-import { Avatar, EmptyState, StatTile } from '@/components/ui';
 import { useRemote } from '@/cloud/remote';
+import {
+  fetchProfile,
+  fetchUserLibrary,
+  fetchUserLists,
+  removeFriend,
+  useFriendState,
+  useSocial,
+} from '@/cloud/social';
+import { FriendButton } from '@/components/FriendButton';
+import { GameCover } from '@/components/games';
+import { Card, IgnScreen, ProgressBar, useIgnColors } from '@/components/ign';
+import { LevelBadge } from '@/components/LevelBadge';
+import { ListCard } from '@/components/lists';
+import { OfflineGate } from '@/components/offline';
+import { RankBadge } from '@/components/RankBadge';
+import { ShowcaseView } from '@/components/showcases';
+import { ThemedText } from '@/components/ThemedText';
+import { UserAvatar } from '@/components/UserAvatar';
 import { OFFICIAL_LISTS, OFFICIAL_PROFILE_ID } from '@/data/catalog';
 import { FINISHED } from '@/data/meta';
 import { useListCount, useProfileLookup } from '@/hooks/useLists';
+import { useAchievementsOf } from '@/hooks/usePlatinums';
 import { useStore } from '@/store/useStore';
-import { OfflineGate } from '@/components/offline';
+import type { GameRecord, UserGame } from '@/types';
+import { compatibility } from '@/utils/compat';
+import { levelColor, levelFromXp, showcaseSlots } from '@/utils/level';
 
 function UserScreenInner() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const insets = useSafeAreaInsets();
-  const profile = useProfileLookup()(id);
+  const c = useIgnColors();
+  const { width } = useWindowDimensions();
+  const lookup = useProfileLookup();
+  const profile = lookup(id);
+  const uid = useStore((s) => s.cloudUserId);
+  const myUserGames = useStore((s) => s.userGames);
+  const localGames = useStore((s) => s.games);
+  const socialGames = useSocial((s) => s.games);
   const lists = useStore((s) => s.lists);
   const remoteLists = useRemote((s) => s.lists);
-  const userGames = useStore((s) => s.userGames);
   const countOf = useListCount();
+  const friendState = useFriendState(id);
+  const [library, setLibrary] = useState<UserGame[] | null>(null);
+
+  useEffect(() => {
+    if (id === OFFICIAL_PROFILE_ID) return;
+    let alive = true;
+    fetchProfile(id).catch(() => undefined);
+    fetchUserLists(id).catch(() => undefined);
+    fetchUserLibrary(id)
+      .then((l) => alive && setLibrary(l))
+      .catch(() => alive && setLibrary([]));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  const games = useMemo(() => ({ ...socialGames, ...localGames }), [socialGames, localGames]);
+  const theirs = useMemo(() => library ?? [], [library]);
+  const ach = useAchievementsOf(theirs, games);
+  const mine = useMemo(() => Object.values(myUserGames).filter((u) => u.profileId === uid), [myUserGames, uid]);
+  const compat = useMemo(
+    () => (id !== uid && theirs.length && mine.length ? compatibility(mine, theirs) : null),
+    [id, uid, theirs, mine],
+  );
 
   const publicLists = useMemo(() => {
     if (id === OFFICIAL_PROFILE_ID) return OFFICIAL_LISTS;
@@ -29,62 +76,202 @@ function UserScreenInner() {
     );
   }, [id, lists, remoteLists]);
 
-  const theirGames = Object.values(userGames).filter((g) => g.profileId === id);
-  const finished = theirGames.filter((g) => FINISHED.includes(g.status)).length;
-
   if (!profile) {
     return (
-      <View style={styles.flex}>
-        <ScreenHeader back />
-        <EmptyState icon="person-outline" title="Usuario no encontrado" />
-      </View>
+      <IgnScreen title="Perfil" back>
+        <ActivityIndicator color={c.text} style={{ marginTop: 40 }} />
+      </IgnScreen>
     );
   }
 
+  const finished = theirs.filter((g) => FINISHED.includes(g.status)).length;
+  const level = profile.level ?? 0;
+  const slots = showcaseSlots(level);
+  const lv = levelFromXp(profile.xp ?? 0);
+  const progress = profile.xp != null ? (lv.into / lv.need) * 100 : 0;
+  const gameOf = (gid: string): GameRecord | undefined => games[gid];
+  const cover = (width - 40 - 36 - 30) / 4;
+
   return (
-    <View style={styles.flex}>
-      <ScreenHeader back title={`@${profile.username}`} />
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
-        <View style={styles.head}>
-          <Avatar name={profile.displayName} color={profile.avatarColor} uri={profile.photo} size={72} />
-          <View style={styles.flex}>
-            <ThemedText variant="display" size={26}>
-              {profile.displayName}
-            </ThemedText>
-            <ThemedText variant="muted">@{profile.username}</ThemedText>
-          </View>
+    <IgnScreen title={profile.displayName} back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+      <View style={styles.head}>
+        <UserAvatar profile={profile} size={84} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <ThemedText variant="display" size={24} numberOfLines={1}>
+            {profile.displayName}
+          </ThemedText>
+          <ThemedText variant="muted">@{profile.username}</ThemedText>
+          {profile.level != null ? (
+            <View style={styles.levelRow}>
+              <LevelBadge level={level} size={26} />
+              <View style={{ flex: 1 }}>
+                <ThemedText variant="bold" size={12}>
+                  Nivel {level}
+                </ThemedText>
+                <ProgressBar pct={progress} height={3} color={levelColor(level)} />
+              </View>
+            </View>
+          ) : null}
         </View>
-        {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
-        <View style={styles.tiles}>
-          <StatTile value={String(publicLists.length)} label="Listas públicas" />
-          {theirGames.length > 0 ? (
+      </View>
+      {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
+
+      {id !== uid && id !== OFFICIAL_PROFILE_ID ? (
+        <View style={styles.actions}>
+          <FriendButton id={id} />
+          {friendState === 'friends' ? (
             <>
-              <StatTile value={String(theirGames.length)} label="Juegos" />
-              <StatTile value={String(finished)} label="Terminados" />
+              <Pressable
+                onPress={() => router.push(`/chat/${id}`)}
+                style={[styles.action, { backgroundColor: c.inverseBg }]}
+              >
+                <Ionicons name="chatbubble" size={16} color={c.inverseText} />
+                <ThemedText variant="bold" size={12} style={{ color: c.inverseText }}>
+                  Mensaje
+                </ThemedText>
+              </Pressable>
+              <Pressable onPress={() => removeFriend(id).catch(() => undefined)} hitSlop={8}>
+                <ThemedText variant="muted" size={12} style={{ textDecorationLine: 'underline' }}>
+                  Quitar amigo
+                </ThemedText>
+              </Pressable>
             </>
           ) : null}
         </View>
-        {publicLists.length === 0 ? (
-          <EmptyState icon="lock-closed-outline" title="Sin listas públicas" />
-        ) : (
-          <View style={styles.grid}>
-            {publicLists.map((list) => (
-              <View key={list.id} style={styles.half}>
-                <ListCard list={list} count={countOf(list.id)} />
-              </View>
-            ))}
+      ) : null}
+
+      {profile.ranks?.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+          {profile.ranks.map((r) => (
+            <RankBadge key={r.game} rank={r} size={46} />
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <Card style={styles.stats} padded={false}>
+        <Stat value={library ? String(theirs.length) : '…'} label="JUEGOS" />
+        <Stat value={library ? String(finished) : '…'} label="TERMINADOS" />
+        <Stat value={ach.loading ? '…' : String(ach.platinums.length)} label="PLATINOS" />
+        <Stat value={String(publicLists.length)} label="LISTAS" />
+      </Card>
+
+      {compat ? (
+        <Card style={{ gap: 12 }}>
+          <View style={styles.compatHead}>
+            <ThemedText variant="display" size={30} style={{ color: compatColor(compat.score) }}>
+              {compat.score} %
+            </ThemedText>
+            <View style={{ flex: 1 }}>
+              <ThemedText variant="bold" size={15}>
+                {compatLabel(compat.score)}
+              </ThemedText>
+              <ThemedText variant="muted" size={12}>
+                {compat.shared.length} juegos en común
+                {compat.bothLoved.length ? ` · ${compat.bothLoved.length} os encantan a los dos` : ''}
+              </ThemedText>
+            </View>
           </View>
-        )}
-      </ScrollView>
+          <ProgressBar pct={compat.score} height={6} color={compatColor(compat.score)} />
+          {compat.forYou.length ? (
+            <>
+              <ThemedText variant="bold" size={13}>
+                Le encantan y tú no los tienes
+              </ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                {compat.forYou.map((gid) => {
+                  const g = gameOf(gid);
+                  return g ? (
+                    <Pressable key={gid} onPress={() => router.push(`/game/${encodeURIComponent(gid)}`)}>
+                      <GameCover game={g} width={cover} plain />
+                    </Pressable>
+                  ) : null;
+                })}
+              </ScrollView>
+            </>
+          ) : null}
+          {compat.clash.length ? (
+            <ThemedText variant="muted" size={12}>
+              Donde más chocáis:{' '}
+              {compat.clash.map((x) => `${gameOf(x.gameId)?.title ?? '?'} (tú ${x.mine}, él ${x.theirs})`).join(' · ')}
+            </ThemedText>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {library === null && id !== OFFICIAL_PROFILE_ID ? <ActivityIndicator color={c.text} /> : null}
+      {library
+        ? (profile.showcases ?? [])
+            .slice(0, slots)
+            .map((sc, i) => (
+              <ShowcaseView
+                key={`${sc.type}-${i}`}
+                showcase={sc}
+                profile={profile}
+                data={{ userGames: theirs, games, platinums: ach.platinums, earned: ach.earned }}
+              />
+            ))
+        : null}
+
+      <ThemedText variant="display" size={20} style={{ marginTop: 6 }}>
+        Listas públicas
+      </ThemedText>
+      {publicLists.length === 0 ? (
+        <ThemedText variant="muted" size={13}>
+          No tiene listas públicas.
+        </ThemedText>
+      ) : (
+        <View style={styles.grid}>
+          {publicLists.map((list) => (
+            <View key={list.id} style={styles.half}>
+              <ListCard list={list} count={countOf(list.id)} />
+            </View>
+          ))}
+        </View>
+      )}
+    </IgnScreen>
+  );
+}
+
+const compatColor = (s: number) => (s >= 75 ? '#2fd18b' : s >= 50 ? '#f2c94c' : s >= 25 ? '#f2994a' : '#e5484d');
+const compatLabel = (s: number) =>
+  s >= 85
+    ? 'Almas gemelas gamer'
+    : s >= 65
+      ? 'Gustos muy parecidos'
+      : s >= 45
+        ? 'Bastante compatibles'
+        : s >= 25
+          ? 'Algo en común'
+          : 'Mundos distintos';
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.stat}>
+      <ThemedText variant="bold" size={18}>
+        {value}
+      </ThemedText>
+      <ThemedText variant="muted" size={9} style={{ letterSpacing: 0.8 }}>
+        {label}
+      </ThemedText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  content: { paddingHorizontal: 16, gap: 16 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  tiles: { flexDirection: 'row', gap: 8 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  levelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  stats: { flexDirection: 'row', paddingVertical: 14 },
+  stat: { flex: 1, alignItems: 'center', gap: 2 },
+  compatHead: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   half: { width: '47.5%' },
 });

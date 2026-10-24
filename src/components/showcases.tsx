@@ -4,9 +4,9 @@ import { router } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { useAchievementData } from '@/hooks/usePlatinums';
+import { useAchievementData, type Earned, type Platinum } from '@/hooks/usePlatinums';
 import { useStore } from '@/store/useStore';
-import type { GameRecord, Profile, Showcase } from '@/types';
+import type { GameRecord, Profile, Showcase, UserGame } from '@/types';
 import { formatHours, replayStats } from '@/utils/library';
 import { SHOWCASES } from '@/utils/level';
 
@@ -55,15 +55,38 @@ function CoverRow({ games, render }: { games: GameRecord[]; render?: (g: GameRec
   );
 }
 
-export function ShowcaseView({ showcase, profile }: { showcase: Showcase; profile: Profile }) {
-  const games = useStore((s) => s.games);
-  const userGames = useStore((s) => s.userGames);
+// Datos de otro usuario (su perfil público); sin ellos se usan los tuyos.
+export type ShowcaseData = {
+  userGames: UserGame[];
+  games: Record<string, GameRecord>;
+  platinums: Platinum[];
+  earned: Earned[];
+};
+
+export function ShowcaseView({
+  showcase,
+  profile,
+  data,
+}: {
+  showcase: Showcase;
+  profile: Profile;
+  data?: ShowcaseData;
+}) {
+  const localGames = useStore((s) => s.games);
+  const localUserGames = useStore((s) => s.userGames);
   const lists = useStore((s) => s.lists);
   const items = useStore((s) => s.items);
-  const { platinums, earned } = useAchievementData();
+  const own = useAchievementData();
+  const games = data?.games ?? localGames;
+  const platinums = data?.platinums ?? own.platinums;
+  const earned = data?.earned ?? own.earned;
+  const userGames = useMemo(
+    () => (data ? Object.fromEntries(data.userGames.map((u) => [u.id, u])) : localUserGames),
+    [data, localUserGames],
+  );
   const mine = useMemo(
-    () => Object.values(userGames).filter((u) => u.profileId === profile.id),
-    [userGames, profile.id],
+    () => (data ? data.userGames : Object.values(localUserGames).filter((u) => u.profileId === profile.id)),
+    [data, localUserGames, profile.id],
   );
 
   switch (showcase.type) {

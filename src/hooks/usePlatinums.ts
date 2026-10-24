@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 
 import { fetchAchievements, type Achievement } from '@/api/achievements';
@@ -28,26 +28,50 @@ export function useAchievementData(): Data {
     const key = `${profileId}#` + candidates.map((u) => `${u.gameId}:${u.achievements!.length}`).join('|');
     if (key === useAchData.getState().key) return;
     let alive = true;
-    (async () => {
-      const platinums: Platinum[] = [];
-      const earned: Earned[] = [];
-      for (const ug of candidates) {
-        const game = games[ug.gameId];
-        if (!game) continue;
-        const set = await fetchAchievements(game).catch(() => null);
-        if (!set || !set.list.length) continue;
-        const done = new Set(ug.achievements);
-        for (const a of set.list) if (done.has(a.id)) earned.push({ game, achievement: a });
-        if (set.list.every((a) => done.has(a.id))) platinums.push({ game, ug, total: set.list.length, list: set.list });
-      }
-      platinums.sort((a, b) => (b.ug.updatedAt ?? '').localeCompare(a.ug.updatedAt ?? ''));
-      if (alive) useAchData.setState({ platinums, earned, loading: false, key });
-    })();
+    computeAchievements(candidates, games).then((d) => {
+      if (alive) useAchData.setState({ ...d, loading: false, key });
+    });
     return () => {
       alive = false;
     };
   }, [userGames, games, profileId]);
 
+  return data;
+}
+
+export async function computeAchievements(
+  candidates: UserGame[],
+  games: Record<string, GameRecord>,
+): Promise<{ platinums: Platinum[]; earned: Earned[] }> {
+  const platinums: Platinum[] = [];
+  const earned: Earned[] = [];
+  for (const ug of candidates) {
+    if (!ug.achievements?.length) continue;
+    const game = games[ug.gameId];
+    if (!game) continue;
+    const set = await fetchAchievements(game).catch(() => null);
+    if (!set || !set.list.length) continue;
+    const done = new Set(ug.achievements);
+    for (const a of set.list) if (done.has(a.id)) earned.push({ game, achievement: a });
+    if (set.list.every((a) => done.has(a.id))) platinums.push({ game, ug, total: set.list.length, list: set.list });
+  }
+  platinums.sort((a, b) => (b.ug.updatedAt ?? '').localeCompare(a.ug.updatedAt ?? ''));
+  return { platinums, earned };
+}
+
+// Logros y platinos de otro usuario (para su perfil público).
+export function useAchievementsOf(userGames: UserGame[], games: Record<string, GameRecord>): Data {
+  const [data, setData] = useState<Data>({ platinums: [], earned: [], loading: true });
+  const key =
+    userGames.map((u) => `${u.gameId}:${u.achievements?.length ?? 0}`).join('|') + `#${Object.keys(games).length}`;
+  useEffect(() => {
+    let alive = true;
+    computeAchievements(userGames, games).then((d) => alive && setData({ ...d, loading: false }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return data;
 }
 

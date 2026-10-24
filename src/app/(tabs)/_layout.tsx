@@ -7,13 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CloudGate, OfflineBanner, useOfflineMode } from '@/components/offline';
 import { ThemedText } from '@/components/ThemedText';
+import { usePendingRequests, useUnreadCount } from '@/cloud/social';
 import { isCloudEnabled } from '@/cloud/supabase';
 import { notify } from '@/utils/notify';
 import type { IconName } from '@/components/ui';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
 
-// Las cuatro pestañas de IGN Playlist: Descubrir, Biblioteca, Listas y Perfil.
+// Pestañas: Descubrir, Biblioteca, Listas, Amigos y Perfil.
 const TABS: {
   name: string;
   title: string;
@@ -34,6 +35,12 @@ const TABS: {
     iconActive: 'albums',
   },
   {
+    name: 'social',
+    title: 'AMIGOS',
+    icon: 'people-outline',
+    iconActive: 'people',
+  },
+  {
     name: 'profile',
     title: 'PERFIL',
     icon: 'person-circle-outline',
@@ -50,13 +57,14 @@ type BarProps = {
 };
 
 // Sin conexión, Descubrir se desactiva (y si estabas ahí, pasas a tu perfil).
-const NEEDS_NET = new Set(['index']);
+const NEEDS_NET = new Set(['index', 'social']);
 
 function IgnTabBar({ state, navigation }: BarProps) {
   const skin = useSkin();
   const insets = useSafeAreaInsets();
   const offline = useOfflineMode() && isCloudEnabled();
   const current = state.routes[state.index]?.name;
+  const badge = useUnreadCount() + usePendingRequests();
   useEffect(() => {
     if (offline && current && NEEDS_NET.has(current)) navigation.navigate('profile');
   }, [offline, current, navigation]);
@@ -99,7 +107,16 @@ function IgnTabBar({ state, navigation }: BarProps) {
               style={styles.tab}
             >
               <View style={[styles.pill, focused && { backgroundColor: skin.colors.panel2 }]}>
-                <Ionicons name={focused ? tab.iconActive : tab.icon} size={24} color={color} />
+                <View>
+                  <Ionicons name={focused ? tab.iconActive : tab.icon} size={24} color={color} />
+                  {route.name === 'social' && badge ? (
+                    <View style={[styles.badge, { backgroundColor: '#e5484d' }]}>
+                      <ThemedText variant="bold" size={9} style={{ color: '#fff' }}>
+                        {badge > 9 ? '9+' : badge}
+                      </ThemedText>
+                    </View>
+                  ) : null}
+                </View>
                 <ThemedText variant={focused ? 'bold' : 'body'} size={9} style={{ color, letterSpacing: 0.6 }}>
                   {tab.title}
                 </ThemedText>
@@ -147,12 +164,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   tab: { flex: 1, alignItems: 'center' },
+  badge: { position: 'absolute', top: -4, right: -10, minWidth: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   pill: {
     alignItems: 'center',
     gap: 3,
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
     borderRadius: 16,
-    minWidth: 72,
+    minWidth: 60,
   },
 });

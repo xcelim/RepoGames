@@ -186,7 +186,9 @@ function ShimmerRing({ size, total, width }: { size: number; total: number; widt
 
 export function AvatarFrame({ frame, size, children }: { frame: number | null; size: number; children: ReactNode }) {
   const spec = frame != null && frame >= 0 ? FRAMES[frame] : null;
-  const pad = spec ? size * (spec.width * 1.35 + (spec.orn ? 0.16 : 0.05) + (spec.crown ? 0.1 : 0)) + (spec.glow ? 6 : 2) : 0;
+  const pad = spec
+    ? size * (spec.width * 1.35 + (spec.orn ? 0.16 : 0.05) + (spec.crown ? 0.1 : 0)) + (spec.glow ? 6 : 2)
+    : 0;
   const total = size + pad * 2;
   const [t] = useState(() => new Animated.Value(0));
   const anim = spec?.anim;

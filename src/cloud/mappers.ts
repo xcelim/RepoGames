@@ -17,7 +17,7 @@ export type ProfileRow = {
   display_name: string;
   bio: string;
   avatar_color: string;
-  settings?: { skin?: string; durationMode?: string; onboarded?: boolean; showcases?: Showcase[]; ranks?: CompetitiveRank[]; photo?: string | null; frame?: number | null } | null;
+  settings?: { skin?: string; durationMode?: string; onboarded?: boolean; showcases?: Showcase[]; ranks?: CompetitiveRank[]; photo?: string | null; frame?: number | null; level?: number; xp?: number } | null;
   created_at: string;
   updated_at?: string;
 };
@@ -101,7 +101,7 @@ export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['setti
   bio: p.bio,
   avatar_color: p.avatarColor,
   ...(settings
-    ? { settings: { ...settings, onboarded: !!p.onboarded, ...(p.showcases ? { showcases: p.showcases } : {}), ...(p.ranks ? { ranks: p.ranks } : {}), ...(p.photo !== undefined ? { photo: p.photo } : {}), ...(p.frame !== undefined ? { frame: p.frame } : {}) } }
+    ? { settings: { ...settings, onboarded: !!p.onboarded, ...(p.showcases ? { showcases: p.showcases } : {}), ...(p.ranks ? { ranks: p.ranks } : {}), ...(p.photo !== undefined ? { photo: p.photo } : {}), ...(p.frame !== undefined ? { frame: p.frame } : {}), ...(p.level !== undefined ? { level: p.level, xp: p.xp } : {}) } }
     : {}),
   created_at: p.createdAt,
   updated_at: new Date().toISOString(),
@@ -119,6 +119,7 @@ export const fromProfileRow = (r: ProfileRow): Profile => ({
   ...(Array.isArray(r.settings?.ranks) ? { ranks: r.settings.ranks } : {}),
   ...(r.settings?.photo !== undefined ? { photo: r.settings.photo } : {}),
   ...(r.settings?.frame !== undefined ? { frame: r.settings.frame } : {}),
+  ...(typeof r.settings?.level === 'number' ? { level: r.settings.level, xp: r.settings.xp } : {}),
 });
 
 export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => ({

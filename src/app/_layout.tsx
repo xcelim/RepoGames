@@ -12,6 +12,7 @@ import { useStore } from '@/store/useStore';
 import { loadFonts } from '@/theme/fonts';
 import { SKINS } from '@/theme/skins';
 import { CelebrationHost } from '@/components/Celebration';
+import { SocialBoot } from '@/components/SocialBoot';
 import { useSkin } from '@/theme/useSkin';
 
 SplashScreen.preventAutoHideAsync();
@@ -96,6 +97,9 @@ export default function RootLayout() {
         <Stack.Screen name="ranks" options={{ presentation: 'modal' }} />
         <Stack.Screen name="player-card" />
         <Stack.Screen name="roulette" />
+        <Stack.Screen name="friends" />
+        <Stack.Screen name="chat/[id]" />
+        <Stack.Screen name="share-game" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="list/edit" />
         <Stack.Screen name="list/import" options={{ presentation: 'modal' }} />
@@ -107,6 +111,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
       </Stack>
       <CelebrationHost />
+      <SocialBoot />
     </GestureHandlerRootView>
   );
 }

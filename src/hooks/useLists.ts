@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useRemote } from '@/cloud/remote';
+import { useSocial } from '@/cloud/social';
 import { OFFICIAL_LISTS, OFFICIAL_PROFILE } from '@/data/catalog';
 import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord, Profile } from '@/types';
@@ -10,13 +11,15 @@ import { buildEntries, findGame, itemsOfList, type Entry } from '@/utils/library
 export function useGame(gameId: string): GameRecord | undefined {
   const games = useStore((s) => s.games);
   const remoteGames = useRemote((s) => s.games);
-  return findGame(games, gameId) ?? remoteGames[gameId];
+  const socialGame = useSocial((s) => s.games[gameId]);
+  return findGame(games, gameId) ?? remoteGames[gameId] ?? socialGame;
 }
 
 export function useProfileLookup(): (id: string) => Profile | undefined {
   const profiles = useStore((s) => s.profiles);
   const remote = useRemote((s) => s.profiles);
-  return (id: string) => (id === OFFICIAL_PROFILE.id ? OFFICIAL_PROFILE : (profiles[id] ?? remote[id]));
+  const social = useSocial((s) => s.profiles);
+  return (id: string) => (id === OFFICIAL_PROFILE.id ? OFFICIAL_PROFILE : (profiles[id] ?? remote[id] ?? social[id]));
 }
 
 export function useList(listId: string): GameList | undefined {

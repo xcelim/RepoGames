@@ -13,7 +13,7 @@ export function useLevel() {
   const userGames = useStore((s) => s.userGames);
   const lists = useStore((s) => s.lists);
   const items = useStore((s) => s.items);
-  const { platinums, earned } = useAchievementData();
+  const { platinums, earned, loading } = useAchievementData();
   return useMemo(() => {
     const { xp, breakdown } = computeXp({
       profileId: profileId ?? '',
@@ -29,6 +29,6 @@ export function useLevel() {
     const chosen = profile?.frame;
     const frame =
       chosen === null ? null : chosen !== undefined && chosen <= bestFrame ? chosen : bestFrame >= 0 ? bestFrame : null;
-    return { xp, breakdown, ...lv, slots: showcaseSlots(lv.level), bestFrame, frame };
-  }, [profileId, userGames, lists, items, platinums.length, earned.length, profile?.frame]);
+    return { xp, breakdown, ...lv, slots: showcaseSlots(lv.level), bestFrame, frame, loading };
+  }, [profileId, userGames, lists, items, platinums.length, earned.length, profile?.frame, loading]);
 }

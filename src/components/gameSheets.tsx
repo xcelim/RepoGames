@@ -192,6 +192,11 @@ function MoreSheet({ game, onClose, onKind }: { game: GameRecord; onClose: () =>
         onPress={() => go(`/game/${encodeURIComponent(game.id)}/edit`)}
       />
       <SheetRow
+        label="Recomendar a un amigo"
+        right={<Ionicons name="paper-plane-outline" size={22} color={c.text} />}
+        onPress={() => go(`/share-game?gameId=${encodeURIComponent(game.id)}`)}
+      />
+      <SheetRow
         label="Compartir juego"
         right={<Ionicons name="share-outline" size={22} color={c.text} />}
         onPress={() => {
