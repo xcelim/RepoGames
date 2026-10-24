@@ -170,11 +170,11 @@ export function WebSidebar() {
           setRefreshing(true);
           refreshEverything().finally(() => setRefreshing(false));
         }}
-        style={({ hovered }: { hovered?: boolean }) => [
+        style={(state) => [
           styles.item,
           {
             borderRadius: Math.min(skin.radius, 14),
-            backgroundColor: hovered ? `${skin.colors.panel2}99` : 'transparent',
+            backgroundColor: (state as { hovered?: boolean }).hovered ? `${skin.colors.panel2}99` : 'transparent',
           },
         ]}
       >
