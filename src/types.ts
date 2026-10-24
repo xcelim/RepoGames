@@ -96,6 +96,7 @@ export type Profile = {
   showcases?: Showcase[]; // vitrinas del perfil (se desbloquean con el nivel)
   ranks?: CompetitiveRank[]; // insignias de rango en juegos competitivos
   photo?: string | null; // foto de perfil (imagen pequeña en base64)
+  steamId?: string | null; // tu cuenta de Steam (para volver a importar)
   level?: number; // nivel (lo calcula su app y lo publica para que lo vean los demás)
   xp?: number;
   frame?: number | null; // marco elegido (índice de FRAMES; null = sin marco; sin definir = el mejor)
@@ -159,6 +160,7 @@ export type GameList = {
   official: boolean;
   createdAt: string;
   updatedAt: string;
+  members?: string[]; // lista cooperativa: amigos que también pueden editarla
 };
 
 export type ListItem = {

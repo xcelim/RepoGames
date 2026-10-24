@@ -48,7 +48,8 @@ export function useMyLists(): GameList[] {
   return useMemo(
     () =>
       Object.values(lists)
-        .filter((list) => list.ownerId === profileId)
+        // Las tuyas y las cooperativas en las que estás.
+        .filter((list) => list.ownerId === profileId || (!!profileId && !!list.members?.includes(profileId)))
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [lists, profileId],
   );
@@ -63,7 +64,12 @@ export function useCommunityLists(): GameList[] {
     const seen = new Set<string>();
     return [...Object.values(lists), ...Object.values(remote)]
       .filter((list) => {
-        if (list.visibility !== 'public' || list.ownerId === profileId || seen.has(list.id)) {
+        if (
+          list.visibility !== 'public' ||
+          list.ownerId === profileId ||
+          (!!profileId && list.members?.includes(profileId)) ||
+          seen.has(list.id)
+        ) {
           return false;
         }
         seen.add(list.id);
@@ -146,4 +152,9 @@ export function useListProgress(): (listId: string) => ListProgress {
     for (const p of Object.values(byList)) p.pct = p.games ? Math.round((p.finished / p.games) * 100) : 0;
     return (listId: string) => byList[listId] ?? { games: 0, finished: 0, pct: 0 };
   }, [items, userGames, profileId, remoteItems]);
+}
+
+// ¿Puedes cambiar los juegos y el orden de esta lista? (tuya o cooperativa)
+export function canEditList(list: GameList | undefined, profileId: string | null): boolean {
+  return !!list && !!profileId && (list.ownerId === profileId || !!list.members?.includes(profileId));
 }

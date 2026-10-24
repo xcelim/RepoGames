@@ -75,7 +75,11 @@ async function getToken({ clientId, secret }: Credentials): Promise<string> {
     } catch {
       // sin token guardado
     }
-    const params = new URLSearchParams({ client_id: clientId, client_secret: secret, grant_type: 'client_credentials' });
+    const params = new URLSearchParams({
+      client_id: clientId,
+      client_secret: secret,
+      grant_type: 'client_credentials',
+    });
     const response = await fetch(`https://id.twitch.tv/oauth2/token?${params}`, { method: 'POST' });
     if (!response.ok) throw new Error(`Twitch rechazó las claves (${response.status})`);
     const data: { access_token: string; expires_in: number } = await response.json();
@@ -287,7 +291,12 @@ export async function searchIgdb(text: string, onPartial?: (results: OnlineResul
   const seen = new Set<number>();
   const games: IgdbSearchGame[] = [];
   const rank = () =>
-    rankByQuery(q, games, (g) => g.name, (g) => g.total_rating_count ?? 0)
+    rankByQuery(
+      q,
+      games,
+      (g) => g.name,
+      (g) => g.total_rating_count ?? 0,
+    )
       .slice(0, 30)
       .map((g) => toResult(g));
   let failures = 0;
@@ -389,9 +398,7 @@ function toDetails(game: IgdbDetailGame, t?: IgdbTimeToBeat): GameDetails {
     videoIds: (game.videos ?? []).map((v) => v.video_id),
     summary: game.summary ?? null,
     storyline: game.storyline ?? null,
-    releaseDate: game.first_release_date
-      ? new Date(game.first_release_date * 1000).toISOString().slice(0, 10)
-      : null,
+    releaseDate: game.first_release_date ? new Date(game.first_release_date * 1000).toISOString().slice(0, 10) : null,
     platforms: (game.platforms ?? []).map((p) => p.name),
     genres: (game.genres ?? []).map((g) => g.name),
     developers: companies.filter((c) => c.developer && c.company).map((c) => c.company!.name),
@@ -406,9 +413,7 @@ function toDetails(game: IgdbDetailGame, t?: IgdbTimeToBeat): GameDetails {
     userCount: game.rating_count ?? null,
     themes: (game.themes ?? []).map((t) => t.name),
     modes: (game.game_modes ?? []).map((m) => m.name),
-    timeToBeat: t
-      ? { main: toHours(t.hastily), extra: toHours(t.normally), full: toHours(t.completely) }
-      : null,
+    timeToBeat: t ? { main: toHours(t.hastily), extra: toHours(t.normally), full: toHours(t.completely) } : null,
     url: game.url ?? null,
   };
 }
@@ -602,7 +607,11 @@ export async function igdbBasics(ids: number[]): Promise<OnlineResult[]> {
   const out: OnlineResult[] = [];
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
-    const games = await query<IgdbSearchGame[]>('games', `${LIST_FIELDS} where id = (${chunk.join(',')}); limit 200;`, 'low');
+    const games = await query<IgdbSearchGame[]>(
+      'games',
+      `${LIST_FIELDS} where id = (${chunk.join(',')}); limit 200;`,
+      'low',
+    );
     out.push(...games.map((g) => toResult(g)));
   }
   return out;
@@ -621,4 +630,36 @@ export async function igdbSteamAppId(igdbId: number): Promise<number | null> {
     if ((r.category === 1 || r.external_game_source === 1) && r.uid && /^\d+$/.test(r.uid)) return Number(r.uid);
   }
   return null;
+}
+
+// Juegos de IGDB a partir de sus appid de Steam (para importar tu biblioteca de Steam).
+export async function igdbBySteamAppIds(appIds: number[]): Promise<Map<number, OnlineResult>> {
+  const out = new Map<number, OnlineResult>();
+  const gameOf = new Map<number, number>(); // igdb id -> appid
+  for (let i = 0; i < appIds.length; i += 200) {
+    const chunk = appIds.slice(i, i + 200);
+    const uids = chunk.map((a) => `"${a}"`).join(',');
+    const rows = await query<{ game?: number; uid?: string }[]>(
+      'external_games',
+      `fields game,uid; where external_game_source = 1 & uid = (${uids}); limit 500;`,
+      'normal',
+    ).catch(() =>
+      query<{ game?: number; uid?: string }[]>(
+        'external_games',
+        `fields game,uid; where category = 1 & uid = (${uids}); limit 500;`,
+        'normal',
+      ).catch(() => []),
+    );
+    for (const r of rows) if (r.game && r.uid && !gameOf.has(r.game)) gameOf.set(r.game, Number(r.uid));
+  }
+  const ids = [...gameOf.keys()];
+  const basics = await igdbBasics(ids).catch(() => []);
+  const times = await timesToBeat(ids).catch(() => ({}) as Record<number, IgdbTimeToBeat>);
+  for (const r of basics) {
+    const appid = gameOf.get(r.sourceId);
+    if (!appid) continue;
+    const t = (times as Record<number, IgdbTimeToBeat>)[r.sourceId];
+    out.set(appid, { ...r, main: toHours(t?.hastily), extra: toHours(t?.normally), full: toHours(t?.completely) });
+  }
+  return out;
 }

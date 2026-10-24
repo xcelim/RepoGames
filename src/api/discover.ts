@@ -67,7 +67,10 @@ export function useDiscover(kind: DiscoverKind, limit = 20) {
     let cancelled = false;
     fetchDiscover(kind, limit)
       .then((data) => !cancelled && setState({ data, loading: false, error: null }))
-      .catch((e: unknown) => !cancelled && setState({ data: [], loading: false, error: e instanceof Error ? e.message : 'Error' }));
+      .catch(
+        (e: unknown) =>
+          !cancelled && setState({ data: [], loading: false, error: e instanceof Error ? e.message : 'Error' }),
+      );
     return () => {
       cancelled = true;
     };

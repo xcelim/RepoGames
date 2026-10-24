@@ -2,7 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AchievementsCard } from '@/components/achievements';
@@ -53,7 +62,9 @@ export default function GameScreen() {
   const [tab, setTab] = useState<Tab>('overview');
   const sheets = useGameSheets();
 
-  const userGame = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
+  const userGame = useStore((s) =>
+    s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined,
+  );
   const storedGame = useStore((s) => s.games[gameId]);
   const upsertGame = useStore((s) => s.upsertGame);
 
@@ -98,7 +109,11 @@ export default function GameScreen() {
   const header = (
     <View style={{ paddingTop: insets.top + 6 }}>
       <BlurHero url={cover} colors={gameColors(game)} height={insets.top + 50 + coverW * 0.75} />
-      <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backRow} hitSlop={10}>
+      <Pressable
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        style={styles.backRow}
+        hitSlop={10}
+      >
         <Ionicons name="chevron-back" size={20} color="#fff" />
         <ThemedText size={16} style={{ color: '#fff' }}>
           Atrás
@@ -114,11 +129,17 @@ export default function GameScreen() {
           ) : null}
         </View>
       </View>
-      <Pressable disabled={!details?.url} onPress={() => details?.url && Linking.openURL(details.url)} style={styles.titleRow}>
+      <Pressable
+        disabled={!details?.url}
+        onPress={() => details?.url && Linking.openURL(details.url)}
+        style={styles.titleRow}
+      >
         <ThemedText variant="display" size={26} style={styles.title}>
           {game.title}
         </ThemedText>
-        {details?.url ? <Ionicons name="arrow-up-outline" size={20} color={c.text} style={{ transform: [{ rotate: '45deg' }] }} /> : null}
+        {details?.url ? (
+          <Ionicons name="arrow-up-outline" size={20} color={c.text} style={{ transform: [{ rotate: '45deg' }] }} />
+        ) : null}
       </Pressable>
       <ThemedText variant="muted" size={13} style={styles.center}>
         {[developer, formatUsDate(release) ?? game.year].filter(Boolean).join(' · ')}
@@ -145,7 +166,11 @@ export default function GameScreen() {
             <ScoreSquare score={users != null ? Math.round(users) / 10 : null} size={44} />
           </ScoreCol>
           <ScoreCol label={userGame?.recommend == null ? 'Recomendado' : 'Lo recomiendas'}>
-            <ScoreSquare score={null} size={44} neutral={userGame?.recommend == null ? '–' : userGame.recommend ? 'Sí' : 'No'} />
+            <ScoreSquare
+              score={null}
+              size={44}
+              neutral={userGame?.recommend == null ? '–' : userGame.recommend ? 'Sí' : 'No'}
+            />
           </ScoreCol>
         </Card>
         <View style={styles.editRow}>
@@ -162,8 +187,16 @@ export default function GameScreen() {
             ['reviews', 'Reseñas'],
           ] as [Tab, string][]
         ).map(([key, label]) => (
-          <Pressable key={key} onPress={() => setTab(key)} style={[styles.tab, tab === key && { borderBottomColor: c.text }]}>
-            <ThemedText variant={tab === key ? 'bold' : 'body'} size={14} style={{ color: tab === key ? c.text : c.muted }}>
+          <Pressable
+            key={key}
+            onPress={() => setTab(key)}
+            style={[styles.tab, tab === key && { borderBottomColor: c.text }]}
+          >
+            <ThemedText
+              variant={tab === key ? 'bold' : 'body'}
+              size={14}
+              style={{ color: tab === key ? c.text : c.muted }}
+            >
               {label}
             </ThemedText>
           </Pressable>
@@ -210,7 +243,9 @@ function Overview({
 }) {
   const c = useIgnColors();
   const gameId = game.id;
-  const userGame = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
+  const userGame = useStore((s) =>
+    s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined,
+  );
   const [gallery, setGallery] = useState<number | null>(null);
   const [moreText, setMoreText] = useState(false);
   const [showSpoilers, setShowSpoilers] = useState(false);
@@ -231,7 +266,10 @@ function Overview({
   const fields: [string, string[] | string | null | undefined][] = [
     ['Desarrolladores', details?.developers ?? (game.developer ? [game.developer] : [])],
     ['Distribuidoras', details?.publishers],
-    ['Fecha de lanzamiento', formatUsDate(details?.releaseDate ?? game.releaseDate) ?? (game.year ? String(game.year) : null)],
+    [
+      'Fecha de lanzamiento',
+      formatUsDate(details?.releaseDate ?? game.releaseDate) ?? (game.year ? String(game.year) : null),
+    ],
     ['Franquicia', details?.franchise],
     ['Géneros', details?.genres],
     ['Temáticas', details?.themes],
@@ -244,7 +282,10 @@ function Overview({
       {loading && !details ? <ActivityIndicator color={c.text} /> : null}
 
       <Card>
-        <Pressable onPress={() => Linking.openURL(`https://howlongtobeat.com/?q=${encodeURIComponent(game.title)}`)} style={styles.cardTitleRow}>
+        <Pressable
+          onPress={() => Linking.openURL(`https://howlongtobeat.com/?q=${encodeURIComponent(game.title)}`)}
+          style={styles.cardTitleRow}
+        >
           <ThemedText variant="display" size={19}>
             Cuánto dura
           </ThemedText>
@@ -298,7 +339,8 @@ function Overview({
               <ThemedText variant="muted" size={10} style={{ letterSpacing: 0.8 }}>
                 {STATUS_META[userGame.status].caption}
               </ThemedText>
-              {(userGame.status === 'playing' || userGame.status === 'paused') && daysSince(userGame.startedAt) != null ? (
+              {(userGame.status === 'playing' || userGame.status === 'paused') &&
+              daysSince(userGame.startedAt) != null ? (
                 <ThemedText variant="bold" size={13} style={{ marginTop: 4 }}>
                   {daysSince(userGame.startedAt) === 0
                     ? 'Lo has empezado hoy'
@@ -312,9 +354,7 @@ function Overview({
             <Part label="Horas jugadas" value={userGame.hoursPlayed != null ? `${userGame.hoursPlayed} h` : null} />
             <Part label="Favorito" value={userGame.favorite ? '★' : '–'} />
           </View>
-          <View style={{ marginTop: 14 }}>
-            {game ? <PlayDetails game={game} /> : null}
-          </View>
+          <View style={{ marginTop: 14 }}>{game ? <PlayDetails game={game} /> : null}</View>
           <Pressable onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/edit`)} style={{ marginTop: 12 }}>
             <ThemedText variant="bold" size={12} style={{ textDecorationLine: 'underline' }}>
               EDITAR DETALLES
@@ -337,7 +377,10 @@ function Overview({
             </View>
             {userGame.review ? (
               userGame.spoilers && !showSpoilers ? (
-                <Pressable onPress={() => setShowSpoilers(true)} style={[styles.spoiler, { backgroundColor: c.soft, borderRadius: c.radius }]}>
+                <Pressable
+                  onPress={() => setShowSpoilers(true)}
+                  style={[styles.spoiler, { backgroundColor: c.soft, borderRadius: c.radius }]}
+                >
                   <Ionicons name="eye-off-outline" size={18} color={c.muted} />
                   <ThemedText variant="muted" size={13}>
                     Contiene spoilers. Toca para leerla.
@@ -359,14 +402,22 @@ function Overview({
                 ))}
               </View>
             ) : null}
-            <DarkButton label="Editar reseña" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} style={{ alignSelf: 'flex-start' }} />
+            <DarkButton
+              label="Editar reseña"
+              onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)}
+              style={{ alignSelf: 'flex-start' }}
+            />
           </View>
         ) : (
           <View style={{ gap: 12 }}>
             <ThemedText variant="muted" size={14}>
               Aún no lo has valorado. Ponle nota, di qué te gustó y escribe tu reseña.
             </ThemedText>
-            <DarkButton label="Valorar este juego" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} style={{ alignSelf: 'flex-start' }} />
+            <DarkButton
+              label="Valorar este juego"
+              onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)}
+              style={{ alignSelf: 'flex-start' }}
+            />
           </View>
         )}
       </Card>
@@ -377,8 +428,15 @@ function Overview({
             Imágenes y capturas
           </ThemedText>
           {video ? (
-            <Pressable onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${video}`)} style={[styles.video, { borderRadius: c.radius }]}>
-              <Image source={`https://img.youtube.com/vi/${video}/hqdefault.jpg`} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Pressable
+              onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${video}`)}
+              style={[styles.video, { borderRadius: c.radius }]}
+            >
+              <Image
+                source={`https://img.youtube.com/vi/${video}/hqdefault.jpg`}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+              />
               <View style={styles.play}>
                 <Ionicons name="play" size={30} color="#fff" style={{ marginLeft: 4 }} />
               </View>
@@ -386,7 +444,16 @@ function Overview({
           ) : null}
           <View style={styles.shots}>
             {shots.slice(0, 4).map((url, i) => (
-              <Pressable key={url} onPress={() => setGallery(i)} style={{ width: (innerW - 10) / 2, height: ((innerW - 10) / 2) * 0.75, borderRadius: c.radius, overflow: 'hidden' }}>
+              <Pressable
+                key={url}
+                onPress={() => setGallery(i)}
+                style={{
+                  width: (innerW - 10) / 2,
+                  height: ((innerW - 10) / 2) * 0.75,
+                  borderRadius: c.radius,
+                  overflow: 'hidden',
+                }}
+              >
                 <Image source={url} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
                 {i === 3 && shots.length > 4 ? (
                   <View style={styles.moreShots}>
@@ -406,7 +473,12 @@ function Overview({
           Resumen
         </ThemedText>
         {summary ? (
-          <ThemedText size={14} style={{ lineHeight: 22 }} numberOfLines={moreText ? undefined : 7} onPress={() => setMoreText((m) => !m)}>
+          <ThemedText
+            size={14}
+            style={{ lineHeight: 22 }}
+            numberOfLines={moreText ? undefined : 7}
+            onPress={() => setMoreText((m) => !m)}
+          >
             {summary}
           </ThemedText>
         ) : (
@@ -484,10 +556,19 @@ function Gallery({ shots, index, onClose }: { shots: string[]; index: number | n
   return (
     <Modal visible={index != null} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.galleryBg}>
-        <ScrollView horizontal pagingEnabled contentOffset={{ x: (index ?? 0) * width, y: 0 }} showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          contentOffset={{ x: (index ?? 0) * width, y: 0 }}
+          showsHorizontalScrollIndicator={false}
+        >
           {shots.map((url) => (
             <View key={url} style={{ width, height, justifyContent: 'center' }}>
-              <Image source={url.replace('t_screenshot_big', 't_1080p')} style={{ width, height: width * 0.5625 }} contentFit="contain" />
+              <Image
+                source={url.replace('t_screenshot_big', 't_1080p')}
+                style={{ width, height: width * 0.5625 }}
+                contentFit="contain"
+              />
             </View>
           ))}
         </ScrollView>
@@ -508,7 +589,15 @@ function ListsTab({ gameId, onOrganize }: { gameId: string; onOrganize: () => vo
   const community = useCommunityLists();
   const preview = useListPreview();
   const count = useListCount();
-  const containing = useMemo(() => new Set(Object.values(items).filter((i) => i.gameId === gameId).map((i) => i.listId)), [items, gameId]);
+  const containing = useMemo(
+    () =>
+      new Set(
+        Object.values(items)
+          .filter((i) => i.gameId === gameId)
+          .map((i) => i.listId),
+      ),
+    [items, gameId],
+  );
   const myIn = mine.filter((l) => containing.has(l.id));
   const others = [...OFFICIAL_LISTS, ...community].filter((l) => containing.has(l.id));
 
@@ -533,8 +622,17 @@ function ListsTab({ gameId, onOrganize }: { gameId: string; onOrganize: () => vo
         <ThemedText variant="display" size={19} style={{ marginBottom: 8 }}>
           En tus listas
         </ThemedText>
-        {myIn.length ? myIn.map(row) : <ThemedText variant="muted">Todavía no está en ninguna de tus listas.</ThemedText>}
-        <DarkButton label="Organizar en listas" icon="add-circle-outline" onPress={onOrganize} style={{ marginTop: 12 }} />
+        {myIn.length ? (
+          myIn.map(row)
+        ) : (
+          <ThemedText variant="muted">Todavía no está en ninguna de tus listas.</ThemedText>
+        )}
+        <DarkButton
+          label="Organizar en listas"
+          icon="add-circle-outline"
+          onPress={onOrganize}
+          style={{ marginTop: 12 }}
+        />
       </Card>
       {others.length ? (
         <Card>
@@ -556,13 +654,23 @@ function ReviewsTab({ gameId }: { gameId: string }) {
   const profiles = useStore((s) => s.profiles);
   const userGames = useStore((s) => s.userGames);
   const reviews = Object.values(userGames)
-    .filter((u) => u.gameId === gameId && (u.rating != null || u.review) && (u.profileId === profileId || !u.reviewPrivate))
-    .sort((a, b) => (a.profileId === profileId ? -1 : b.profileId === profileId ? 1 : b.updatedAt.localeCompare(a.updatedAt)));
+    .filter(
+      (u) => u.gameId === gameId && (u.rating != null || u.review) && (u.profileId === profileId || !u.reviewPrivate),
+    )
+    .sort((a, b) =>
+      a.profileId === profileId ? -1 : b.profileId === profileId ? 1 : b.updatedAt.localeCompare(a.updatedAt),
+    );
   const mineDone = reviews.some((r) => r.profileId === profileId);
 
   return (
     <View style={{ gap: 18 }}>
-      {!mineDone ? <DarkButton label="Escribir una reseña" icon="create-outline" onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)} /> : null}
+      {!mineDone ? (
+        <DarkButton
+          label="Escribir una reseña"
+          icon="create-outline"
+          onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)}
+        />
+      ) : null}
       {reviews.map((r) => {
         const p = profiles[r.profileId];
         return (
@@ -575,14 +683,22 @@ function ReviewsTab({ gameId }: { gameId: string }) {
                   {r.profileId === profileId ? ' (tú)' : ''}
                 </ThemedText>
                 <ThemedText variant="muted" size={11}>
-                  {[r.platform, STATUS_META[r.status].short, r.recommend === true ? 'Lo recomienda' : r.recommend === false ? 'No lo recomienda' : null]
+                  {[
+                    r.platform,
+                    STATUS_META[r.status].short,
+                    r.recommend === true ? 'Lo recomienda' : r.recommend === false ? 'No lo recomienda' : null,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </ThemedText>
               </View>
               {r.rating != null ? <ScoreSquare score={r.rating} size={40} /> : null}
             </View>
-            {r.review ? <ThemedText size={14} style={{ lineHeight: 21 }}>{r.spoilers ? `⚠️ Spoilers · ${r.review}` : r.review}</ThemedText> : null}
+            {r.review ? (
+              <ThemedText size={14} style={{ lineHeight: 21 }}>
+                {r.spoilers ? `⚠️ Spoilers · ${r.review}` : r.review}
+              </ThemedText>
+            ) : null}
             {r.profileId === profileId ? (
               <Pressable onPress={() => router.push(`/game/${encodeURIComponent(gameId)}/review`)}>
                 <ThemedText variant="bold" size={12} style={{ textDecorationLine: 'underline' }}>
@@ -603,10 +719,31 @@ function ReviewsTab({ gameId }: { gameId: string }) {
 }
 
 const styles = StyleSheet.create({
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 16, height: 40, alignSelf: 'flex-start' },
-  coverWrap: { alignItems: 'center', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, elevation: 10 },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 16,
+    height: 40,
+    alignSelf: 'flex-start',
+  },
+  coverWrap: {
+    alignItems: 'center',
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 10,
+  },
   coverBadge: { position: 'absolute', right: 8, bottom: 8 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingHorizontal: 24 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingHorizontal: 24,
+  },
   title: { textAlign: 'center', flexShrink: 1 },
   center: { textAlign: 'center', marginTop: 6 },
   platforms: { alignItems: 'center', marginTop: 10 },
@@ -618,18 +755,49 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabBody: { padding: 20 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 },
-  bigCircle: { width: 110, height: 110, borderRadius: 55, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  bigCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
   hltbRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   partRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   partGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, rowGap: 12 },
   part: { width: '50%', gap: 2 },
   spoiler: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
   video: { height: 190, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  play: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#e62117', alignItems: 'center', justifyContent: 'center' },
+  play: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#e62117',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   shots: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  moreShots: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  moreShots: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   field: { marginTop: 16, gap: 3 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   galleryBg: { flex: 1, backgroundColor: '#000' },

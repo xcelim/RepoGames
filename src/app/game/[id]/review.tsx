@@ -1,10 +1,27 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DarkButton, LightButton, PlatformChips, ScoreSquare, scoreLabel, ToggleRow, useIgnColors } from '@/components/ign';
+import {
+  DarkButton,
+  LightButton,
+  PlatformChips,
+  ScoreSquare,
+  scoreLabel,
+  ToggleRow,
+  useIgnColors,
+} from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { LIKE_TAGS, platformBadge, PLATFORMS, scoreColor, STATUS_META } from '@/data/meta';
 import { useGame } from '@/hooks/useLists';
@@ -21,7 +38,9 @@ export default function ReviewWizard() {
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
   const game = useGame(gameId);
-  const existing = useStore((s) => (s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined));
+  const existing = useStore((s) =>
+    s.currentProfileId ? s.userGames[userGameKey(s.currentProfileId, gameId)] : undefined,
+  );
   const updateUserGame = useStore((s) => s.updateUserGame);
   const upsertGame = useStore((s) => s.upsertGame);
 
@@ -52,7 +71,9 @@ export default function ReviewWizard() {
   if (posted) {
     const message = `He puesto un ${draft.rating ?? '–'}/10 a «${game.title}» en Saga Quest 🎮${draft.recommend ? ' ¡Lo recomiendo!' : ''}`;
     return (
-      <View style={[styles.flex, { backgroundColor: c.bg, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
+      <View
+        style={[styles.flex, { backgroundColor: c.bg, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}
+      >
         <View style={styles.posted}>
           <Ionicons name="checkmark-circle" size={64} color="#6aa834" />
           <ThemedText variant="display" size={28} style={styles.question}>
@@ -63,7 +84,11 @@ export default function ReviewWizard() {
           </View>
         </View>
         <View style={styles.footer}>
-          <DarkButton label="Compartir" icon="share-outline" onPress={() => Share.share({ message }).catch(() => undefined)} />
+          <DarkButton
+            label="Compartir"
+            icon="share-outline"
+            onPress={() => Share.share({ message }).catch(() => undefined)}
+          />
           <LightButton label="Hecho" onPress={exit} />
         </View>
       </View>
@@ -71,7 +96,10 @@ export default function ReviewWizard() {
   }
 
   return (
-    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: c.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={[styles.flex, { backgroundColor: c.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={{ paddingTop: insets.top }}>
         <View style={styles.top}>
           <Pressable onPress={back} hitSlop={10}>
@@ -93,11 +121,30 @@ export default function ReviewWizard() {
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {step === 0 ? <RatingStep rating={draft.rating} onChange={(rating) => patch({ rating })} /> : null}
-        {step === 0 ? <ToggleRow label="Recomiendo este juego" value={draft.recommend} onChange={(recommend) => patch({ recommend })} /> : null}
-        {step === 1 ? <PlatformStep released={game.platforms} value={draft.platform} onChange={(platform) => patch({ platform })} /> : null}
-        {step === 2 ? <TagsStep liked={draft.liked} disliked={draft.disliked} onChange={(liked, disliked) => patch({ liked, disliked })} /> : null}
+        {step === 0 ? (
+          <ToggleRow
+            label="Recomiendo este juego"
+            value={draft.recommend}
+            onChange={(recommend) => patch({ recommend })}
+          />
+        ) : null}
+        {step === 1 ? (
+          <PlatformStep released={game.platforms} value={draft.platform} onChange={(platform) => patch({ platform })} />
+        ) : null}
+        {step === 2 ? (
+          <TagsStep
+            liked={draft.liked}
+            disliked={draft.disliked}
+            onChange={(liked, disliked) => patch({ liked, disliked })}
+          />
+        ) : null}
         {step === 3 ? (
-          <TextStep text={draft.review} spoilers={draft.spoilers} onText={(review) => patch({ review })} onSpoilers={(spoilers) => patch({ spoilers })} />
+          <TextStep
+            text={draft.review}
+            spoilers={draft.spoilers}
+            onText={(review) => patch({ review })}
+            onSpoilers={(spoilers) => patch({ spoilers })}
+          />
         ) : null}
         {step === 4 ? (
           <SummaryStep
@@ -112,7 +159,11 @@ export default function ReviewWizard() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         {step < STEPS - 1 ? (
           <>
-            <DarkButton label="Siguiente" onPress={() => setStep(step + 1)} disabled={step === 0 && draft.rating == null} />
+            <DarkButton
+              label="Siguiente"
+              onPress={() => setStep(step + 1)}
+              disabled={step === 0 && draft.rating == null}
+            />
             <LightButton label="Revisar y publicar" onPress={() => setStep(STEPS - 1)} />
           </>
         ) : (
@@ -135,7 +186,9 @@ function RatingStep({ rating, onChange }: { rating: number | null; onChange: (r:
         ¿Qué nota le pones a este juego?
       </ThemedText>
       <View style={{ alignItems: 'center', gap: 12 }}>
-        <View style={[styles.scoreBig, { backgroundColor: rating ? scoreColor(rating) : c.soft, borderRadius: c.radius }]}>
+        <View
+          style={[styles.scoreBig, { backgroundColor: rating ? scoreColor(rating) : c.soft, borderRadius: c.radius }]}
+        >
           <ThemedText variant="display" size={48} style={{ color: rating ? '#fff' : c.muted }}>
             {rating ?? '?'}
           </ThemedText>
@@ -164,7 +217,10 @@ function RatingStep({ rating, onChange }: { rating: number | null; onChange: (r:
         {rating ? (
           <View
             pointerEvents="none"
-            style={[styles.knob, { left: ((rating - 0.5) / 10) * width - 22, backgroundColor: c.inverseBg, borderRadius: 10 }]}
+            style={[
+              styles.knob,
+              { left: ((rating - 0.5) / 10) * width - 22, backgroundColor: c.inverseBg, borderRadius: 10 },
+            ]}
           />
         ) : null}
       </View>
@@ -182,7 +238,15 @@ function RatingStep({ rating, onChange }: { rating: number | null; onChange: (r:
 
 // ---------- 2. Plataforma ----------
 
-function PlatformStep({ released, value, onChange }: { released: string; value: string | null; onChange: (p: string | null) => void }) {
+function PlatformStep({
+  released,
+  value,
+  onChange,
+}: {
+  released: string;
+  value: string | null;
+  onChange: (p: string | null) => void;
+}) {
   const c = useIgnColors();
   const [query, setQuery] = useState('');
   const known = released
@@ -203,7 +267,15 @@ function PlatformStep({ released, value, onChange }: { released: string; value: 
       <Pressable
         key={p}
         onPress={() => onChange(on ? null : p)}
-        style={[styles.platOption, { borderColor: on ? c.text : c.line, borderWidth: on ? 2 : 1, backgroundColor: c.card, borderRadius: c.radius }]}
+        style={[
+          styles.platOption,
+          {
+            borderColor: on ? c.text : c.line,
+            borderWidth: on ? 2 : 1,
+            backgroundColor: c.card,
+            borderRadius: c.radius,
+          },
+        ]}
       >
         <View style={[styles.platIcon, { backgroundColor: badge.color }]}>
           <ThemedText variant="bold" size={11} style={{ color: '#fff' }}>
@@ -256,7 +328,15 @@ function PlatformStep({ released, value, onChange }: { released: string; value: 
 
 // ---------- 3. Qué te gustó ----------
 
-function TagsStep({ liked, disliked, onChange }: { liked: string[]; disliked: string[]; onChange: (liked: string[], disliked: string[]) => void }) {
+function TagsStep({
+  liked,
+  disliked,
+  onChange,
+}: {
+  liked: string[];
+  disliked: string[];
+  onChange: (liked: string[], disliked: string[]) => void;
+}) {
   const c = useIgnColors();
   const set = (tag: string, kind: 'up' | 'down') => {
     const up = liked.includes(tag);
@@ -283,10 +363,18 @@ function TagsStep({ liked, disliked, onChange }: { liked: string[]; disliked: st
             <ThemedText size={15} style={{ flex: 1 }}>
               {tag}
             </ThemedText>
-            <Pressable onPress={() => set(tag, 'down')} hitSlop={6} style={[styles.thumb, { backgroundColor: down ? '#e5484d' : c.soft }]}>
+            <Pressable
+              onPress={() => set(tag, 'down')}
+              hitSlop={6}
+              style={[styles.thumb, { backgroundColor: down ? '#e5484d' : c.soft }]}
+            >
               <Ionicons name="thumbs-down" size={18} color={down ? '#fff' : c.muted} />
             </Pressable>
-            <Pressable onPress={() => set(tag, 'up')} hitSlop={6} style={[styles.thumb, { backgroundColor: up ? '#6aa834' : c.soft }]}>
+            <Pressable
+              onPress={() => set(tag, 'up')}
+              hitSlop={6}
+              style={[styles.thumb, { backgroundColor: up ? '#6aa834' : c.soft }]}
+            >
               <Ionicons name="thumbs-up" size={18} color={up ? '#fff' : c.muted} />
             </Pressable>
           </View>
@@ -298,7 +386,17 @@ function TagsStep({ liked, disliked, onChange }: { liked: string[]; disliked: st
 
 // ---------- 4. Texto ----------
 
-function TextStep({ text, spoilers, onText, onSpoilers }: { text: string; spoilers: boolean; onText: (t: string) => void; onSpoilers: (v: boolean) => void }) {
+function TextStep({
+  text,
+  spoilers,
+  onText,
+  onSpoilers,
+}: {
+  text: string;
+  spoilers: boolean;
+  onText: (t: string) => void;
+  onSpoilers: (v: boolean) => void;
+}) {
   const c = useIgnColors();
   return (
     <View style={{ gap: 14 }}>
@@ -339,7 +437,16 @@ function SummaryStep({
   onPrivate,
   onEdit,
 }: {
-  draft: { rating: number | null; recommend: boolean; platform: string | null; liked: string[]; disliked: string[]; review: string; spoilers: boolean; reviewPrivate: boolean };
+  draft: {
+    rating: number | null;
+    recommend: boolean;
+    platform: string | null;
+    liked: string[];
+    disliked: string[];
+    review: string;
+    spoilers: boolean;
+    reviewPrivate: boolean;
+  };
   status: keyof typeof STATUS_META;
   onPrivate: (v: boolean) => void;
   onEdit: (step: number) => void;
@@ -416,7 +523,12 @@ function SummaryStep({
           </ThemedText>
         ) : null}
       </View>
-      <ToggleRow label="Privada" caption="Si está activado, nadie más verá tu reseña." value={draft.reviewPrivate} onChange={onPrivate} />
+      <ToggleRow
+        label="Privada"
+        caption="Si está activado, nadie más verá tu reseña."
+        value={draft.reviewPrivate}
+        onChange={onPrivate}
+      />
     </View>
   );
 }
@@ -441,16 +553,37 @@ const styles = StyleSheet.create({
   overline: { letterSpacing: 1.2, marginTop: 6 },
   platOption: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   platIcon: { width: 38, height: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tagRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   thumb: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   textArea: { borderWidth: 1, padding: 14 },
   textInput: { minHeight: 220, fontSize: 15 },
   textFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   summary: { borderWidth: 1, padding: 16, gap: 14, overflow: 'hidden' },
-  privateBar: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: -16, marginTop: -16, paddingHorizontal: 16, paddingVertical: 8 },
+  privateBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: -16,
+    marginTop: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   summaryHead: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   tagText: { marginRight: 6 },
   posted: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, paddingHorizontal: 24 },
   shareBox: { borderWidth: 1, padding: 16, alignSelf: 'stretch' },

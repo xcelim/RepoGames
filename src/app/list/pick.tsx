@@ -25,7 +25,12 @@ export default function PickListScreen() {
   const removeFromList = useStore((s) => s.removeFromList);
 
   const containing = useMemo(
-    () => new Set(Object.values(items).filter((i) => i.gameId === id).map((i) => i.listId)),
+    () =>
+      new Set(
+        Object.values(items)
+          .filter((i) => i.gameId === id)
+          .map((i) => i.listId),
+      ),
     [items, id],
   );
 

@@ -54,8 +54,13 @@ export default function LibraryStatusScreen() {
         <ThemedText variant="muted" size={12} style={styles.caps}>
           {`${entries.length} ${entries.length === 1 ? 'JUEGO' : 'JUEGOS'} · ${meta.caption}`}
         </ThemedText>
-        {searching ? <TextField value={query} onChangeText={setQuery} placeholder="Buscar en esta lista…" autoFocus /> : null}
-        <SelectBox label={sort === 'manual' ? 'Orden en que los añadiste' : SORT_LABEL[sort]} onPress={() => setSortOpen(true)} />
+        {searching ? (
+          <TextField value={query} onChangeText={setQuery} placeholder="Buscar en esta lista…" autoFocus />
+        ) : null}
+        <SelectBox
+          label={sort === 'manual' ? 'Orden en que los añadiste' : SORT_LABEL[sort]}
+          onPress={() => setSortOpen(true)}
+        />
       </View>
       {entries.length === 0 ? (
         <ThemedText variant="muted" size={14} style={styles.empty}>
@@ -80,7 +85,13 @@ export default function LibraryStatusScreen() {
         onPress={(game) => router.push(`/game/${encodeURIComponent(game.id)}`)}
         onLongPress={sheets.openStatus}
       />
-      <SortSheet visible={sortOpen} value={sort} onChange={setSort} onClose={() => setSortOpen(false)} manualLabel="Orden en que los añadiste" />
+      <SortSheet
+        visible={sortOpen}
+        value={sort}
+        onChange={setSort}
+        onClose={() => setSortOpen(false)}
+        manualLabel="Orden en que los añadiste"
+      />
       {sheets.element}
     </IgnScreen>
   );

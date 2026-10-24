@@ -98,6 +98,15 @@ export default function RootLayout() {
         <Stack.Screen name="player-card" />
         <Stack.Screen name="roulette" />
         <Stack.Screen name="friends" />
+        <Stack.Screen name="group/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="group/[id]" />
+        <Stack.Screen name="leaderboard" />
+        <Stack.Screen name="wrapped" options={{ animation: 'fade' }} />
+        <Stack.Screen name="steam" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="challenges" />
+        <Stack.Screen name="challenge/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="challenge/[id]" />
         <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="share-game" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ animation: 'slide_from_bottom' }} />

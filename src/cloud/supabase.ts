@@ -19,7 +19,10 @@ export function cloudConfig(): { url: string; anonKey: string } | null {
 // Se queda solo con https://xxxx.supabase.co aunque se haya pegado con /rest/v1/, una barra
 // final, comillas o espacios (si no, el inicio de sesión con Google va a una ruta equivocada).
 export function normalizeUrl(raw: string): string {
-  const text = raw.trim().replace(/^['"]|['"]$/g, '').trim();
+  const text = raw
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
   if (!text) return '';
   const withScheme = /^https?:\/\//i.test(text) ? text : `https://${text}`;
   const match = withScheme.match(/^(https?:\/\/[^/?#\s]+)/i);
@@ -27,7 +30,10 @@ export function normalizeUrl(raw: string): string {
 }
 
 function cleanKey(raw: string): string {
-  return raw.trim().replace(/^['"]|['"]$/g, '').trim();
+  return raw
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
 }
 
 let client: SupabaseClient | null = null;

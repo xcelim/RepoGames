@@ -157,7 +157,7 @@ export default function ListsScreen() {
         >
           <View style={styles.cardHead}>
             <ThemedText variant="display" size={20} style={{ flex: 1 }}>
-              Listas que sigues
+              Añadidas a tu perfil
             </ThemedText>
           </View>
           {followed.map((list) => (
@@ -172,7 +172,7 @@ export default function ListsScreen() {
           {followed.length === 0 ? (
             <View style={{ gap: 14 }}>
               <ThemedText variant="muted" size={13}>
-                Sigue listas de otros jugadores para tenerlas siempre a mano.
+                Añade listas de otros jugadores a tu perfil: verás sus cambios con tus propios datos.
               </ThemedText>
               <DarkButton label="Ir a Descubrir" onPress={() => router.navigate('/')} />
             </View>
@@ -214,7 +214,9 @@ function ListRow({
           <ProgressBar pct={progress.pct} height={4} />
         </View>
       </View>
-      {list.visibility === 'private' ? (
+      {list.members?.length ? (
+        <Ionicons name="people" size={16} color={c.muted} />
+      ) : list.visibility === 'private' ? (
         <Ionicons name="lock-closed" size={16} color={c.muted} />
       ) : (
         <Ionicons name="globe-outline" size={16} color={c.muted} />

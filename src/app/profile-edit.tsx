@@ -38,13 +38,22 @@ export default function ProfileEditScreen() {
         setPhotoError('Necesito permiso para ver tus fotos.');
         return;
       }
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 });
-      if (res.canceled || !res.assets[0]) return;
-      const small = await ImageManipulator.manipulateAsync(res.assets[0].uri, [{ resize: { width: 256, height: 256 } }], {
-        compress: 0.72,
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: true,
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
       });
+      if (res.canceled || !res.assets[0]) return;
+      const small = await ImageManipulator.manipulateAsync(
+        res.assets[0].uri,
+        [{ resize: { width: 256, height: 256 } }],
+        {
+          compress: 0.72,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
       if (small.base64) setPhoto(`data:image/jpeg;base64,${small.base64}`);
     } catch (e) {
       setPhotoError(e instanceof Error ? e.message : 'No se pudo cargar la foto');

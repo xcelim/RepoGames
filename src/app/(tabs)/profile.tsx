@@ -21,6 +21,7 @@ import { LevelBadge } from '@/components/LevelBadge';
 import { RankBadge } from '@/components/RankBadge';
 import { ShowcaseView } from '@/components/showcases';
 import { useLevel } from '@/hooks/useLevel';
+import { useUnreadNotifications } from '@/hooks/useNotifications';
 import { funFact } from '@/utils/fun';
 import { levelColor } from '@/utils/level';
 import { Shine } from '@/components/Shine';
@@ -61,6 +62,7 @@ export default function ProfileScreen() {
   const mode = useStore((s) => s.durationMode);
   const myLists = useMyLists();
   const lv = useLevel();
+  const unreadNotes = useUnreadNotifications();
   const [factShift, setFactShift] = useState(0);
 
   const data = useMemo(() => {
@@ -226,6 +228,15 @@ export default function ProfileScreen() {
             onPress={() => router.push('/ranks')}
           />
           <QuickButton icon="id-card-outline" label="Mi tarjeta" onPress={() => router.push('/player-card')} />
+        </View>
+        <View style={styles.quick}>
+          <QuickButton icon="sparkles-outline" label="Tu año" onPress={() => router.push('/wrapped')} />
+          <QuickButton icon="logo-steam" label="Steam" onPress={() => router.push('/steam')} />
+          <QuickButton
+            icon="notifications-outline"
+            label={unreadNotes ? `Avisos (${unreadNotes})` : 'Avisos'}
+            onPress={() => router.push('/notifications')}
+          />
         </View>
 
         <Collapsible

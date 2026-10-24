@@ -3,7 +3,24 @@ import type { UserGame } from '@/types';
 import { compatibility } from './compat';
 
 const ug = (gameId: string, rating: number | null): UserGame =>
-  ({ id: gameId, profileId: 'p', gameId, status: 'beaten', rating, platform: null, liked: [], disliked: [], review: '', hoursPlayed: null, startedAt: null, finishedAt: null, owned: false, favorite: false, addedAt: '', updatedAt: '' }) as UserGame;
+  ({
+    id: gameId,
+    profileId: 'p',
+    gameId,
+    status: 'beaten',
+    rating,
+    platform: null,
+    liked: [],
+    disliked: [],
+    review: '',
+    hoursPlayed: null,
+    startedAt: null,
+    finishedAt: null,
+    owned: false,
+    favorite: false,
+    addedAt: '',
+    updatedAt: '',
+  }) as UserGame;
 
 test('compatibilidad', () => {
   const a = [ug('1', 9), ug('2', 8), ug('3', 5), ug('4', 7)];

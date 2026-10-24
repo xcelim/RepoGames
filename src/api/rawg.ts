@@ -93,7 +93,9 @@ type RawgDetail = RawgGame & {
 // RAWG sirve imágenes a tamaño completo (varios MB): se piden reducidas.
 export function rawgImage(url: string | null | undefined, width = 640): string | null {
   if (!url) return null;
-  return url.replace('/media/games/', `/media/resize/${width}/-/games/`).replace('/media/screenshots/', `/media/resize/${width}/-/screenshots/`);
+  return url
+    .replace('/media/games/', `/media/resize/${width}/-/games/`)
+    .replace('/media/screenshots/', `/media/resize/${width}/-/screenshots/`);
 }
 
 const yearOf = (date?: string | null) => (date ? parseInt(date.slice(0, 4), 10) || null : null);
@@ -130,10 +132,21 @@ export async function searchRawg(text: string, precise = false): Promise<OnlineR
   if (precise) params.search_precise = 'true';
   const data = await get<{ results: RawgGame[] }>('/games', params);
   const results = data.results.map(toResult);
-  return precise ? results : rankByQuery(q, results, (r) => r.title, (r) => r.popularity ?? 0);
+  return precise
+    ? results
+    : rankByQuery(
+        q,
+        results,
+        (r) => r.title,
+        (r) => r.popularity ?? 0,
+      );
 }
 
-export async function rawgDetails(by: { id?: number; title?: string; year?: number | null }): Promise<GameDetails | null> {
+export async function rawgDetails(by: {
+  id?: number;
+  title?: string;
+  year?: number | null;
+}): Promise<GameDetails | null> {
   let id = by.id;
   if (!id && by.title) {
     const results = await searchRawg(by.title, true);
@@ -186,10 +199,7 @@ export async function rawgSeries(name: string): Promise<OnlineResult[]> {
   const anchor = results[0];
   if (!anchor) return [];
   const data = await get<{ results: RawgGame[] }>(`/games/${anchor.sourceId}/game-series`, { page_size: '40' });
-  const all = [
-    anchor,
-    ...data.results.map(toResult),
-  ];
+  const all = [anchor, ...data.results.map(toResult)];
   return all.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
 }
 

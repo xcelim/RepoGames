@@ -1,9 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { fetchFriendsOnGame, type PersonProgress } from '@/cloud/challenges';
+import { useSocial } from '@/cloud/social';
 import { fetchAchievements, type Achievement, type AchievementSet } from '@/api/achievements';
 import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
@@ -11,6 +14,7 @@ import { userGameKey } from '@/utils/library';
 
 import { celebrate } from './Celebration';
 import { Card, ProgressBar, useIgnColors } from './ign';
+import { Avatar } from './ui';
 import { ThemedText } from './ThemedText';
 
 // Insignia propia: el "platino" de Saga Quest (no es el de ninguna consola).
@@ -56,6 +60,18 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
   const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
   const [open, setOpen] = useState(!!expanded);
   const [showAll, setShowAll] = useState(!!expanded);
+  // Amigos que tienen este juego y sus logros marcados.
+  const [friends, setFriends] = useState<PersonProgress[]>([]);
+  const socialProfiles = useSocial((s) => s.profiles);
+  useEffect(() => {
+    let alive = true;
+    fetchFriendsOnGame(game.id)
+      .then((f) => alive && setFriends(f.filter((x) => (x.ug?.achievements?.length ?? 0) > 0)))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [game.id]);
 
   useEffect(() => {
     let alive = true;
@@ -146,6 +162,35 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
         )}
       </Pressable>
 
+      {list && friends.length ? (
+        <View style={styles.friendsBox}>
+          {friends.map((f) => {
+            const p = socialProfiles[f.profileId];
+            const n = list.filter((a) => f.ug?.achievements?.includes(a.id)).length;
+            if (!p) return null;
+            return (
+              <Pressable key={f.profileId} onPress={() => router.push(`/user/${f.profileId}`)} style={styles.friendRow}>
+                <Avatar name={p.displayName} color={p.avatarColor} uri={p.photo} size={26} />
+                <ThemedText size={12} style={{ flex: 1 }} numberOfLines={1}>
+                  {p.displayName}
+                </ThemedText>
+                <View style={{ width: 70 }}>
+                  <ProgressBar
+                    pct={total ? (n / total) * 100 : 0}
+                    height={4}
+                    color={n === total ? '#b9c6d8' : undefined}
+                  />
+                </View>
+                <ThemedText variant="muted" size={11}>
+                  {n}/{total}
+                </ThemedText>
+                {n === total && total ? <PlatinumBadge size={16} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
       {open && list ? (
         <View style={{ gap: 2 }}>
           <ThemedText variant="muted" size={11}>
@@ -185,6 +230,25 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
                     <ThemedText variant="muted" size={10}>
                       {pctText(a.percent)}
                     </ThemedText>
+                  ) : null}
+                  {friends.some((f) => f.ug?.achievements?.includes(a.id)) ? (
+                    <View style={styles.whoHas}>
+                      {friends
+                        .filter((f) => f.ug?.achievements?.includes(a.id))
+                        .slice(0, 6)
+                        .map((f, i) => {
+                          const p = socialProfiles[f.profileId];
+                          return p ? (
+                            <View key={f.profileId} style={{ marginLeft: i ? -6 : 0 }}>
+                              <Avatar name={p.displayName} color={p.avatarColor} uri={p.photo} size={18} />
+                            </View>
+                          ) : null;
+                        })}
+                      <ThemedText variant="muted" size={10} style={{ marginLeft: 4 }}>
+                        también lo{' '}
+                        {friends.filter((f) => f.ug?.achievements?.includes(a.id)).length === 1 ? 'tiene' : 'tienen'}
+                      </ThemedText>
+                    </View>
                   ) : null}
                 </View>
                 {secret ? (
@@ -240,6 +304,9 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
 }
 
 const styles = StyleSheet.create({
+  friendsBox: { gap: 8 },
+  friendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  whoHas: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   row: {

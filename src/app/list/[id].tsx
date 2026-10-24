@@ -7,6 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadOfficialList, useOfficialStatus } from '@/api/official';
 import { ListItemSheet } from '@/components/details';
 import { useGameSheets } from '@/components/gameSheets';
+import { Avatar } from '@/components/ui';
+import { syncNow } from '@/cloud/engine';
+import { addListMember, removeListMember, useSocial } from '@/cloud/social';
 import {
   BlurHero,
   Card,
@@ -30,7 +33,7 @@ import { TextField } from '@/components/ui';
 import { seriesOfList } from '@/data/catalog';
 import { SORT_LABEL } from '@/data/meta';
 import { useCover, useFillBasics } from '@/hooks/useIgdb';
-import { useList, useListEntries, useProfileLookup } from '@/hooks/useLists';
+import { canEditList, useList, useListEntries, useProfileLookup } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import type { GameRecord, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
@@ -64,6 +67,7 @@ export default function ListScreen() {
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [itemGame, setItemGame] = useState<GameRecord | null>(null);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   useFillBasics(entries.map((e) => e.game));
   const heroCover = useCover(entries[0]?.game);
@@ -91,15 +95,21 @@ export default function ListScreen() {
   const officialError = sourceId ? officialStatus.errors[sourceId] : undefined;
   const pendingCopy = pendingSeeds.includes(list.id) && !officialError;
 
+  // mine = es tuya; editable = tuya o cooperativa en la que estás (puedes cambiar juegos y orden).
   const mine = list.ownerId === profileId;
+  const editable = canEditList(list, profileId);
+  const member = editable && !mine;
   const owner = lookupProfile(list.ownerId);
   const following = follows?.includes(list.id) ?? false;
   const myCopy = Object.values(myLists).find((l) => l.ownerId === profileId && l.forkedFrom === list.id);
 
   // Sin conexión solo se pueden ver tus propias listas.
-  if (offline && !mine) {
+  if (offline && !editable && !(follows?.includes(list.id) ?? false)) {
     return (
-      <OfflineNotice title="Sin conexión" text="Las listas de otros necesitan internet. Mientras tanto puedes ver y gestionar las tuyas.">
+      <OfflineNotice
+        title="Sin conexión"
+        text="Las listas de otros necesitan internet. Mientras tanto puedes ver y gestionar las tuyas."
+      >
         <DarkButton label="Ir a mi perfil" onPress={() => router.replace('/profile')} />
       </OfflineNotice>
     );
@@ -110,9 +120,17 @@ export default function ListScreen() {
       const rating = e.userGame?.rating ? ` — ${e.userGame.rating}/10` : '';
       return `${i + 1}. ${e.game.title}${e.game.year ? ` (${e.game.year})` : ''}${rating}`;
     });
-    Share.share({ title: list.name, message: `🎮 ${list.name}\n${list.description ? `${list.description}\n` : ''}\n${lines.join('\n')}\n\nHecho con Saga Quest` }).catch(
-      () => undefined,
-    );
+    Share.share({
+      title: list.name,
+      message: `🎮 ${list.name}\n${list.description ? `${list.description}\n` : ''}\n${lines.join('\n')}\n\nHecho con Saga Quest`,
+    }).catch(() => undefined);
+  };
+
+  // Añadir a tu perfil = seguirla en vivo: si el autor la cambia, te cambia a ti (con tus datos de cada juego).
+  const addToProfile = () => {
+    toggleFollow(list.id);
+    notify(following ? 'Quitada de tu perfil' : 'Añadida a tu perfil: verás sus cambios con tus datos');
+    syncNow().catch(() => undefined);
   };
 
   const fork = () => {
@@ -122,6 +140,20 @@ export default function ListScreen() {
       router.replace(`/list/${newId}`);
     }
   };
+
+  const leave = () =>
+    Alert.alert('Salir de la lista', `Dejarás de ver «${list.name}» y de poder editarla.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: () => {
+          removeListMember(list.id, profileId ?? '')
+            .then(() => router.back())
+            .catch((e: unknown) => notify(e instanceof Error ? e.message : 'No se pudo'));
+        },
+      },
+    ]);
 
   const remove = () =>
     Alert.alert('Borrar lista', `¿Borrar «${list.name}»? Los juegos seguirán en tu biblioteca.`, [
@@ -141,14 +173,18 @@ export default function ListScreen() {
     <View style={{ paddingTop: insets.top + 6 }}>
       <BlurHero url={heroCover} colors={[list.color, list.color2]} height={heroH} />
       <View style={styles.topBar}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/lists'))} style={styles.backRow} hitSlop={10}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/lists'))}
+          style={styles.backRow}
+          hitSlop={10}
+        >
           <Ionicons name="chevron-back" size={20} color="#fff" />
           <ThemedText size={16} style={styles.white}>
             Atrás
           </ThemedText>
         </Pressable>
         <View style={styles.topIcons}>
-          {mine ? (
+          {editable ? (
             <Pressable onPress={() => router.push(`/search?listId=${list.id}`)} hitSlop={8}>
               <Ionicons name="add-circle-outline" size={27} color="#fff" />
             </Pressable>
@@ -167,7 +203,10 @@ export default function ListScreen() {
       <ThemedText variant="display" size={26} style={styles.title}>
         {list.name}
       </ThemedText>
-      <Pressable onPress={() => owner && owner.id !== 'saga-quest' && router.push(`/user/${owner.id}`)} style={styles.byline}>
+      <Pressable
+        onPress={() => owner && owner.id !== 'saga-quest' && router.push(`/user/${owner.id}`)}
+        style={styles.byline}
+      >
         <ThemedText variant="bold" size={14}>
           {owner?.displayName ?? 'Jugador'}
         </ThemedText>
@@ -180,30 +219,51 @@ export default function ListScreen() {
           {list.description}
         </ThemedText>
       ) : null}
+      {list.members?.length || (mine && !list.official) ? (
+        <Pressable onPress={() => setMembersOpen(true)} style={styles.members}>
+          {[list.ownerId, ...(list.members ?? [])].slice(0, 6).map((pid, i) => {
+            const p = lookupProfile(pid);
+            return p ? (
+              <View key={pid} style={{ marginLeft: i ? -10 : 0 }}>
+                <Avatar name={p.displayName} color={p.avatarColor} uri={p.photo} size={30} />
+              </View>
+            ) : null;
+          })}
+          <ThemedText variant="bold" size={12} style={{ marginLeft: 8 }}>
+            {list.members?.length ? `Cooperativa · ${list.members.length + 1} personas` : 'Hacer cooperativa'}
+          </ThemedText>
+          <Ionicons name="people-outline" size={16} color={c.text} />
+        </Pressable>
+      ) : null}
     </View>
   );
 
   return (
     <IgnScreen title={list.name} header={header} collapseAt={320}>
       <View style={styles.controls}>
-        {searching ? <TextField value={query} onChangeText={setQuery} placeholder="Buscar en la lista…" autoFocus /> : null}
+        {searching ? (
+          <TextField value={query} onChangeText={setQuery} placeholder="Buscar en la lista…" autoFocus />
+        ) : null}
         <SelectBox label={SORT_LABEL[sort]} onPress={() => setSortOpen(true)} />
         <View style={styles.actionRow}>
-          {mine ? (
-            <LightButton label="Editar" onPress={() => router.push(`/list/edit?id=${list.id}`)} style={{ flex: 1 }} />
-          ) : myCopy ? (
-            <LightButton label="Ver mi copia" onPress={() => router.push(`/list/${myCopy.id}`)} style={{ flex: 1 }} />
+          {editable ? (
+            <LightButton
+              label={mine ? 'Editar' : 'Editar orden'}
+              onPress={() => router.push(`/list/edit?id=${list.id}`)}
+              style={{ flex: 1 }}
+            />
+          ) : following ? (
+            <LightButton label="En tu perfil ✓" onPress={() => setMoreOpen(true)} style={{ flex: 1 }} />
           ) : (
-            <DarkButton label="Añadir a mi perfil" icon="folder-open-outline" onPress={fork} style={{ flex: 1 }} />
+            <DarkButton
+              label="Añadir a mi perfil"
+              icon="folder-open-outline"
+              onPress={addToProfile}
+              style={{ flex: 1 }}
+            />
           )}
-          {!mine ? (
-            <Pressable
-              onPress={() => {
-                toggleFollow(list.id);
-                notify(following ? 'Has dejado de seguir la lista' : 'Siguiendo la lista');
-              }}
-              style={[styles.round, { backgroundColor: c.inverseBg }]}
-            >
+          {!mine && !member ? (
+            <Pressable onPress={addToProfile} style={[styles.round, { backgroundColor: c.inverseBg }]}>
               <Ionicons name={following ? 'bookmark' : 'bookmark-outline'} size={20} color={c.inverseText} />
             </Pressable>
           ) : (
@@ -214,24 +274,28 @@ export default function ListScreen() {
           <DotsButton onPress={() => setMoreOpen(true)} />
         </View>
         <Card padded={false}>
-        <View style={styles.stats}>
-          <Stat value={String(stats.games)} label="JUEGOS" />
-          <View style={[styles.statDivider, { backgroundColor: c.line }]} />
-          <Stat value={`${pct}%`} label="COMPLETADO" />
-          <View style={[styles.statDivider, { backgroundColor: c.line }]} />
-          <Stat value={formatHours(stats.totalHours).replace(' h', '')} label="HORAS" />
-          <View style={[styles.statDivider, { backgroundColor: c.line }]} />
-          <Pressable
-            disabled={!mine}
-            onPress={() => updateList(list.id, { visibility: list.visibility === 'public' ? 'private' : 'public' })}
-            style={styles.stat}
-          >
-            <Ionicons name={list.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'} size={24} color={c.text} />
-            <ThemedText variant="muted" size={10} style={styles.caps}>
-              {list.official ? 'OFICIAL' : list.visibility === 'public' ? 'PÚBLICA' : 'PRIVADA'}
-            </ThemedText>
-          </Pressable>
-        </View>
+          <View style={styles.stats}>
+            <Stat value={String(stats.games)} label="JUEGOS" />
+            <View style={[styles.statDivider, { backgroundColor: c.line }]} />
+            <Stat value={`${pct}%`} label="COMPLETADO" />
+            <View style={[styles.statDivider, { backgroundColor: c.line }]} />
+            <Stat value={formatHours(stats.totalHours).replace(' h', '')} label="HORAS" />
+            <View style={[styles.statDivider, { backgroundColor: c.line }]} />
+            <Pressable
+              disabled={!mine}
+              onPress={() => updateList(list.id, { visibility: list.visibility === 'public' ? 'private' : 'public' })}
+              style={styles.stat}
+            >
+              <Ionicons
+                name={list.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
+                size={24}
+                color={c.text}
+              />
+              <ThemedText variant="muted" size={10} style={styles.caps}>
+                {list.official ? 'OFICIAL' : list.visibility === 'public' ? 'PÚBLICA' : 'PRIVADA'}
+              </ThemedText>
+            </Pressable>
+          </View>
           {stats.games ? (
             <View style={styles.progress}>
               <ProgressBar pct={pct} height={8} />
@@ -265,7 +329,9 @@ export default function ListScreen() {
           <ThemedText variant="muted" size={14}>
             Esta lista está vacía.
           </ThemedText>
-          {mine ? <DarkButton label="Añadir juegos" icon="add" onPress={() => router.push(`/search?listId=${list.id}`)} /> : null}
+          {editable ? (
+            <DarkButton label="Añadir juegos" icon="add" onPress={() => router.push(`/search?listId=${list.id}`)} />
+          ) : null}
         </View>
       ) : null}
 
@@ -276,7 +342,7 @@ export default function ListScreen() {
           rank: e.rank,
           replays: e.item.replays,
           note: e.item.note,
-          physical: mine ? e.userGame?.owned : false,
+          physical: e.userGame?.owned,
         }))}
         width={width}
         showRank
@@ -293,28 +359,148 @@ export default function ListScreen() {
 
       <SortSheet visible={sortOpen} value={sort} onChange={setSort} onClose={() => setSortOpen(false)} />
       <Sheet visible={moreOpen} title={list.name} onClose={() => setMoreOpen(false)}>
-        {mine ? (
+        {member ? (
           <>
-            <SheetRow label="Editar lista" right={<Ionicons name="create-outline" size={22} color={c.text} />} onPress={() => { setMoreOpen(false); router.push(`/list/edit?id=${list.id}`); }} />
-            <SheetRow label="Añadir juegos" right={<Ionicons name="add-circle-outline" size={22} color={c.text} />} onPress={() => { setMoreOpen(false); router.push(`/search?listId=${list.id}`); }} />
+            <SheetRow
+              label="Añadir juegos"
+              right={<Ionicons name="add-circle-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                router.push(`/search?listId=${list.id}`);
+              }}
+            />
+            <SheetRow
+              label="Editar orden"
+              right={<Ionicons name="swap-vertical" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                router.push(`/list/edit?id=${list.id}`);
+              }}
+            />
+            <SheetRow
+              label="Ver quién está"
+              right={<Ionicons name="people-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                setMembersOpen(true);
+              }}
+            />
+            <SheetRow
+              label="Duplicar como lista mía"
+              right={<Ionicons name="copy-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                fork();
+              }}
+            />
+            <SheetRow
+              label="Salir de la lista"
+              right={<Ionicons name="exit-outline" size={22} color="#e5484d" />}
+              onPress={() => {
+                setMoreOpen(false);
+                leave();
+              }}
+            />
+          </>
+        ) : mine ? (
+          <>
+            <SheetRow
+              label="Editar lista"
+              right={<Ionicons name="create-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                router.push(`/list/edit?id=${list.id}`);
+              }}
+            />
+            <SheetRow
+              label="Añadir juegos"
+              right={<Ionicons name="add-circle-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                router.push(`/search?listId=${list.id}`);
+              }}
+            />
             <SheetRow
               label={list.visibility === 'public' ? 'Hacer privada' : 'Hacer pública'}
-              right={<Ionicons name={list.visibility === 'public' ? 'lock-closed-outline' : 'globe-outline'} size={22} color={c.text} />}
+              right={
+                <Ionicons
+                  name={list.visibility === 'public' ? 'lock-closed-outline' : 'globe-outline'}
+                  size={22}
+                  color={c.text}
+                />
+              }
               onPress={() => updateList(list.id, { visibility: list.visibility === 'public' ? 'private' : 'public' })}
             />
-            <SheetRow label="Duplicar lista" right={<Ionicons name="copy-outline" size={22} color={c.text} />} onPress={() => { setMoreOpen(false); fork(); }} />
+            {!list.official ? (
+              <SheetRow
+                label="Amigos que la editan"
+                caption={list.members?.length ? `${list.members.length} en la lista` : 'Hazla cooperativa'}
+                right={<Ionicons name="people-outline" size={22} color={c.text} />}
+                onPress={() => {
+                  setMoreOpen(false);
+                  setMembersOpen(true);
+                }}
+              />
+            ) : null}
+            <SheetRow
+              label="Duplicar lista"
+              right={<Ionicons name="copy-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                fork();
+              }}
+            />
           </>
         ) : (
           <>
-            <SheetRow label={myCopy ? 'Ver mi copia' : 'Añadir a mi perfil'} right={<Ionicons name="folder-open-outline" size={22} color={c.text} />} onPress={() => { setMoreOpen(false); if (myCopy) router.push(`/list/${myCopy.id}`); else fork(); }} />
-            <SheetRow label={following ? 'Dejar de seguir' : 'Seguir lista'} right={<Ionicons name={following ? 'bookmark' : 'bookmark-outline'} size={22} color={c.text} />} onPress={() => toggleFollow(list.id)} />
+            <SheetRow
+              label={following ? 'Quitar de mi perfil' : 'Añadir a mi perfil'}
+              caption={following ? undefined : 'Verás los cambios del autor, con tus datos'}
+              right={<Ionicons name={following ? 'bookmark' : 'bookmark-outline'} size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                addToProfile();
+              }}
+            />
+            <SheetRow
+              label={myCopy ? 'Ver mi copia' : 'Duplicar como lista mía'}
+              caption={myCopy ? undefined : 'Una copia tuya que puedes cambiar'}
+              right={<Ionicons name="copy-outline" size={22} color={c.text} />}
+              onPress={() => {
+                setMoreOpen(false);
+                if (myCopy) router.push(`/list/${myCopy.id}`);
+                else fork();
+              }}
+            />
           </>
         )}
-        <SheetRow label="Compartir lista" right={<Ionicons name="share-outline" size={22} color={c.text} />} onPress={share} last={!mine} />
+        <SheetRow
+          label="Compartir lista"
+          right={<Ionicons name="share-outline" size={22} color={c.text} />}
+          onPress={share}
+          last={!mine}
+        />
         {mine ? (
-          <SheetRow label="Borrar lista" right={<Ionicons name="trash-outline" size={22} color="#e5484d" />} onPress={() => { setMoreOpen(false); remove(); }} last />
+          <SheetRow
+            label="Borrar lista"
+            right={<Ionicons name="trash-outline" size={22} color="#e5484d" />}
+            onPress={() => {
+              setMoreOpen(false);
+              remove();
+            }}
+            last
+          />
         ) : null}
       </Sheet>
+      {membersOpen ? (
+        <MembersSheet
+          listId={list.id}
+          ownerId={list.ownerId}
+          members={list.members ?? []}
+          canManage={mine}
+          onClose={() => setMembersOpen(false)}
+        />
+      ) : null}
       {sheets.element}
     </IgnScreen>
   );
@@ -338,7 +524,14 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 44 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, flex: 1 },
   topIcons: { flexDirection: 'row', gap: 18, alignItems: 'center' },
-  mosaicWrap: { alignItems: 'center', marginTop: 14, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  mosaicWrap: {
+    alignItems: 'center',
+    marginTop: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   title: { textAlign: 'center', marginTop: 18, paddingHorizontal: 20 },
   byline: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 6 },
   desc: { textAlign: 'center', paddingHorizontal: 28, marginTop: 8 },
@@ -351,5 +544,93 @@ const styles = StyleSheet.create({
   statDivider: { width: StyleSheet.hairlineWidth, height: 40 },
   caps: { letterSpacing: 0.8 },
   hint: { paddingHorizontal: 20, marginTop: 22, textAlign: 'center' },
+  members: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', marginTop: 12 },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   loading: { alignItems: 'center', gap: 12, paddingVertical: 30, paddingHorizontal: 20 },
 });
+
+// Amigos que editan la lista (cooperativa). El dueño añade o quita; los demás solo ven.
+function MembersSheet({
+  listId,
+  ownerId,
+  members,
+  canManage,
+  onClose,
+}: {
+  listId: string;
+  ownerId: string;
+  members: string[];
+  canManage: boolean;
+  onClose: () => void;
+}) {
+  const c = useIgnColors();
+  const uid = useStore((s) => s.cloudUserId);
+  const lookup = useProfileLookup();
+  const { friendships, profiles } = useSocial();
+  const [busy, setBusy] = useState<string | null>(null);
+  const friends = friendships
+    .filter((f) => f.status === 'accepted')
+    .map((f) => (f.requester === uid ? f.addressee : f.requester));
+  const people = canManage ? [...new Set([...members, ...friends])] : [ownerId, ...members];
+  const toggle = async (pid: string) => {
+    setBusy(pid);
+    try {
+      if (members.includes(pid)) await removeListMember(listId, pid);
+      else await addListMember(listId, pid);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'No se pudo');
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Sheet visible title="Lista cooperativa" onClose={onClose}>
+      <ThemedText variant="muted" size={12} style={{ marginBottom: 8 }}>
+        Los que estén pueden añadir y quitar juegos y cambiar el orden, y el cambio lo ven todos. Cada uno ve sus
+        propios datos de cada juego (estado, nota…).
+      </ThemedText>
+      {people.length === 0 ? (
+        <ThemedText variant="muted" size={13}>
+          Añade amigos en la pestaña Amigos para poder invitarlos.
+        </ThemedText>
+      ) : null}
+      {people.map((pid) => {
+        const p = profiles[pid] ?? lookup(pid);
+        if (!p) return null;
+        const inList = pid === ownerId || members.includes(pid);
+        return (
+          <View key={pid} style={[styles.memberRow, { borderBottomColor: c.line }]}>
+            <Avatar name={p.displayName} color={p.avatarColor} uri={p.photo} size={38} />
+            <View style={{ flex: 1 }}>
+              <ThemedText variant="bold" size={14}>
+                {p.displayName}
+              </ThemedText>
+              <ThemedText variant="muted" size={11}>
+                {pid === ownerId ? 'Creador' : inList ? 'Editor' : `@${p.username}`}
+              </ThemedText>
+            </View>
+            {canManage && pid !== ownerId ? (
+              busy === pid ? (
+                <ActivityIndicator color={c.text} />
+              ) : (
+                <Pressable onPress={() => toggle(pid)} hitSlop={8}>
+                  <Ionicons
+                    name={inList ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={26}
+                    color={inList ? c.accent : c.muted}
+                  />
+                </Pressable>
+              )
+            ) : null}
+          </View>
+        );
+      })}
+    </Sheet>
+  );
+}

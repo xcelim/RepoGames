@@ -41,7 +41,12 @@ function mergeResults(text: string, igdb: OnlineResult[], rawg: OnlineResult[]):
     seen.set(key, r);
     results.push(r);
   }
-  return rankByQuery(text, results, (r) => r.title, (r) => r.popularity ?? 0);
+  return rankByQuery(
+    text,
+    results,
+    (r) => r.title,
+    (r) => r.popularity ?? 0,
+  );
 }
 
 // Busca en las dos a la vez. onUpdate recibe los resultados en cuanto llega cada parte,

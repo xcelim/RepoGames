@@ -4,7 +4,15 @@ import { useStore, persistedPart } from '@/store/useStore';
 import { diffState, flush, markAllDirty, pull, startSyncEngine } from './engine';
 
 type Row = Record<string, unknown>;
-const mockDb: Record<string, Row[]> = { profiles: [], games: [], lists: [], list_items: [], user_games: [], list_follows: [] };
+const mockDb: Record<string, Row[]> = {
+  profiles: [],
+  games: [],
+  lists: [],
+  list_items: [],
+  user_games: [],
+  list_follows: [],
+  list_members: [],
+};
 const mockFail: { table?: string } = {};
 
 const PK: Record<string, string[]> = {
@@ -14,6 +22,7 @@ const PK: Record<string, string[]> = {
   list_items: ['id'],
   user_games: ['profile_id', 'game_id'],
   list_follows: ['profile_id', 'list_id'],
+  list_members: ['list_id', 'profile_id'],
 };
 
 function mockQuery(table: string) {
@@ -58,7 +67,18 @@ function mockQuery(table: string) {
 }
 
 jest.mock('./supabase', () => ({
-  getSupabase: () => ({ from: mockQuery, channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel: () => undefined }),
+  getSupabase: () => ({
+    from: mockQuery,
+    channel: () => ({
+      on() {
+        return this;
+      },
+      subscribe() {
+        return this;
+      },
+    }),
+    removeChannel: () => undefined,
+  }),
   isCloudEnabled: () => true,
   cloudConfig: () => ({ url: 'x', anonKey: 'y' }),
 }));
@@ -76,10 +96,32 @@ afterEach(() => {
 });
 
 const UID = 'u-1';
-const profile = { id: UID, username: 'yeray', displayName: 'Yeray', bio: '', avatarColor: '#f00', createdAt: '2026-01-01T00:00:00.000Z' };
+const profile = {
+  id: UID,
+  username: 'yeray',
+  displayName: 'Yeray',
+  bio: '',
+  avatarColor: '#f00',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 const game = (id: string) => ({
-  id, title: id, year: 2020, platforms: '', version: null, series: null, main: 10, extra: null, full: null,
-  synopsis: null, note: null, igdbId: 1, rawgId: null, igdbQuery: null, coverUrl: null, source: 'igdb' as const, createdBy: null,
+  id,
+  title: id,
+  year: 2020,
+  platforms: '',
+  version: null,
+  series: null,
+  main: 10,
+  extra: null,
+  full: null,
+  synopsis: null,
+  note: null,
+  igdbId: 1,
+  rawgId: null,
+  igdbQuery: null,
+  coverUrl: null,
+  source: 'igdb' as const,
+  createdBy: null,
 });
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -124,9 +166,14 @@ describe('subir y bajar', () => {
     s.toggleFollow('official-zelda');
     await flush();
     expect(Object.keys(useStore.getState().dirty)).toEqual([]);
-    expect(mockDb.user_games).toEqual([expect.objectContaining({ profile_id: UID, game_id: 'igdb-1', status: 'beaten', rating: 9 })]);
+    expect(mockDb.user_games).toEqual([
+      expect.objectContaining({ profile_id: UID, game_id: 'igdb-1', status: 'beaten', rating: 9 }),
+    ]);
     expect(mockDb.lists.map((l) => l.name)).toContain('2026');
-    expect(mockDb.list_items.sort((a, b) => Number(a.position) - Number(b.position)).map((i) => i.game_id)).toEqual(['igdb-2', 'igdb-1']);
+    expect(mockDb.list_items.sort((a, b) => Number(a.position) - Number(b.position)).map((i) => i.game_id)).toEqual([
+      'igdb-2',
+      'igdb-1',
+    ]);
     expect(mockDb.games.map((g) => g.id).sort()).toEqual(['igdb-1', 'igdb-2']);
     expect(mockDb.games[0].created_by).toBeNull();
     expect(mockDb.list_follows).toHaveLength(1);
@@ -157,16 +204,83 @@ describe('subir y bajar', () => {
   });
 
   it('al bajar no pisa lo que está pendiente y quita lo borrado en otro móvil', async () => {
-    mockDb.profiles.push({ id: UID, username: 'yeray', display_name: 'Yeray (nube)', bio: '', avatar_color: '#0f0', settings: { skin: 'cozy' }, created_at: 'x' });
+    mockDb.profiles.push({
+      id: UID,
+      username: 'yeray',
+      display_name: 'Yeray (nube)',
+      bio: '',
+      avatar_color: '#0f0',
+      settings: { skin: 'cozy' },
+      created_at: 'x',
+    });
     mockDb.games.push({ ...game('igdb-9'), igdb_id: 9, cover_url: 'c.jpg', created_by: null });
-    mockDb.lists.push({ id: 'L1', owner_id: UID, name: 'De otro móvil', description: '', visibility: 'private', color: '#000', color2: '#fff', icon: 'albums', forked_from: null, official: false, created_at: 'x', updated_at: 'x' });
+    mockDb.lists.push({
+      id: 'L1',
+      owner_id: UID,
+      name: 'De otro móvil',
+      description: '',
+      visibility: 'private',
+      color: '#000',
+      color2: '#fff',
+      icon: 'albums',
+      forked_from: null,
+      official: false,
+      created_at: 'x',
+      updated_at: 'x',
+    });
     mockDb.list_items.push({ id: 'I1', list_id: 'L1', game_id: 'igdb-9', position: 0, added_at: 'x' });
-    mockDb.user_games.push({ profile_id: UID, game_id: 'igdb-9', status: 'playing', rating: 5, liked: [], disliked: [], review: '', owned: false, favorite: false, added_at: 'x', updated_at: 'x' });
+    mockDb.user_games.push({
+      profile_id: UID,
+      game_id: 'igdb-9',
+      status: 'playing',
+      rating: 5,
+      liked: [],
+      disliked: [],
+      review: '',
+      owned: false,
+      favorite: false,
+      added_at: 'x',
+      updated_at: 'x',
+    });
 
     // En el móvil: una nota pendiente de subir para el mismo juego y una lista vieja ya borrada en la nube.
     useStore.setState({
-      userGames: { [`${UID}:igdb-9`]: { id: `${UID}:igdb-9`, profileId: UID, gameId: 'igdb-9', status: 'beaten', rating: 10, platform: null, liked: [], disliked: [], review: '', hoursPlayed: null, startedAt: null, finishedAt: null, owned: false, favorite: false, addedAt: 'x', updatedAt: 'y' } },
-      lists: { OLD: { id: 'OLD', ownerId: UID, name: 'Vieja', description: '', visibility: 'private', color: '', color2: '', icon: '', forkedFrom: null, official: false, createdAt: 'x', updatedAt: 'x' } },
+      userGames: {
+        [`${UID}:igdb-9`]: {
+          id: `${UID}:igdb-9`,
+          profileId: UID,
+          gameId: 'igdb-9',
+          status: 'beaten',
+          rating: 10,
+          platform: null,
+          liked: [],
+          disliked: [],
+          review: '',
+          hoursPlayed: null,
+          startedAt: null,
+          finishedAt: null,
+          owned: false,
+          favorite: false,
+          addedAt: 'x',
+          updatedAt: 'y',
+        },
+      },
+      lists: {
+        OLD: {
+          id: 'OLD',
+          ownerId: UID,
+          name: 'Vieja',
+          description: '',
+          visibility: 'private',
+          color: '',
+          color2: '',
+          icon: '',
+          forkedFrom: null,
+          official: false,
+          createdAt: 'x',
+          updatedAt: 'x',
+        },
+      },
       dirty: { 'user_games|igdb-9': 1 },
     });
     await pull();
@@ -178,6 +292,59 @@ describe('subir y bajar', () => {
     expect(s.games['igdb-9'].coverUrl).toBe('c.jpg');
     expect(s.profiles[UID].displayName).toBe('Yeray (nube)');
     expect(s.skin).toBe('cozy');
+  });
+
+  it('baja las listas cooperativas y las que sigues; en las cooperativas puedes cambiar el orden', async () => {
+    const L = (id: string, owner: string, visibility = 'private') => ({
+      id,
+      owner_id: owner,
+      name: id,
+      description: '',
+      visibility,
+      color: '#000',
+      color2: '#fff',
+      icon: 'albums',
+      forked_from: null,
+      official: false,
+      created_at: 'x',
+      updated_at: 'x',
+    });
+    mockDb.games.push(
+      { ...game('igdb-1'), igdb_id: 1, created_by: null },
+      { ...game('igdb-2'), igdb_id: 2, created_by: null },
+    );
+    mockDb.lists.push(L('COOP', 'u-2'), L('PUB', 'u-3', 'public'));
+    mockDb.list_members.push({ list_id: 'COOP', profile_id: UID });
+    mockDb.list_follows.push({ profile_id: UID, list_id: 'PUB' });
+    mockDb.list_items.push(
+      { id: 'c1', list_id: 'COOP', game_id: 'igdb-1', position: 0, added_at: 'x' },
+      { id: 'c2', list_id: 'COOP', game_id: 'igdb-2', position: 1, added_at: 'x' },
+      { id: 'p1', list_id: 'PUB', game_id: 'igdb-2', position: 0, added_at: 'x' },
+    );
+    await pull();
+    let s = useStore.getState();
+    expect(s.lists.COOP).toMatchObject({ ownerId: 'u-2', members: [UID] });
+    expect(s.lists.PUB.ownerId).toBe('u-3');
+    expect(Object.values(s.items).filter((i) => i.listId === 'PUB')).toHaveLength(1);
+
+    // Reordenar la cooperativa se sube; la de otro (solo seguida) no.
+    const prev = useStore.getState();
+    s.moveInList('COOP', 1, 0);
+    s = useStore.getState();
+    const keys = diffState(prev, s, UID);
+    expect(keys.filter((k) => k.startsWith('list_items|')).sort()).toEqual(['list_items|c1', 'list_items|c2']);
+    expect(keys.some((k) => k.startsWith('lists|'))).toBe(false);
+
+    // Si el autor cambia la lista seguida, al bajar se ve el cambio.
+    mockDb.list_items.push({ id: 'p2', list_id: 'PUB', game_id: 'igdb-1', position: 1, added_at: 'x' });
+    useStore.setState({ dirty: {} });
+    await pull();
+    expect(Object.values(useStore.getState().items).filter((i) => i.listId === 'PUB')).toHaveLength(2);
+
+    // Si te sacan de la cooperativa, desaparece.
+    mockDb.list_members = [];
+    await pull();
+    expect(useStore.getState().lists.COOP).toBeUndefined();
   });
 
   it('una cuenta nueva recibe las bibliotecas oficiales', async () => {

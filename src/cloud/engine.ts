@@ -63,28 +63,37 @@ function changedKeys<T>(prev: Record<string, T>, next: Record<string, T>, cb: (k
 }
 
 function usedGameIds(s: Store, uid: string): Set<string> {
-  const mine = new Set(Object.values(s.lists).filter((l) => l.ownerId === uid).map((l) => l.id));
+  const mine = new Set(
+    Object.values(s.lists)
+      .filter((l) => l.ownerId === uid)
+      .map((l) => l.id),
+  );
   return new Set([
-    ...Object.values(s.items).filter((i) => mine.has(i.listId)).map((i) => i.gameId),
-    ...Object.values(s.userGames).filter((u) => u.profileId === uid).map((u) => u.gameId),
+    ...Object.values(s.items)
+      .filter((i) => mine.has(i.listId))
+      .map((i) => i.gameId),
+    ...Object.values(s.userGames)
+      .filter((u) => u.profileId === uid)
+      .map((u) => u.gameId),
   ]);
 }
 
 export function diffState(prev: Store, next: Store, uid: string): string[] {
   const keys = new Set<string>();
-  if (
-    next.profiles[uid] !== prev.profiles[uid] ||
-    next.skin !== prev.skin ||
-    next.durationMode !== prev.durationMode
-  ) {
+  if (next.profiles[uid] !== prev.profiles[uid] || next.skin !== prev.skin || next.durationMode !== prev.durationMode) {
     if (next.profiles[uid]) keys.add(`profiles|${uid}`);
   }
   const ownerOf = (listId: string) => (next.lists[listId] ?? prev.lists[listId])?.ownerId;
   changedKeys(prev.lists, next.lists, (key, list: GameList) => {
     if (list.ownerId === uid && !list.official) keys.add(`lists|${key}`);
   });
+  // Juegos de tus listas y de las cooperativas en las que estás.
+  const canEdit = (listId: string) => {
+    const l = next.lists[listId] ?? prev.lists[listId];
+    return !!l && (l.ownerId === uid || !!l.members?.includes(uid));
+  };
   changedKeys(prev.items, next.items, (key, item: ListItem) => {
-    if (ownerOf(item.listId) === uid) keys.add(`list_items|${key}`);
+    if (ownerOf(item.listId) === uid || canEdit(item.listId)) keys.add(`list_items|${key}`);
   });
   changedKeys(prev.userGames, next.userGames, (_key, ug: UserGame) => {
     if (ug.profileId === uid) keys.add(`user_games|${ug.gameId}`);
@@ -178,7 +187,11 @@ async function doFlush(): Promise<void> {
     }
   };
 
-  const myListIds = new Set(Object.values(state.lists).filter((l) => l.ownerId === uid).map((l) => l.id));
+  const myListIds = new Set(
+    Object.values(state.lists)
+      .filter((l) => l.ownerId === uid)
+      .map((l) => l.id),
+  );
   const myItems = Object.values(state.items).filter((i) => myListIds.has(i.listId));
   const myUserGames = Object.values(state.userGames).filter((u) => u.profileId === uid);
   const used = new Set([...myItems.map((i) => i.gameId), ...myUserGames.map((u) => u.gameId)]);
@@ -193,7 +206,9 @@ async function doFlush(): Promise<void> {
         const username = `${row.username.slice(0, 24)}-${uid.slice(0, 4)}`;
         check(await client.from('profiles').upsert({ ...row, username }), 'Perfil');
         applyingRemote = true;
-        useStore.setState({ profiles: { ...useStore.getState().profiles, [uid]: { ...state.profiles[uid], username } } });
+        useStore.setState({
+          profiles: { ...useStore.getState().profiles, [uid]: { ...state.profiles[uid], username } },
+        });
         applyingRemote = false;
       } else check(first, 'Perfil');
     });
@@ -207,7 +222,10 @@ async function doFlush(): Promise<void> {
     ...dirtyItems.map((i) => i.gameId),
     ...dirtyUserGames.map((u) => u.gameId),
   ]);
-  const gameRows = [...gameIds].map((id) => state.games[id]).filter(Boolean).map((g) => toGameRow(g, uid));
+  const gameRows = [...gameIds]
+    .map((id) => state.games[id])
+    .filter(Boolean)
+    .map((g) => toGameRow(g, uid));
   try {
     for (const part of chunks(gameRows)) check(await client.from('games').upsert(part), 'Juegos');
     // Los juegos que solo has mirado (no están en tus listas ni tu biblioteca) no se suben.
@@ -229,7 +247,8 @@ async function doFlush(): Promise<void> {
   const itemsDown = itemKeys.filter((k) => !state.items[k]);
   const itemsUp = itemKeys.filter((k) => state.items[k]);
   await step('list_items', itemsDown, async () => {
-    for (const part of chunks(itemsDown)) check(await client.from('list_items').delete().in('id', part), 'Quitar de listas');
+    for (const part of chunks(itemsDown))
+      check(await client.from('list_items').delete().in('id', part), 'Quitar de listas');
   });
   await step('list_items', itemsUp, async () => {
     for (const part of chunks(itemsUp)) {
@@ -244,15 +263,19 @@ async function doFlush(): Promise<void> {
   await step('user_games', ugUp, async () => {
     for (const part of chunks(ugUp)) {
       check(
-        await client
-          .from('user_games')
-          .upsert(part.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid)), { onConflict: 'profile_id,game_id' }),
+        await client.from('user_games').upsert(
+          part.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid)),
+          { onConflict: 'profile_id,game_id' },
+        ),
         'Biblioteca',
       );
     }
   });
   await step('user_games', ugDown, async () => {
-    check(await client.from('user_games').delete().eq('profile_id', uid).in('game_id', ugDown), 'Quitar de la biblioteca');
+    check(
+      await client.from('user_games').delete().eq('profile_id', uid).in('game_id', ugDown),
+      'Quitar de la biblioteca',
+    );
   });
 
   // 6. Listas que sigues
@@ -262,9 +285,10 @@ async function doFlush(): Promise<void> {
   const fDown = followKeys.filter((k) => !following.includes(k));
   await step('list_follows', fUp, async () => {
     check(
-      await client
-        .from('list_follows')
-        .upsert(fUp.map((list_id) => ({ profile_id: uid, list_id })), { onConflict: 'profile_id,list_id', ignoreDuplicates: true }),
+      await client.from('list_follows').upsert(
+        fUp.map((list_id) => ({ profile_id: uid, list_id })),
+        { onConflict: 'profile_id,list_id', ignoreDuplicates: true },
+      ),
       'Seguir listas',
     );
   });
@@ -307,8 +331,30 @@ export async function pull(): Promise<void> {
   check(profileRes, 'Perfil');
   const listRes = await client.from('lists').select('*').eq('owner_id', uid);
   check(listRes, 'Listas');
-  const listRows = (listRes.data ?? []) as ListRow[];
-  const itemRows = await selectIn<ListItemRow>('list_items', 'list_id', listRows.map((l) => l.id));
+  const ownRows = (listRes.data ?? []) as ListRow[];
+  // Listas cooperativas en las que estás y listas que sigues (las del autor, en vivo).
+  const memberRes = await client.from('list_members').select('list_id').eq('profile_id', uid);
+  const memberIds = memberRes.error ? [] : ((memberRes.data ?? []) as { list_id: string }[]).map((r) => r.list_id);
+  const followPre = await client.from('list_follows').select('list_id').eq('profile_id', uid);
+  const followIds = ((followPre.data ?? []) as { list_id: string }[]).map((r) => r.list_id);
+  const otherIds = [...new Set([...memberIds, ...followIds])].filter((id) => !ownRows.some((l) => l.id === id));
+  const otherRows = await selectIn<ListRow>('lists', 'id', otherIds);
+  const listRows = [...ownRows, ...otherRows];
+  const itemRows = await selectIn<ListItemRow>(
+    'list_items',
+    'list_id',
+    listRows.map((l) => l.id),
+  );
+  // Quién está en cada lista cooperativa (si aún no se ha ejecutado el SQL, ninguna lo es).
+  const memberRows = memberRes.error
+    ? []
+    : await selectIn<{ list_id: string; profile_id: string }>(
+        'list_members',
+        'list_id',
+        listRows.map((l) => l.id),
+      );
+  const membersOf = new Map<string, string[]>();
+  for (const m of memberRows) membersOf.set(m.list_id, [...(membersOf.get(m.list_id) ?? []), m.profile_id]);
   const ugRes = await client.from('user_games').select('*').eq('profile_id', uid);
   check(ugRes, 'Biblioteca');
   const ugRows = (ugRes.data ?? []) as UserGameRow[];
@@ -324,19 +370,35 @@ export async function pull(): Promise<void> {
   const dirty = state.dirty;
   const isDirty = (table: string, key: string) => dirty[`${table}|${key}`] !== undefined;
 
+  const remoteIds = new Set(listRows.map((l) => l.id));
   const lists: Record<string, GameList> = {};
-  for (const [k, l] of Object.entries(state.lists)) if (l.ownerId !== uid || isDirty('lists', k)) lists[k] = l;
-  for (const row of listRows) if (!isDirty('lists', row.id)) lists[row.id] = fromListRow(row, uid);
+  // Lo de Supabase manda. Las listas ajenas que ya no sigues o de las que te han sacado desaparecen.
+  for (const [k, l] of Object.entries(state.lists)) {
+    if (l.official || isDirty('lists', k)) lists[k] = l;
+    else if (l.ownerId !== uid && !remoteIds.has(k) && isDirty('list_follows', k)) lists[k] = l; // seguida hace un momento
+  }
+  for (const row of listRows) {
+    if (isDirty('lists', row.id)) continue;
+    const members = membersOf.get(row.id);
+    lists[row.id] = { ...fromListRow(row, row.owner_id ?? uid), ...(members?.length ? { members } : {}) };
+  }
 
   const items: Record<string, ListItem> = {};
   for (const [k, i] of Object.entries(state.items)) {
-    const owner = state.lists[i.listId]?.ownerId;
-    if (owner !== uid || isDirty('list_items', k)) items[k] = i;
+    if (isDirty('list_items', k)) items[k] = i;
+    else if (remoteIds.has(i.listId))
+      continue; // vienen de Supabase
+    else if (state.lists[i.listId]?.ownerId === uid)
+      continue; // lista tuya borrada en otro móvil
+    else if (state.lists[i.listId] && !lists[i.listId])
+      continue; // lista ajena que ya no tienes
+    else items[k] = i; // oficiales y demás
   }
   for (const row of itemRows) if (!isDirty('list_items', row.id)) items[row.id] = fromItemRow(row);
 
   const userGames: Record<string, UserGame> = {};
-  for (const [k, u] of Object.entries(state.userGames)) if (u.profileId !== uid || isDirty('user_games', u.gameId)) userGames[k] = u;
+  for (const [k, u] of Object.entries(state.userGames))
+    if (u.profileId !== uid || isDirty('user_games', u.gameId)) userGames[k] = u;
   for (const row of ugRows) {
     if (isDirty('user_games', row.game_id)) continue;
     const ug = fromUserGameRow(row, uid);
@@ -359,7 +421,9 @@ export async function pull(): Promise<void> {
     const local = games[row.id];
     // Sin perder datos que el móvil ya tenía (portada, horas...).
     games[row.id] = local
-      ? (Object.fromEntries(Object.entries(remote).map(([k, v]) => [k, v ?? local[k as keyof GameRecord]])) as GameRecord)
+      ? (Object.fromEntries(
+          Object.entries(remote).map(([k, v]) => [k, v ?? local[k as keyof GameRecord]]),
+        ) as GameRecord)
       : remote;
   }
 
@@ -387,7 +451,7 @@ export async function pull(): Promise<void> {
   // Cuenta nueva sin listas: se le añaden las bibliotecas oficiales (y se suben).
   const after = useStore.getState();
   const hasOwn = Object.values(after.lists).some((l) => l.ownerId === uid);
-  if (!hasOwn && !listRows.length) after.seedOfficialCopies(uid);
+  if (!hasOwn && !ownRows.length) after.seedOfficialCopies(uid);
 }
 
 // ---------- Sincronizar ----------
@@ -515,10 +579,18 @@ export function startSyncEngine(): () => void {
 function myGames(): GameRecord[] {
   const s = useStore.getState();
   const uid = s.cloudUserId ?? s.currentProfileId;
-  const myLists = new Set(Object.values(s.lists).filter((l) => l.ownerId === uid).map((l) => l.id));
+  const myLists = new Set(
+    Object.values(s.lists)
+      .filter((l) => l.ownerId === uid)
+      .map((l) => l.id),
+  );
   const ids = new Set([
-    ...Object.values(s.items).filter((i) => myLists.has(i.listId)).map((i) => i.gameId),
-    ...Object.values(s.userGames).filter((u) => u.profileId === uid).map((u) => u.gameId),
+    ...Object.values(s.items)
+      .filter((i) => myLists.has(i.listId))
+      .map((i) => i.gameId),
+    ...Object.values(s.userGames)
+      .filter((u) => u.profileId === uid)
+      .map((u) => u.gameId),
   ]);
   return [...ids].map((id) => s.games[id]).filter((g): g is GameRecord => !!g);
 }

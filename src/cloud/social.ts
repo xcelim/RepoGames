@@ -18,6 +18,9 @@ import {
   type ProfileRow,
   type UserGameRow,
 } from './mappers';
+import { notifyLocal, setupLocalNotifications } from '@/utils/localNotify';
+
+import { syncNow } from './engine';
 import { useRemote } from './remote';
 import { getSupabase } from './supabase';
 
@@ -83,7 +86,39 @@ type SocialState = {
   // Mensajes por conversación (id del amigo → mensajes, del más antiguo al más nuevo)
   chats: Record<string, Message[]>;
   activity: { ug: UserGame; at: string }[];
+  reactions: Reaction[];
+  groups: ChatGroup[];
+  groupChats: Record<string, GroupMessage[]>;
 };
+
+export type Reaction = { profileId: string; targetProfile: string; gameId: string; emoji: string; createdAt: string };
+export type ChatGroup = { id: string; name: string; createdBy: string; members: string[]; lastReadAt: string };
+export type GroupMessage = {
+  id: string;
+  groupId: string;
+  sender: string;
+  body: string;
+  gameId: string | null;
+  createdAt: string;
+  pending?: boolean;
+};
+type GroupMessageRow = {
+  id: string;
+  group_id: string;
+  sender: string;
+  body: string;
+  game_id: string | null;
+  created_at: string;
+};
+const fromGroupMessage = (r: GroupMessageRow): GroupMessage => ({
+  id: r.id,
+  groupId: r.group_id,
+  sender: r.sender,
+  body: r.body,
+  gameId: r.game_id,
+  createdAt: r.created_at,
+});
+export const REACTIONS = ['👍', '🔥', '😂', '😮', '❤️', '🏆'];
 
 export const useSocial = create<SocialState>()(() => ({
   ready: false,
@@ -93,6 +128,9 @@ export const useSocial = create<SocialState>()(() => ({
   games: {},
   chats: {},
   activity: [],
+  reactions: [],
+  groups: [],
+  groupChats: {},
 }));
 
 const me = () => useStore.getState().cloudUserId;
@@ -106,7 +144,7 @@ function isMissing(error: { message: string; code?: string } | null): boolean {
   );
 }
 
-async function ensureProfiles(ids: string[]): Promise<void> {
+export async function ensureProfiles(ids: string[]): Promise<void> {
   const client = getSupabase();
   const known = useSocial.getState().profiles;
   const missing = [...new Set(ids)].filter((id) => id && !known[id]);
@@ -304,8 +342,10 @@ export async function markRead(otherId: string): Promise<void> {
 
 export function useUnreadCount(): number {
   const uid = useStore((s) => s.cloudUserId);
-  return useSocial((s) =>
-    Object.values(s.chats).reduce((n, ms) => n + ms.filter((m) => m.recipient === uid && !m.readAt).length, 0),
+  return useSocial(
+    (s) =>
+      Object.values(s.chats).reduce((n, ms) => n + ms.filter((m) => m.recipient === uid && !m.readAt).length, 0) +
+      s.groups.reduce((n, g) => n + groupUnread(g, s.groupChats[g.id], uid), 0),
   );
 }
 
@@ -350,6 +390,190 @@ export async function fetchProfile(profileId: string): Promise<Profile | null> {
   return useSocial.getState().profiles[profileId] ?? null;
 }
 
+// ---------- Reacciones a la actividad ----------
+
+export async function refreshReactions(): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) return;
+  const { data, error } = await client
+    .from('reactions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) return;
+  const reactions = (
+    data as { profile_id: string; target_profile: string; game_id: string; emoji: string; created_at: string }[]
+  ).map((r) => ({
+    profileId: r.profile_id,
+    targetProfile: r.target_profile,
+    gameId: r.game_id,
+    emoji: r.emoji,
+    createdAt: r.created_at,
+  }));
+  useSocial.setState({ reactions });
+  await ensureProfiles(reactions.map((r) => r.profileId));
+}
+
+// Una reacción por persona y actividad: tocar la misma la quita; otra, la cambia.
+export async function toggleReaction(targetProfile: string, gameId: string, emoji: string): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) return;
+  const current = useSocial
+    .getState()
+    .reactions.find((r) => r.profileId === uid && r.targetProfile === targetProfile && r.gameId === gameId);
+  const others = useSocial.getState().reactions.filter((r) => r !== current);
+  if (current?.emoji === emoji) {
+    useSocial.setState({ reactions: others });
+    await client
+      .from('reactions')
+      .delete()
+      .eq('profile_id', uid)
+      .eq('target_profile', targetProfile)
+      .eq('game_id', gameId);
+    return;
+  }
+  const next: Reaction = { profileId: uid, targetProfile, gameId, emoji, createdAt: new Date().toISOString() };
+  useSocial.setState({ reactions: [next, ...others] });
+  const { error } = await client
+    .from('reactions')
+    .upsert({ profile_id: uid, target_profile: targetProfile, game_id: gameId, emoji, created_at: next.createdAt });
+  if (error) {
+    useSocial.setState({ reactions: useSocial.getState().reactions.filter((r) => r !== next) });
+    throw new Error(error.message);
+  }
+}
+
+// ---------- Chats de grupo ----------
+
+export async function refreshGroups(): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) return;
+  const { data: mine, error } = await client
+    .from('chat_group_members')
+    .select('group_id,last_read_at')
+    .eq('profile_id', uid);
+  if (error) return;
+  const ids = (mine as { group_id: string; last_read_at: string }[]).map((m) => m.group_id);
+  if (!ids.length) {
+    useSocial.setState({ groups: [], groupChats: {} });
+    return;
+  }
+  const [{ data: groups }, { data: members }, { data: msgs }] = await Promise.all([
+    client.from('chat_groups').select('*').in('id', ids),
+    client.from('chat_group_members').select('group_id,profile_id').in('group_id', ids),
+    client.from('group_messages').select('*').in('group_id', ids).order('created_at', { ascending: false }).limit(500),
+  ]);
+  const readAt = new Map(
+    (mine as { group_id: string; last_read_at: string }[]).map((m) => [m.group_id, m.last_read_at]),
+  );
+  const list: ChatGroup[] = ((groups as { id: string; name: string; created_by: string }[] | null) ?? []).map((g) => ({
+    id: g.id,
+    name: g.name,
+    createdBy: g.created_by,
+    members: ((members as { group_id: string; profile_id: string }[] | null) ?? [])
+      .filter((m) => m.group_id === g.id)
+      .map((m) => m.profile_id),
+    lastReadAt: readAt.get(g.id) ?? '',
+  }));
+  const groupChats: Record<string, GroupMessage[]> = {};
+  for (const m of ((msgs as GroupMessageRow[] | null) ?? []).map(fromGroupMessage))
+    (groupChats[m.groupId] ??= []).push(m);
+  for (const k of Object.keys(groupChats)) groupChats[k].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  useSocial.setState({ groups: list, groupChats });
+  await ensureProfiles(list.flatMap((g) => g.members));
+  await ensureGames(Object.values(groupChats).flatMap((ms) => ms.map((m) => m.gameId).filter((g): g is string => !!g)));
+}
+
+export async function createGroup(name: string, members: string[]): Promise<string> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) throw new Error('Necesitas conexión');
+  const { data, error } = await client
+    .from('chat_groups')
+    .insert({ name: name.trim(), created_by: uid })
+    .select('*')
+    .single();
+  if (error) throw new Error(isMissing(error) ? 'Falta ejecutar el SQL de grupos' : error.message);
+  const id = (data as { id: string }).id;
+  const r1 = await client.from('chat_group_members').insert({ group_id: id, profile_id: uid });
+  if (r1.error) throw new Error(r1.error.message);
+  if (members.length) {
+    const r2 = await client.from('chat_group_members').insert(members.map((p) => ({ group_id: id, profile_id: p })));
+    if (r2.error) throw new Error(r2.error.message);
+  }
+  await refreshGroups();
+  return id;
+}
+
+export async function addGroupMembers(groupId: string, members: string[]): Promise<void> {
+  const client = getSupabase();
+  if (!client || !members.length) return;
+  const { error } = await client
+    .from('chat_group_members')
+    .insert(members.map((p) => ({ group_id: groupId, profile_id: p })));
+  if (error) throw new Error(error.message);
+  await refreshGroups();
+}
+
+export async function leaveGroup(groupId: string): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) return;
+  await client.from('chat_group_members').delete().eq('group_id', groupId).eq('profile_id', uid);
+  await refreshGroups();
+}
+
+export async function sendGroupMessage(groupId: string, body: string, gameId?: string | null): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  const text = body.trim();
+  if (!client || !uid || (!text && !gameId)) return;
+  const temp: GroupMessage = {
+    id: `tmp-${Date.now()}`,
+    groupId,
+    sender: uid,
+    body: text,
+    gameId: gameId ?? null,
+    createdAt: new Date().toISOString(),
+    pending: true,
+  };
+  useSocial.setState((s) => ({ groupChats: { ...s.groupChats, [groupId]: [...(s.groupChats[groupId] ?? []), temp] } }));
+  if (gameId) {
+    const g = useStore.getState().games[gameId];
+    if (g) await client.from('games').upsert(toGameRow(g, g.source === 'igdb' || g.source === 'rawg' ? null : uid));
+  }
+  const { data, error } = await client
+    .from('group_messages')
+    .insert({ group_id: groupId, sender: uid, body: text, game_id: gameId ?? null })
+    .select('*')
+    .single();
+  useSocial.setState((s) => ({
+    groupChats: {
+      ...s.groupChats,
+      [groupId]: (s.groupChats[groupId] ?? [])
+        .filter((m) => m.id !== temp.id && (!data || m.id !== (data as GroupMessageRow).id))
+        .concat(data ? [fromGroupMessage(data as GroupMessageRow)] : []),
+    },
+  }));
+  if (error) throw new Error(error.message);
+}
+
+export async function markGroupRead(groupId: string): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) return;
+  const now = new Date().toISOString();
+  useSocial.setState((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, lastReadAt: now } : g)) }));
+  await client.from('chat_group_members').update({ last_read_at: now }).eq('group_id', groupId).eq('profile_id', uid);
+}
+
+export function groupUnread(g: ChatGroup, msgs: GroupMessage[] | undefined, uid: string | null): number {
+  return (msgs ?? []).filter((m) => m.sender !== uid && m.createdAt > g.lastReadAt).length;
+}
+
 // ---------- Tiempo real ----------
 
 let channel: RealtimeChannel | null = null;
@@ -358,13 +582,21 @@ export function startSocial(): () => void {
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) return () => undefined;
+  setupLocalNotifications().catch(() => undefined);
   refreshFriends()
-    .then(() => Promise.all([refreshInbox(), refreshActivity()]))
+    .then(() => Promise.all([refreshInbox(), refreshActivity(), refreshReactions(), refreshGroups()]))
+    .then(() => import('./challenges').then(({ refreshChallenges }) => refreshChallenges()))
     .catch(() => undefined);
   if (channel) client.removeChannel(channel);
-  const onMessage = (row: MessageRow) => {
+  const nameOf = (id: string) => useSocial.getState().profiles[id]?.displayName ?? 'Saga Quest';
+  const onMessage = (row: MessageRow, fresh = false) => {
     const m = fromMessage(row);
     const other = otherOf(m, uid);
+    if (fresh && m.sender !== uid) {
+      ensureProfiles([other])
+        .then(() => notifyLocal(nameOf(other), m.gameId ? '🎮 Te ha recomendado un juego' : m.body, `/chat/${other}`))
+        .catch(() => undefined);
+    }
     useSocial.setState((s) => {
       const list = (s.chats[other] ?? []).filter((x) => x.id !== m.id && !(x.pending && x.body === m.body));
       return { chats: { ...s.chats, [other]: [...list, m].sort((a, b) => a.createdAt.localeCompare(b.createdAt)) } };
@@ -377,12 +609,61 @@ export function startSocial(): () => void {
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient=eq.${uid}` },
-      (p) => onMessage(p.new as MessageRow),
+      (p) => onMessage(p.new as MessageRow, true),
     )
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender=eq.${uid}` }, (p) =>
       onMessage(p.new as MessageRow),
     )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => {
+      const m = fromGroupMessage(p.new as GroupMessageRow);
+      if (m.sender !== uid) {
+        const g = useSocial.getState().groups.find((x) => x.id === m.groupId);
+        notifyLocal(
+          g?.name ?? 'Grupo',
+          `${nameOf(m.sender)}: ${m.gameId ? '🎮 un juego' : m.body}`,
+          `/group/${m.groupId}`,
+        );
+      }
+      if (!useSocial.getState().groups.some((g) => g.id === m.groupId)) {
+        refreshGroups().catch(() => undefined);
+        return;
+      }
+      useSocial.setState((s) => {
+        const list = (s.groupChats[m.groupId] ?? []).filter(
+          (x) => x.id !== m.id && !(x.pending && x.body === m.body && x.sender === m.sender),
+        );
+        return {
+          groupChats: {
+            ...s.groupChats,
+            [m.groupId]: [...list, m].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+          },
+        };
+      });
+      if (m.gameId) ensureGames([m.gameId]).catch(() => undefined);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_group_members' }, () => {
+      refreshGroups().catch(() => undefined);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => {
+      refreshReactions().catch(() => undefined);
+    })
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'challenge_members', filter: `profile_id=eq.${uid}` },
+      () => {
+        import('./challenges')
+          .then(({ refreshChallenges }) => refreshChallenges())
+          .then(() => notifyLocal('¡Te han retado!', 'Tienes un reto nuevo en Saga Quest', '/challenges'))
+          .catch(() => undefined);
+      },
+    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, (p) => {
+      const row = p.new as FriendshipRow | undefined;
+      if (p.eventType === 'INSERT' && row?.addressee === uid) {
+        ensureProfiles([row.requester])
+          .then(() => notifyLocal('Solicitud de amistad', `${nameOf(row.requester)} quiere ser tu amigo`, '/social'))
+          .catch(() => undefined);
+      }
       refreshFriends()
         .then(refreshActivity)
         .catch(() => undefined);
@@ -416,4 +697,25 @@ export async function fetchUserLists(profileId: string): Promise<void> {
     items: { ...remote.items, ...Object.fromEntries(itemRows.map((r) => [r.id, fromItemRow(r)])) },
     games: { ...remote.games, ...useSocial.getState().games },
   });
+}
+
+// ---------- Listas cooperativas ----------
+
+export async function addListMember(listId: string, profileId: string): Promise<void> {
+  const client = getSupabase();
+  const uid = me();
+  if (!client || !uid) throw new Error('Necesitas conexión');
+  const { error } = await client.from('list_members').insert({ list_id: listId, profile_id: profileId, added_by: uid });
+  if (error && !/duplicate/i.test(error.message)) {
+    throw new Error(isMissing(error) ? 'Falta ejecutar el SQL de listas cooperativas' : error.message);
+  }
+  await syncNow();
+}
+
+export async function removeListMember(listId: string, profileId: string): Promise<void> {
+  const client = getSupabase();
+  if (!client) throw new Error('Necesitas conexión');
+  const { error } = await client.from('list_members').delete().eq('list_id', listId).eq('profile_id', profileId);
+  if (error) throw new Error(error.message);
+  await syncNow();
 }

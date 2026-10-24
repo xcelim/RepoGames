@@ -54,6 +54,12 @@
           "photosPermission": "Saga Quest usa tus fotos para que elijas tu foto de perfil.",
           "cameraPermission": "Saga Quest usa la cámara para escanear el código de barras de tus juegos."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#7b2ff7"
+        }
       ]
     ],
     "experiments": {

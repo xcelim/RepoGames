@@ -212,9 +212,7 @@ export const useStore = create<Store>()(
             profiles,
             follows,
             currentProfileId:
-              state.currentProfileId === profileId
-                ? (Object.keys(profiles)[0] ?? null)
-                : state.currentProfileId,
+              state.currentProfileId === profileId ? (Object.keys(profiles)[0] ?? null) : state.currentProfileId,
             lists: withoutKeys(state.lists, (list) => list.ownerId !== profileId),
             items: withoutKeys(state.items, (item) => !listIds.has(item.listId)),
             userGames: withoutKeys(state.userGames, (entry) => entry.profileId !== profileId),
@@ -310,9 +308,7 @@ export const useStore = create<Store>()(
         updateList: (listId, patch) => {
           const list = get().lists[listId];
           if (!list) return;
-          const clean = Object.fromEntries(
-            Object.entries(patch).filter(([, value]) => value !== undefined),
-          );
+          const clean = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
           set({ lists: { ...get().lists, [listId]: { ...list, ...clean, updatedAt: now() } } });
         },
 
@@ -336,9 +332,7 @@ export const useStore = create<Store>()(
         toggleFollow: (listId) => {
           const profileId = requireProfile();
           const current = get().follows[profileId] ?? [];
-          const next = current.includes(listId)
-            ? current.filter((id) => id !== listId)
-            : [...current, listId];
+          const next = current.includes(listId) ? current.filter((id) => id !== listId) : [...current, listId];
           set({ follows: { ...get().follows, [profileId]: next } });
         },
 
@@ -358,9 +352,7 @@ export const useStore = create<Store>()(
         },
 
         removeFromList: (listId, gameId) => {
-          const remaining = itemsOfList(get().items, listId).filter(
-            (item) => item.gameId !== gameId,
-          );
+          const remaining = itemsOfList(get().items, listId).filter((item) => item.gameId !== gameId);
           const items = withoutKeys(get().items, (item) => item.listId !== listId);
           remaining.forEach((item, position) => {
             items[item.id] = { ...item, position };
@@ -587,16 +579,22 @@ export function persistedPart(state: Store): Persisted {
     ...Object.fromEntries(Object.entries(state.items).filter(([, i]) => i.listId.startsWith('official-'))),
   };
   const userGames = pick('user_games', state.userGames, (_, v: UserGame) => v.gameId);
-  const neededGames = new Set([...Object.values(items).map((i) => i.gameId), ...Object.values(userGames).map((u) => u.gameId)]);
+  const neededGames = new Set([
+    ...Object.values(items).map((i) => i.gameId),
+    ...Object.values(userGames).map((u) => u.gameId),
+  ]);
   return {
     ...data,
-    profiles: state.currentProfileId && state.profiles[state.currentProfileId]
-      ? { [state.currentProfileId]: state.profiles[state.currentProfileId] }
-      : {},
+    profiles:
+      state.currentProfileId && state.profiles[state.currentProfileId]
+        ? { [state.currentProfileId]: state.profiles[state.currentProfileId] }
+        : {},
     lists: pick('lists', state.lists, (k) => k),
     items,
     userGames,
-    games: Object.fromEntries(Object.entries(state.games).filter(([k]) => neededGames.has(k) || dirty[`games|${k}`] !== undefined)),
+    games: Object.fromEntries(
+      Object.entries(state.games).filter(([k]) => neededGames.has(k) || dirty[`games|${k}`] !== undefined),
+    ),
   };
 }
 

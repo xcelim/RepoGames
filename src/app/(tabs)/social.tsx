@@ -7,10 +7,16 @@ import {
   acceptFriend,
   refreshActivity,
   refreshFriends,
+  groupUnread,
+  REACTIONS,
+  refreshGroups,
   refreshInbox,
+  refreshReactions,
   removeFriend,
+  toggleReaction,
   useSocial,
   type Message,
+  type Reaction,
 } from '@/cloud/social';
 import { GameCover } from '@/components/games';
 import { Card, DarkButton, HeaderIcon, IgnScreen, LightButton, timeAgo, useIgnColors } from '@/components/ign';
@@ -18,7 +24,9 @@ import { OfflineGate } from '@/components/offline';
 import { Segmented } from '@/components/Segmented';
 import { ThemedText } from '@/components/ThemedText';
 import { PersonRow } from '@/components/PersonRow';
+import { Avatar } from '@/components/ui';
 import { UserAvatar } from '@/components/UserAvatar';
+import { notify } from '@/utils/notify';
 import { STATUS_META } from '@/data/meta';
 import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
@@ -29,7 +37,8 @@ function SocialInner() {
   const c = useIgnColors();
   const uid = useStore((s) => s.cloudUserId);
   const localGames = useStore((s) => s.games);
-  const { ready, missingTables, friendships, profiles, chats, activity, games } = useSocial();
+  const { ready, missingTables, friendships, profiles, chats, activity, games, groups, groupChats, reactions } =
+    useSocial();
   const [tab, setTab] = useState<Tab>('chats');
   const [busy, setBusy] = useState(false);
 
@@ -52,12 +61,29 @@ function SocialInner() {
         .sort((a, b) => b.last.createdAt.localeCompare(a.last.createdAt)),
     [chats, uid],
   );
+  // Conversaciones y grupos juntos, lo más reciente arriba.
+  const threads = useMemo(() => {
+    const dms = convos.map((x) => ({ kind: 'dm' as const, key: x.other, at: x.last.createdAt, ...x }));
+    const gs = groups.map((g) => {
+      const ms = groupChats[g.id] ?? [];
+      const last = ms[ms.length - 1];
+      return {
+        kind: 'group' as const,
+        key: g.id,
+        at: last?.createdAt ?? '',
+        group: g,
+        last,
+        unread: groupUnread(g, ms, uid),
+      };
+    });
+    return [...dms, ...gs].sort((a, b) => b.at.localeCompare(a.at));
+  }, [convos, groups, groupChats, uid]);
 
   const reload = async () => {
     setBusy(true);
     try {
       await refreshFriends();
-      await Promise.all([refreshInbox(), refreshActivity()]);
+      await Promise.all([refreshInbox(), refreshActivity(), refreshGroups(), refreshReactions()]);
     } finally {
       setBusy(false);
     }
@@ -87,7 +113,8 @@ function SocialInner() {
       title="Amigos"
       right={
         <>
-          <HeaderIcon icon="refresh" label="Actualizar" onPress={reload} />
+          <HeaderIcon icon="trophy-outline" label="Retos" onPress={() => router.push('/challenges')} />
+          <HeaderIcon icon="podium-outline" label="Clasificación" onPress={() => router.push('/leaderboard')} />
           <HeaderIcon icon="person-add-outline" label="Añadir amigos" onPress={() => router.push('/friends')} />
         </>
       }
@@ -106,7 +133,18 @@ function SocialInner() {
 
       {tab === 'chats' ? (
         <View style={styles.section}>
-          {convos.length === 0 ? (
+          {friends.length ? (
+            <Pressable
+              onPress={() => router.push('/group/new')}
+              style={[styles.newGroup, { borderColor: c.line, borderRadius: c.radius }]}
+            >
+              <Ionicons name="people-circle-outline" size={22} color={c.text} />
+              <ThemedText variant="bold" size={13}>
+                Nuevo grupo
+              </ThemedText>
+            </Pressable>
+          ) : null}
+          {threads.length === 0 ? (
             <Empty
               icon="chatbubbles-outline"
               text={
@@ -117,7 +155,53 @@ function SocialInner() {
               action={friends.length ? undefined : { label: 'Buscar amigos', onPress: () => router.push('/friends') }}
             />
           ) : (
-            convos.map(({ other, last, unread }) => {
+            threads.map((t) => {
+              if (t.kind === 'group') {
+                const g = t.group;
+                return (
+                  <Pressable
+                    key={g.id}
+                    onPress={() => router.push(`/group/${g.id}`)}
+                    style={[styles.row, { borderBottomColor: c.line }]}
+                  >
+                    <View style={[styles.groupIcon, { backgroundColor: c.soft }]}>
+                      {g.members.slice(0, 3).map((pid, i) => {
+                        const p = profiles[pid];
+                        return p ? (
+                          <View key={pid} style={[styles.groupFace, { left: i * 12, top: i % 2 ? 16 : 4 }]}>
+                            <Avatar name={p.displayName} color={p.avatarColor} uri={p.photo} size={26} />
+                          </View>
+                        ) : null;
+                      })}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.rowTop}>
+                        <ThemedText variant="bold" size={15} numberOfLines={1} style={{ flex: 1 }}>
+                          {g.name}
+                        </ThemedText>
+                        {t.last ? (
+                          <ThemedText variant="muted" size={11}>
+                            {timeAgo(t.last.createdAt)}
+                          </ThemedText>
+                        ) : null}
+                      </View>
+                      <ThemedText variant={t.unread ? 'bold' : 'muted'} size={13} numberOfLines={1}>
+                        {t.last
+                          ? `${t.last.sender === uid ? 'Tú' : (profiles[t.last.sender]?.displayName ?? '?')}: ${t.last.gameId ? `🎮 ${gameOf(t.last.gameId)?.title ?? 'Un juego'}` : t.last.body}`
+                          : `${g.members.length} miembros`}
+                      </ThemedText>
+                    </View>
+                    {t.unread ? (
+                      <View style={[styles.dot, { backgroundColor: c.accent }]}>
+                        <ThemedText variant="bold" size={11} style={{ color: '#fff' }}>
+                          {t.unread}
+                        </ThemedText>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              }
+              const { other, last, unread } = t;
               const p = profiles[other];
               return (
                 <Pressable
@@ -193,6 +277,15 @@ function SocialInner() {
                         “{ug.spoilers ? 'Reseña con spoilers' : ug.review}”
                       </ThemedText>
                     ) : null}
+                    <ReactionBar
+                      reactions={reactions.filter((r) => r.targetProfile === ug.profileId && r.gameId === ug.gameId)}
+                      uid={uid}
+                      onPick={(e) =>
+                        toggleReaction(ug.profileId, ug.gameId, e).catch((err: unknown) =>
+                          notify(err instanceof Error ? err.message : 'No se pudo'),
+                        )
+                      }
+                    />
                   </View>
                   <GameCover game={g} width={44} radius={4} />
                 </Pressable>
@@ -263,6 +356,46 @@ function SocialInner() {
         </View>
       ) : null}
     </IgnScreen>
+  );
+}
+
+function ReactionBar({
+  reactions,
+  uid,
+  onPick,
+}: {
+  reactions: Reaction[];
+  uid: string | null;
+  onPick: (emoji: string) => void;
+}) {
+  const c = useIgnColors();
+  const mine = reactions.find((r) => r.profileId === uid)?.emoji;
+  return (
+    <View style={styles.reactions}>
+      {REACTIONS.map((e) => {
+        const n = reactions.filter((r) => r.emoji === e).length;
+        const active = mine === e;
+        return (
+          <Pressable
+            key={e}
+            onPress={() => onPick(e)}
+            hitSlop={4}
+            style={[
+              styles.reaction,
+              {
+                backgroundColor: active ? c.accent + '33' : 'transparent',
+                borderColor: active ? c.accent : 'transparent',
+              },
+            ]}
+          >
+            <ThemedText size={n ? 14 : 13} style={{ opacity: n || active ? 1 : 0.45 }}>
+              {e}
+              {n ? ` ${n}` : ''}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -342,5 +475,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   small: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
+  newGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 6,
+    alignSelf: 'flex-start',
+  },
+  groupIcon: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
+  groupFace: { position: 'absolute' },
+  reactions: { flexDirection: 'row', gap: 2, marginTop: 4, flexWrap: 'wrap' },
+  reaction: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 12, borderWidth: 1 },
   empty: { alignItems: 'center', gap: 12, paddingVertical: 40, paddingHorizontal: 20 },
 });

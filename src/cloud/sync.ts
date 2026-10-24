@@ -36,7 +36,8 @@ function check<T>(result: { data: T; error: { message: string } | null }): T {
 function friendly(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Correo o contraseña incorrectos.';
   if (/email not confirmed/i.test(message)) return 'Confirma primero tu correo (revisa tu bandeja de entrada).';
-  if (/already registered|already been registered/i.test(message)) return 'Ya hay una cuenta con ese correo. Entra con él.';
+  if (/already registered|already been registered/i.test(message))
+    return 'Ya hay una cuenta con ese correo. Entra con él.';
   if (/password should be at least/i.test(message)) return 'La contraseña debe tener al menos 6 caracteres.';
   if (/unable to validate email|invalid email/i.test(message)) return 'Ese correo no es válido.';
   if (/network request failed|failed to fetch/i.test(message)) return 'Sin conexión. Inténtalo cuando tengas internet.';
@@ -61,15 +62,23 @@ async function afterLogin(uid: string, email: string | null): Promise<void> {
         createdAt: new Date().toISOString(),
       };
   // Si en el móvil ya tenías un perfil (de antes de la nube), sus datos se suben a tu cuenta.
-  useStore.getState().adoptAccount(uid, email, hadLocalData ? { ...profile, avatarColor: local!.avatarColor } : profile);
+  useStore
+    .getState()
+    .adoptAccount(uid, email, hadLocalData ? { ...profile, avatarColor: local!.avatarColor } : profile);
   if (hadLocalData || !row) markAllDirty(uid);
   // Cuenta recién creada: se guarda también la estética elegida en la bienvenida.
-  else if (!row.settings?.skin) useStore.setState({ dirty: { ...useStore.getState().dirty, [`profiles|${uid}`]: Date.now() } });
+  else if (!row.settings?.skin)
+    useStore.setState({ dirty: { ...useStore.getState().dirty, [`profiles|${uid}`]: Date.now() } });
   useSync.setState({ ready: false });
   await syncNow();
 }
 
-export async function signUp(data: { email: string; password: string; displayName: string; username: string }): Promise<'ok' | 'confirm'> {
+export async function signUp(data: {
+  email: string;
+  password: string;
+  displayName: string;
+  username: string;
+}): Promise<'ok' | 'confirm'> {
   const client = requireClient();
   const { data: result, error } = await client.auth.signUp({
     email: data.email.trim(),
@@ -118,7 +127,9 @@ export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
   // La puerta de entrada de Supabase pide la clave pública también en el navegador:
   // se añade al enlace (es la clave "anon", pública por diseño).
   const anonKey = cloudConfig()?.anonKey ?? '';
-  const authUrl = data.url.includes('apikey=') ? data.url : `${data.url}${data.url.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(anonKey)}`;
+  const authUrl = data.url.includes('apikey=')
+    ? data.url
+    : `${data.url}${data.url.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(anonKey)}`;
   const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
   if (result.type !== 'success') return 'cancel';
   await completeOAuth(result.url);
@@ -162,7 +173,11 @@ export async function isUsernameFree(username: string): Promise<boolean> {
   return !(data ?? []).length;
 }
 
-export async function finishOnboarding(data: { displayName: string; username: string; avatarColor: string }): Promise<void> {
+export async function finishOnboarding(data: {
+  displayName: string;
+  username: string;
+  avatarColor: string;
+}): Promise<void> {
   const username = data.username.trim().toLowerCase();
   if (!/^[a-z0-9-]{3,30}$/.test(username)) {
     throw new Error('El usuario debe tener entre 3 y 30 letras minúsculas, números o guiones.');
@@ -197,7 +212,9 @@ export async function signOutCloud(force = false): Promise<void> {
   const pending = Object.keys(useStore.getState().dirty).length;
   if (pending && useConnection.getState().online) await flush().catch(() => undefined);
   if (!force && Object.keys(useStore.getState().dirty).length) {
-    throw new Error(`Tienes ${Object.keys(useStore.getState().dirty).length} cambios sin subir. Conéctate a internet antes de cerrar sesión.`);
+    throw new Error(
+      `Tienes ${Object.keys(useStore.getState().dirty).length} cambios sin subir. Conéctate a internet antes de cerrar sesión.`,
+    );
   }
   const client = getSupabase();
   if (client) await client.auth.signOut().catch(() => undefined);

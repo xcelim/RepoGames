@@ -15,14 +15,40 @@ export const STATUS_ORDER: PlayStatus[] = [
 ];
 
 // Los que se ofrecen al elegir estado (el "100 %" se marca desde Más detalles).
-export const STATUS_CHOICES: PlayStatus[] = ['library', 'wishlist', 'backlog', 'playing', 'beaten', 'paused', 'dropped'];
+export const STATUS_CHOICES: PlayStatus[] = [
+  'library',
+  'wishlist',
+  'backlog',
+  'playing',
+  'beaten',
+  'paused',
+  'dropped',
+];
 
 export const STATUS_META: Record<PlayStatus, StatusMeta> = {
-  library: { label: 'Mis juegos', short: 'En biblioteca', caption: 'JUEGOS EN TU BIBLIOTECA', icon: 'library', color: '#6b7080' },
+  library: {
+    label: 'Mis juegos',
+    short: 'En biblioteca',
+    caption: 'JUEGOS EN TU BIBLIOTECA',
+    icon: 'library',
+    color: '#6b7080',
+  },
   wishlist: { label: 'Deseados', short: 'Deseado', caption: 'LO QUIERO', icon: 'star', color: '#8f95a8' },
   backlog: { label: 'Pendientes', short: 'Pendiente', caption: 'PIENSO JUGARLO', icon: 'albums', color: '#7b5cf0' },
-  playing: { label: 'Jugando', short: 'Jugando', caption: 'EMPEZADO O EN CURSO', icon: 'game-controller', color: '#17b4d4' },
-  paused: { label: 'En pausa', short: 'En pausa', caption: 'ME ESTOY TOMANDO UN DESCANSO', icon: 'pause', color: '#f59e0b' },
+  playing: {
+    label: 'Jugando',
+    short: 'Jugando',
+    caption: 'EMPEZADO O EN CURSO',
+    icon: 'game-controller',
+    color: '#17b4d4',
+  },
+  paused: {
+    label: 'En pausa',
+    short: 'En pausa',
+    caption: 'ME ESTOY TOMANDO UN DESCANSO',
+    icon: 'pause',
+    color: '#f59e0b',
+  },
   beaten: { label: 'Terminados', short: 'Terminado', caption: 'LO HE COMPLETADO', icon: 'checkmark', color: '#6aa834' },
   completed: { label: 'Al 100 %', short: '100 %', caption: 'LO HE SACADO TODO', icon: 'trophy', color: '#c9a227' },
   dropped: { label: 'Abandonados', short: 'Abandonado', caption: 'NO VOLVERÉ', icon: 'stop', color: '#e5484d' },
@@ -217,13 +243,4 @@ export const LIST_ICONS = [
   'library',
 ];
 
-export const AVATAR_COLORS = [
-  '#ff2a4d',
-  '#7b2ff7',
-  '#3fa7ff',
-  '#2f9e58',
-  '#f2a93b',
-  '#e66cc4',
-  '#11998e',
-  '#5c6370',
-];
+export const AVATAR_COLORS = ['#ff2a4d', '#7b2ff7', '#3fa7ff', '#2f9e58', '#f2a93b', '#e66cc4', '#11998e', '#5c6370'];

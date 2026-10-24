@@ -34,7 +34,13 @@ function SettingsForm({ value, onChange }: { value: Settings; onChange: (patch: 
   const c = useIgnColors();
   return (
     <View style={{ gap: 16 }}>
-      <TextField label="Nombre" value={value.name} onChangeText={(name) => onChange({ name })} placeholder="2026, Mis RPG, Pendientes…" maxLength={60} />
+      <TextField
+        label="Nombre"
+        value={value.name}
+        onChangeText={(name) => onChange({ name })}
+        placeholder="2026, Mis RPG, Pendientes…"
+        maxLength={60}
+      />
       <TextField
         label="Descripción"
         value={value.description}
@@ -56,7 +62,9 @@ function SettingsForm({ value, onChange }: { value: Settings; onChange: (patch: 
           ]}
         />
         <ThemedText variant="muted" size={12}>
-          {value.visibility === 'public' ? 'Cualquiera puede verla, seguirla y copiarla a su perfil.' : 'Solo tú puedes verla.'}
+          {value.visibility === 'public'
+            ? 'Cualquiera puede verla, seguirla y copiarla a su perfil.'
+            : 'Solo tú puedes verla.'}
         </ThemedText>
       </View>
       <View style={{ gap: 8 }}>
@@ -67,7 +75,11 @@ function SettingsForm({ value, onChange }: { value: Settings; onChange: (patch: 
           {LIST_COLORS.map((pair) => {
             const on = pair[0] === value.colors[0] && pair[1] === value.colors[1];
             return (
-              <Pressable key={pair.join()} onPress={() => onChange({ colors: pair })} style={[styles.swatch, { borderColor: on ? c.text : 'transparent' }]}>
+              <Pressable
+                key={pair.join()}
+                onPress={() => onChange({ colors: pair })}
+                style={[styles.swatch, { borderColor: on ? c.text : 'transparent' }]}
+              >
                 <LinearGradient colors={pair} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.swatchFill} />
               </Pressable>
             );
@@ -100,13 +112,26 @@ function SettingsForm({ value, onChange }: { value: Settings; onChange: (patch: 
 function NewList({ addGame }: { addGame?: string }) {
   const createList = useStore((s) => s.createList);
   const addToList = useStore((s) => s.addToList);
-  const [value, setValue] = useState<Settings>({ name: '', description: '', visibility: 'private', colors: LIST_COLORS[1], icon: 'albums' });
+  const [value, setValue] = useState<Settings>({
+    name: '',
+    description: '',
+    visibility: 'private',
+    colors: LIST_COLORS[1],
+    icon: 'albums',
+  });
   const create = () => {
     if (!value.name.trim()) {
       Alert.alert('Ponle un nombre', 'Por ejemplo «2026» o «Pendientes de PS5».');
       return;
     }
-    const newId = createList({ name: value.name, description: value.description, visibility: value.visibility, color: value.colors[0], color2: value.colors[1], icon: value.icon });
+    const newId = createList({
+      name: value.name,
+      description: value.description,
+      visibility: value.visibility,
+      color: value.colors[0],
+      color2: value.colors[1],
+      icon: value.icon,
+    });
     if (addGame) {
       addToList(newId, addGame);
       notify('Lista creada con el juego');
@@ -136,6 +161,7 @@ function EditItems({ list }: { list: GameList }) {
   const removeFromList = useStore((s) => s.removeFromList);
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<Entry | null>(null);
+  const isOwner = useStore((s) => s.currentProfileId === list.ownerId);
   useFillBasics(entries.map((e) => e.game));
 
   const settings: Settings = {
@@ -162,21 +188,27 @@ function EditItems({ list }: { list: GameList }) {
         </Pressable>
       </View>
       <ThemedText variant="display" size={32} style={{ marginTop: 10, marginBottom: 16 }}>
-        Editar lista
+        {isOwner ? 'Editar lista' : 'Editar orden'}
       </ThemedText>
-      <Card padded={false} style={{ marginBottom: 14 }}>
-        <Pressable onPress={() => setOpen((o) => !o)} style={styles.settingsHead}>
-          <ThemedText size={17} style={{ flex: 1 }}>
-            Ajustes
-          </ThemedText>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
-        </Pressable>
-        {open ? (
-          <View style={{ padding: 18, paddingTop: 0 }}>
-            <SettingsForm value={settings} onChange={change} />
-          </View>
-        ) : null}
-      </Card>
+      {isOwner ? (
+        <Card padded={false} style={{ marginBottom: 14 }}>
+          <Pressable onPress={() => setOpen((o) => !o)} style={styles.settingsHead}>
+            <ThemedText size={17} style={{ flex: 1 }}>
+              Ajustes
+            </ThemedText>
+            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
+          </Pressable>
+          {open ? (
+            <View style={{ padding: 18, paddingTop: 0 }}>
+              <SettingsForm value={settings} onChange={change} />
+            </View>
+          ) : null}
+        </Card>
+      ) : (
+        <ThemedText variant="muted" size={12} style={{ marginBottom: 12 }}>
+          Lista cooperativa: lo que cambies aquí lo verán todos los que están en ella.
+        </ThemedText>
+      )}
       {entries.length === 0 ? (
         <ThemedText variant="muted" size={14} style={{ marginVertical: 20 }}>
           No hay juegos todavía. Pulsa ⊕ para añadir.
@@ -202,16 +234,43 @@ function EditItems({ list }: { list: GameList }) {
         renderRow={(entry, index, handle) => (
           <View style={[styles.rowWrap, { backgroundColor: c.bg }]}>
             <View style={{ flex: 1 }}>
-              <GameLine game={entry.game} rank={index + 1} status={entry.userGame?.status} onPress={() => setMenu(entry)} right={handle} />
+              <GameLine
+                game={entry.game}
+                rank={index + 1}
+                status={entry.userGame?.status}
+                onPress={() => setMenu(entry)}
+                right={handle}
+              />
             </View>
           </View>
         )}
       />
       {menu ? (
         <Sheet visible title={menu.game.title} onClose={() => setMenu(null)}>
-          <SheetRow label="Ver ficha del juego" right={<Ionicons name="open-outline" size={22} color={c.text} />} onPress={() => { setMenu(null); router.push(`/game/${encodeURIComponent(menu.game.id)}`); }} />
-          <SheetRow label="Mover al principio" right={<Ionicons name="arrow-up" size={22} color={c.text} />} onPress={() => { moveInList(list.id, entries.indexOf(menu), 0); setMenu(null); }} />
-          <SheetRow label="Mover al final" right={<Ionicons name="arrow-down" size={22} color={c.text} />} onPress={() => { moveInList(list.id, entries.indexOf(menu), entries.length - 1); setMenu(null); }} />
+          <SheetRow
+            label="Ver ficha del juego"
+            right={<Ionicons name="open-outline" size={22} color={c.text} />}
+            onPress={() => {
+              setMenu(null);
+              router.push(`/game/${encodeURIComponent(menu.game.id)}`);
+            }}
+          />
+          <SheetRow
+            label="Mover al principio"
+            right={<Ionicons name="arrow-up" size={22} color={c.text} />}
+            onPress={() => {
+              moveInList(list.id, entries.indexOf(menu), 0);
+              setMenu(null);
+            }}
+          />
+          <SheetRow
+            label="Mover al final"
+            right={<Ionicons name="arrow-down" size={22} color={c.text} />}
+            onPress={() => {
+              moveInList(list.id, entries.indexOf(menu), entries.length - 1);
+              setMenu(null);
+            }}
+          />
           <SheetRow
             label="Quitar de la lista"
             right={<Ionicons name="trash-outline" size={22} color="#e5484d" />}

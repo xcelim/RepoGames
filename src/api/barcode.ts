@@ -53,7 +53,10 @@ const NOISE = [
 export function cleanProductTitle(raw: string): string {
   let t = raw.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ');
   for (const w of [...PLATFORM_WORDS, ...NOISE]) {
-    t = t.replace(new RegExp(`(^|[\\s\\-–—:|,/])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s\\-–—:|,/])`, 'gi'), ' ');
+    t = t.replace(
+      new RegExp(`(^|[\\s\\-–—:|,/])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s\\-–—:|,/])`, 'gi'),
+      ' ',
+    );
   }
   return t
     .replace(/(\s*[-–—|,/]\s*)+$/g, '')

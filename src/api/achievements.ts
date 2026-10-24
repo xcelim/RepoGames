@@ -80,7 +80,13 @@ async function fromSteam(appId: number): Promise<Achievement[] | null> {
   }));
 }
 
-type RawgAchievement = { id: number; name: string; description?: string; image?: string | null; percent?: string | number };
+type RawgAchievement = {
+  id: number;
+  name: string;
+  description?: string;
+  image?: string | null;
+  percent?: string | number;
+};
 type Page = { count: number; next: string | null; results: RawgAchievement[] };
 
 async function fromRawg(game: GameRecord): Promise<Achievement[]> {

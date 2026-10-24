@@ -7,7 +7,18 @@ import { toGameRecord } from '@/api/games';
 import type { OnlineResult } from '@/api/types';
 import { GameCover } from '@/components/games';
 import { useGameSheets } from '@/components/gameSheets';
-import { Card, Collage, CoverTile, formatUsDate, HeaderIcon, IgnScreen, ProgressBar, RankCircle, SectionHeader, useIgnColors } from '@/components/ign';
+import {
+  Card,
+  Collage,
+  CoverTile,
+  formatUsDate,
+  HeaderIcon,
+  IgnScreen,
+  ProgressBar,
+  RankCircle,
+  SectionHeader,
+  useIgnColors,
+} from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { OFFICIAL_LISTS, OFFICIAL_PROFILE } from '@/data/catalog';
 import { useCommunityLists, useListCount, useListPreview, useListProgress, useProfileLookup } from '@/hooks/useLists';
@@ -35,11 +46,30 @@ function DiscoverScreenInner() {
   const cardW = Math.min(width - 64, 420);
 
   return (
-    <IgnScreen title="Descubrir" right={<HeaderIcon icon="search" label="Buscar" onPress={() => router.push('/search')} />}>
-      <SectionHeader title="Listas destacadas" subtitle="Los canónicos de cada saga en su mejor versión, elegidos por Saga Quest." />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow} snapToInterval={cardW + 14} decelerationRate="fast">
+    <IgnScreen
+      title="Descubrir"
+      right={<HeaderIcon icon="search" label="Buscar" onPress={() => router.push('/search')} />}
+    >
+      <SectionHeader
+        title="Listas destacadas"
+        subtitle="Los canónicos de cada saga en su mejor versión, elegidos por Saga Quest."
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.hRow}
+        snapToInterval={cardW + 14}
+        decelerationRate="fast"
+      >
         {OFFICIAL_LISTS.map((list) => (
-          <FeaturedCard key={list.id} list={list} games={preview(list.id)} count={count(list.id)} width={cardW} author={OFFICIAL_PROFILE.displayName} />
+          <FeaturedCard
+            key={list.id}
+            list={list}
+            games={preview(list.id)}
+            count={count(list.id)}
+            width={cardW}
+            author={OFFICIAL_PROFILE.displayName}
+          />
         ))}
       </ScrollView>
 
@@ -49,7 +79,10 @@ function DiscoverScreenInner() {
 
       {community.length ? (
         <View style={styles.section}>
-          <SectionHeader title="Listas de la comunidad" subtitle="Listas públicas de otros jugadores. Síguelas o cópialas a tu perfil." />
+          <SectionHeader
+            title="Listas de la comunidad"
+            subtitle="Listas públicas de otros jugadores. Síguelas o cópialas a tu perfil."
+          />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
             {community.slice(0, 12).map((list) => (
               <FeaturedCard
@@ -70,10 +103,25 @@ function DiscoverScreenInner() {
   );
 }
 
-function FeaturedCard({ list, games, count, width, author }: { list: GameList; games: GameRecord[]; count: number; width: number; author: string }) {
+function FeaturedCard({
+  list,
+  games,
+  count,
+  width,
+  author,
+}: {
+  list: GameList;
+  games: GameRecord[];
+  count: number;
+  width: number;
+  author: string;
+}) {
   const { pct } = useListProgress()(list.id);
   return (
-    <Pressable onPress={() => router.push(`/list/${list.id}`)} style={({ pressed }) => ({ width, opacity: pressed ? 0.85 : 1 })}>
+    <Pressable
+      onPress={() => router.push(`/list/${list.id}`)}
+      style={({ pressed }) => ({ width, opacity: pressed ? 0.85 : 1 })}
+    >
       <Collage list={list} games={games} width={width} height={width * 0.72} />
       <ThemedText size={16} numberOfLines={1} style={{ marginTop: 10 }}>
         {list.name}
@@ -113,13 +161,24 @@ function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number;
   }
   return (
     <View style={styles.section}>
-      <SectionHeader title={DISCOVER_META[kind].title(year)} subtitle={DISCOVER_META[kind].subtitle(year)} onPress={() => router.push(`/discover/${kind}`)} />
+      <SectionHeader
+        title={DISCOVER_META[kind].title(year)}
+        subtitle={DISCOVER_META[kind].subtitle(year)}
+        onPress={() => router.push(`/discover/${kind}`)}
+      />
       {loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 40 }} />
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
           {records.map(({ game, status }) => (
-            <CoverTile key={game.id} game={game} width={150} status={status} onPress={() => open(game)} onAdd={() => onAdd(game)} />
+            <CoverTile
+              key={game.id}
+              game={game}
+              width={150}
+              status={status}
+              onPress={() => open(game)}
+              onAdd={() => onAdd(game)}
+            />
           ))}
         </ScrollView>
       )}
@@ -128,7 +187,17 @@ function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number;
 }
 
 // "Lo que se juega esta semana": columnas de 5 filas numeradas que se deslizan.
-function RankedColumns({ kind, year, width, onAdd }: { kind: DiscoverKind; year: number; width: number; onAdd: (g: GameRecord) => void }) {
+function RankedColumns({
+  kind,
+  year,
+  width,
+  onAdd,
+}: {
+  kind: DiscoverKind;
+  year: number;
+  width: number;
+  onAdd: (g: GameRecord) => void;
+}) {
   const { data, loading } = useDiscover(kind, 15);
   const records = useResultRecords(data);
   const open = useOpenOnline();
@@ -143,7 +212,13 @@ function RankedColumns({ kind, year, width, onAdd }: { kind: DiscoverKind; year:
       {loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 40 }} />
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow} snapToInterval={colW + 14} decelerationRate="fast">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hRow}
+          snapToInterval={colW + 14}
+          decelerationRate="fast"
+        >
           {columns.map((col, ci) => (
             <View key={ci} style={{ width: colW, gap: 14 }}>
               {col.map(({ game, status }, i) => (
@@ -181,8 +256,8 @@ function NoApiCard() {
           Sin conexión con la API de juegos
         </ThemedText>
         <ThemedText variant="muted" size={13} style={{ marginTop: 6 }}>
-          No se han podido cargar las novedades. Revisa tu conexión; si sigue igual, esta versión de la app se compiló sin
-          las claves de IGDB (Ajustes → API de juegos).
+          No se han podido cargar las novedades. Revisa tu conexión; si sigue igual, esta versión de la app se compiló
+          sin las claves de IGDB (Ajustes → API de juegos).
         </ThemedText>
       </Card>
     </View>

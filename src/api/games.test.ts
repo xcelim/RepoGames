@@ -57,8 +57,25 @@ function respond(url: string, body?: string): unknown {
   if (url.includes('api.rawg.io/api/games?')) {
     return {
       results: [
-        { id: 10, slug: 'hollow-knight', name: 'Hollow Knight', released: '2017-02-24', background_image: 'r.jpg', playtime: 20, metacritic: 87, platforms: [{ platform: { name: 'PC' } }] },
-        { id: 11, slug: 'silksong', name: 'Hollow Knight: Silksong', released: '2025-09-04', background_image: 's.jpg', playtime: 30, platforms: [] },
+        {
+          id: 10,
+          slug: 'hollow-knight',
+          name: 'Hollow Knight',
+          released: '2017-02-24',
+          background_image: 'r.jpg',
+          playtime: 20,
+          metacritic: 87,
+          platforms: [{ platform: { name: 'PC' } }],
+        },
+        {
+          id: 11,
+          slug: 'silksong',
+          name: 'Hollow Knight: Silksong',
+          released: '2025-09-04',
+          background_image: 's.jpg',
+          playtime: 30,
+          platforms: [],
+        },
       ],
     };
   }
