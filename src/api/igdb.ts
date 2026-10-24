@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
-import { BUILT_IN } from './keys';
+import { BUILT_IN, proxyHeaders } from './keys';
 import { rankByQuery, searchStems } from '@/utils/fuzzy';
 
 import type { GameDetails, OnlineResult } from './types';
@@ -169,7 +169,7 @@ async function rawQuery<T>(endpoint: string, body: string, priority: Priority): 
     return enqueue(async () => {
       const response = await fetch(`${BUILT_IN.proxyUrl}/igdb/${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'text/plain', ...proxyHeaders() },
         body,
       });
       if (response.status === 429) throw new RateLimited('IGDB 429');

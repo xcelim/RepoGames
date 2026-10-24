@@ -16,3 +16,20 @@ export const BUILT_IN = {
   steamKey: process.env.EXPO_PUBLIC_STEAM_KEY ?? '',
   proxyUrl: (process.env.EXPO_PUBLIC_GAMES_PROXY_URL ?? '').replace(/\/+$/, ''),
 };
+
+// Cabeceras para el servidor intermedio de Supabase (por si tiene activada la verificación).
+export function proxyHeaders(): Record<string, string> {
+  const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  return anon && BUILT_IN.proxyUrl.includes('supabase.co') ? { apikey: anon, Authorization: `Bearer ${anon}` } : {};
+}
+
+// Dirección para una llamada a Steam: directa con la clave de la app, o por el servidor intermedio (web).
+export function steamUrl(method: string, params: Record<string, string>): string | null {
+  const qs = new URLSearchParams(params);
+  if (BUILT_IN.steamKey) {
+    qs.set('key', BUILT_IN.steamKey);
+    return `https://api.steampowered.com/${method}/?${qs}`;
+  }
+  if (BUILT_IN.proxyUrl) return `${BUILT_IN.proxyUrl}/steam/${method}/?${qs}`;
+  return null;
+}

@@ -1,7 +1,5 @@
 // Steam: tu biblioteca (juegos y horas) y tus logros, con tu perfil público de Steam.
-import { BUILT_IN } from './keys';
-
-const BASE = 'https://api.steampowered.com';
+import { BUILT_IN, proxyHeaders, steamUrl } from './keys';
 
 export type SteamGame = {
   appid: number;
@@ -11,14 +9,15 @@ export type SteamGame = {
   icon: string | null;
 };
 
-async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function get<T>(url: string | null): Promise<T> {
+  if (!url) throw new Error('Esta versión no tiene acceso a Steam');
+  const res = await fetch(url, BUILT_IN.steamKey ? undefined : { headers: proxyHeaders() });
   if (res.status === 403 || res.status === 401) throw new Error('Steam rechazó la consulta (¿perfil privado?)');
   if (!res.ok) throw new Error(`Steam respondió ${res.status}`);
   return (await res.json()) as T;
 }
 
-export const hasSteam = () => !!BUILT_IN.steamKey;
+export const hasSteam = () => !!BUILT_IN.steamKey || !!BUILT_IN.proxyUrl;
 
 // Acepta el ID de 17 cifras, la URL del perfil o el nombre personalizado.
 export async function resolveSteamId(input: string): Promise<string> {
@@ -29,7 +28,7 @@ export async function resolveSteamId(input: string): Promise<string> {
   const vanity = text.match(/\/id\/([^/?#]+)/)?.[1] ?? text.replace(/^@/, '');
   if (!vanity) throw new Error('Escribe tu ID o la dirección de tu perfil de Steam');
   const data = await get<{ response: { success: number; steamid?: string } }>(
-    `${BASE}/ISteamUser/ResolveVanityURL/v1/?key=${BUILT_IN.steamKey}&vanityurl=${encodeURIComponent(vanity)}`,
+    steamUrl('ISteamUser/ResolveVanityURL/v1', { vanityurl: vanity }),
   );
   if (data.response.success !== 1 || !data.response.steamid) throw new Error('No encuentro ese perfil de Steam');
   return data.response.steamid;
@@ -40,7 +39,7 @@ export async function steamProfile(
 ): Promise<{ name: string; avatar: string | null; visible: boolean } | null> {
   const data = await get<{
     response: { players: { personaname: string; avatarfull?: string; communityvisibilitystate: number }[] };
-  }>(`${BASE}/ISteamUser/GetPlayerSummaries/v2/?key=${BUILT_IN.steamKey}&steamids=${steamId}`);
+  }>(steamUrl('ISteamUser/GetPlayerSummaries/v2', { steamids: steamId }));
   const p = data.response.players[0];
   return p ? { name: p.personaname, avatar: p.avatarfull ?? null, visible: p.communityvisibilitystate === 3 } : null;
 }
@@ -57,7 +56,11 @@ export async function steamOwnedGames(steamId: string): Promise<SteamGame[]> {
       }[];
     };
   }>(
-    `${BASE}/IPlayerService/GetOwnedGames/v1/?key=${BUILT_IN.steamKey}&steamid=${steamId}&include_appinfo=1&include_played_free_games=1`,
+    steamUrl('IPlayerService/GetOwnedGames/v1', {
+      steamid: steamId,
+      include_appinfo: '1',
+      include_played_free_games: '1',
+    }),
   );
   const games = data.response.games;
   if (!games)
@@ -83,7 +86,7 @@ export async function steamPlayerAchievements(
   try {
     const data = await get<{
       playerstats: { success: boolean; achievements?: { apiname: string; achieved: number }[] };
-    }>(`${BASE}/ISteamUserStats/GetPlayerAchievements/v1/?key=${BUILT_IN.steamKey}&steamid=${steamId}&appid=${appid}`);
+    }>(steamUrl('ISteamUserStats/GetPlayerAchievements/v1', { steamid: steamId, appid: String(appid) }));
     const list = data.playerstats.achievements;
     if (!data.playerstats.success || !list) return null;
     return { ids: list.filter((a) => a.achieved === 1).map((a) => `steam:${a.apiname}`), total: list.length };

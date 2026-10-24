@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GameRecord } from '@/types';
 
 import { igdbSteamAppId } from './igdb';
-import { BUILT_IN } from './keys';
+import { BUILT_IN, proxyHeaders, steamUrl } from './keys';
 import { hasRawg, rawgGet, rawgResolve } from './rawg';
 
 // Logros de un juego.
@@ -24,9 +24,10 @@ export type AchievementSet = { source: 'steam' | 'rawg'; list: Achievement[] };
 const PREFIX = 'ach:v2:';
 const WEEK = 7 * 86_400_000;
 
-async function getJson<T>(url: string): Promise<T | null> {
+async function getJson<T>(url: string | null): Promise<T | null> {
+  if (!url) return null;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, BUILT_IN.steamKey ? undefined : { headers: proxyHeaders() });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -61,11 +62,10 @@ type SteamSchema = {
 type SteamPercents = { achievementpercentages?: { achievements?: { name: string; percent: number | string }[] } };
 
 async function fromSteam(appId: number): Promise<Achievement[] | null> {
-  if (!BUILT_IN.steamKey) return null;
-  const base = 'https://api.steampowered.com/ISteamUserStats';
+  if (!BUILT_IN.steamKey && !BUILT_IN.proxyUrl) return null;
   const [schema, pct] = await Promise.all([
-    getJson<SteamSchema>(`${base}/GetSchemaForGame/v2/?key=${BUILT_IN.steamKey}&appid=${appId}&l=spanish`),
-    getJson<SteamPercents>(`${base}/GetGlobalAchievementPercentagesForApp/v2/?gameid=${appId}`),
+    getJson<SteamSchema>(steamUrl('ISteamUserStats/GetSchemaForGame/v2', { appid: String(appId), l: 'spanish' })),
+    getJson<SteamPercents>(steamUrl('ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2', { gameid: String(appId) })),
   ]);
   const list = schema?.game?.availableGameStats?.achievements;
   if (!list?.length) return null;
@@ -119,7 +119,7 @@ export async function fetchAchievements(game: GameRecord): Promise<AchievementSe
     if (Date.now() - at < WEEK) return set;
   }
   let set: AchievementSet | null = null;
-  const appId = BUILT_IN.steamKey ? await steamAppId(game) : null;
+  const appId = BUILT_IN.steamKey || BUILT_IN.proxyUrl ? await steamAppId(game) : null;
   if (appId) {
     const steam = await fromSteam(appId);
     if (steam) set = { source: 'steam', list: steam };

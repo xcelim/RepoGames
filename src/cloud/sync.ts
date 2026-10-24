@@ -118,7 +118,9 @@ export const OAUTH_REDIRECT = 'auth-callback';
 export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
   const client = requireClient();
   // En el móvil, siempre la misma dirección exacta (es la que hay que dar de alta en Supabase).
-  const redirectTo = Platform.OS === 'web' ? Linking.createURL(OAUTH_REDIRECT) : `sagaquest://${OAUTH_REDIRECT}`;
+  const web = Platform.OS === 'web' && typeof window !== 'undefined';
+  const base = (process.env.EXPO_BASE_URL ?? '').replace(/\/+$/, '');
+  const redirectTo = web ? `${window.location.origin}${base}/${OAUTH_REDIRECT}` : `sagaquest://${OAUTH_REDIRECT}`;
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
@@ -130,6 +132,12 @@ export async function signInWithGoogle(): Promise<'ok' | 'cancel'> {
   const authUrl = data.url.includes('apikey=')
     ? data.url
     : `${data.url}${data.url.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(anonKey)}`;
+  if (web) {
+    // En la web se va a Google en la misma pestaña (las ventanas emergentes se bloquean en el móvil);
+    // al volver, la pantalla auth-callback termina de entrar.
+    window.location.assign(authUrl);
+    return new Promise<'ok' | 'cancel'>(() => undefined);
+  }
   const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
   if (result.type !== 'success') return 'cancel';
   await completeOAuth(result.url);

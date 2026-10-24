@@ -1,0 +1,50 @@
+name: Publicar web
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-build
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # La web NO lleva las claves de IGDB, RAWG ni Steam: usa la función «games» de Supabase.
+    env:
+      EXPO_WEB_BASE: /RepoGames/app
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Exportar la web
+        run: |
+          export EXPO_PUBLIC_GAMES_PROXY_URL="${EXPO_PUBLIC_SUPABASE_URL%/}/functions/v1/games"
+          npx expo export -p web --output-dir dist
+      - name: Copiar a docs/app
+        run: |
+          rm -rf docs/app
+          cp -r dist docs/app
+          cp dist/index.html docs/404.html
+          touch docs/.nojekyll
+      - name: Subir
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "Web: publicar versión ${GITHUB_SHA::7}"
+          for i in 1 2 3; do git pull --rebase -q origin main && git push origin HEAD:main && break; sleep 5; done

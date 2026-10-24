@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { rankByQuery } from '@/utils/fuzzy';
 
-import { BUILT_IN } from './keys';
+import { BUILT_IN, proxyHeaders } from './keys';
 import type { GameDetails, OnlineResult } from './types';
 
 // RAWG: la base de datos abierta más grande (más de 500.000 juegos).
@@ -55,7 +55,7 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   } else {
     throw new Error('La app no tiene acceso a RAWG');
   }
-  const response = await fetch(url);
+  const response = await fetch(url, key ? undefined : { headers: proxyHeaders() });
   if (!response.ok) {
     throw new Error(response.status === 401 ? 'RAWG rechazó la clave' : `RAWG respondió ${response.status}`);
   }

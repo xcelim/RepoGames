@@ -1,4 +1,5 @@
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 // ¿Hay internet? Se detecta solo: al abrir la app y cada vez que cambia la conexión.
@@ -17,6 +18,19 @@ let started = false;
 export function startConnectionWatcher(): () => void {
   if (started) return () => undefined;
   started = true;
+  // En la web basta con lo que dice el navegador (la comprobación de NetInfo pide la raíz
+  // del dominio, que en GitHub Pages da 404 y haría creer que no hay internet).
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const update = () => useConnection.setState({ online: navigator.onLine !== false, checked: true });
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      started = false;
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }
   NetInfo.fetch()
     .then((state) => useConnection.setState({ online: isOnline(state), checked: true }))
     .catch(() => useConnection.setState({ checked: true }));
@@ -37,6 +51,7 @@ export const useOnline = () => useConnection((s) => s.online);
 // Cuando una petición falla por la red (aunque NetInfo diga que hay conexión).
 export function reportNetworkFailure(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
+  if (Platform.OS === 'web') return;
   if (/network request failed|failed to fetch|network error|timeout/i.test(message)) {
     NetInfo.refresh()
       .then((state) => useConnection.setState({ online: isOnline(state) }))

@@ -1,12 +1,16 @@
-// Supabase Edge Function: servidor intermedio para IGDB y RAWG.
-// Las claves viven aquí (secretos del proyecto) y no dentro de la APK.
+// Supabase Edge Function «games»: servidor intermedio para IGDB, RAWG y Steam.
+// Lo usa la versión web (los navegadores no pueden llamar a esas APIs directamente)
+// y así las claves viven aquí, como secretos del proyecto, y no dentro de la web.
 //
-// Despliegue:
-//   supabase secrets set IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... RAWG_KEY=...
-//   supabase functions deploy games --no-verify-jwt
-// Y compila la app con EXPO_PUBLIC_GAMES_PROXY_URL=https://<proyecto>.supabase.co/functions/v1/games
+// Despliegue desde el panel de Supabase:
+//   Edge Functions → Deploy a new function → Via Editor → nombre «games» → pega este archivo → Deploy.
+//   En la función, desactiva «Verify JWT» (solo devuelve datos públicos de juegos).
+//   Edge Functions → Secrets: IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, RAWG_KEY y STEAM_API_KEY.
 //
-// Rutas: POST /igdb/<endpoint> (cuerpo Apicalypse)  ·  GET /rawg/<ruta>?<parámetros>
+// Rutas:
+//   POST /igdb/<endpoint>      (cuerpo Apicalypse)
+//   GET  /rawg/<ruta>?<parámetros>
+//   GET  /steam/<Interfaz>/<Método>/<versión>/?<parámetros>
 
 /* eslint-disable */
 declare const Deno: {
@@ -21,7 +25,25 @@ const IGDB_ENDPOINTS = new Set([
   'franchises',
   'covers',
   'screenshots',
+  'external_games',
 ]);
+
+// Solo estos métodos de Steam (los que usa la app).
+const STEAM_METHODS = new Set([
+  'ISteamUser/ResolveVanityURL/v1',
+  'ISteamUser/GetPlayerSummaries/v2',
+  'IPlayerService/GetOwnedGames/v1',
+  'ISteamUserStats/GetPlayerAchievements/v1',
+  'ISteamUserStats/GetSchemaForGame/v2',
+  'ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2',
+]);
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Max-Age': '86400',
+};
 
 let token: { value: string; expiresAt: number } | null = null;
 
@@ -39,35 +61,55 @@ async function twitchToken(): Promise<string> {
   return token.value;
 }
 
-const json = (body: unknown, status = 200) =>
+const json = (body: unknown, status = 200, cache = 0) =>
   new Response(typeof body === 'string' ? body : JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json',
+      ...(cache && status === 200 ? { 'Cache-Control': `public, max-age=${cache}` } : {}),
+    },
   });
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   const url = new URL(req.url);
   const path = url.pathname.replace(/^.*\/games/, '');
   try {
     if (path.startsWith('/igdb/') && req.method === 'POST') {
       const endpoint = path.slice('/igdb/'.length);
       if (!IGDB_ENDPOINTS.has(endpoint)) return json({ error: 'endpoint no permitido' }, 400);
-      const res = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Client-ID': Deno.env.get('IGDB_CLIENT_ID') ?? '',
-          Authorization: `Bearer ${await twitchToken()}`,
-          'Content-Type': 'text/plain',
-        },
-        body: await req.text(),
-      });
-      return json(await res.text(), res.status);
+      const send = async () =>
+        fetch(`https://api.igdb.com/v4/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Client-ID': Deno.env.get('IGDB_CLIENT_ID') ?? '',
+            Authorization: `Bearer ${await twitchToken()}`,
+            'Content-Type': 'text/plain',
+          },
+          body,
+        });
+      const body = await req.text();
+      let res = await send();
+      if (res.status === 401) {
+        token = null; // el token caducó: se pide otro y se reintenta
+        res = await send();
+      }
+      return json(await res.text(), res.status, 3600);
     }
     if (path.startsWith('/rawg/') && req.method === 'GET') {
       const params = new URLSearchParams(url.search);
       params.set('key', Deno.env.get('RAWG_KEY') ?? '');
       const res = await fetch(`https://api.rawg.io/api/${path.slice('/rawg/'.length)}?${params}`);
-      return json(await res.text(), res.status);
+      return json(await res.text(), res.status, 3600);
+    }
+    if (path.startsWith('/steam/') && req.method === 'GET') {
+      const method = path.slice('/steam/'.length).replace(/\/+$/, '');
+      if (!STEAM_METHODS.has(method)) return json({ error: 'método no permitido' }, 400);
+      const params = new URLSearchParams(url.search);
+      params.set('key', Deno.env.get('STEAM_API_KEY') ?? '');
+      const res = await fetch(`https://api.steampowered.com/${method}/?${params}`);
+      return json(await res.text(), res.status, method.startsWith('ISteamUserStats/GetSchema') ? 86400 : 0);
     }
     return json({ error: 'ruta no encontrada' }, 404);
   } catch (error) {

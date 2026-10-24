@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 
 import { completeOAuth } from '@/cloud/sync';
 import { DarkButton, useIgnColors } from '@/components/ign';
@@ -19,7 +19,10 @@ export default function AuthCallback() {
     const query = new URLSearchParams(
       Object.entries(params).filter(([, v]) => typeof v === 'string') as [string, string][],
     ).toString();
-    const target = url ?? `sagaquest://auth-callback?${query}`;
+    const target =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.location.href
+        : (url ?? `sagaquest://auth-callback?${query}`);
     completeOAuth(target)
       .then(() => router.replace('/'))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
