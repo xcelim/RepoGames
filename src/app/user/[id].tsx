@@ -47,6 +47,7 @@ function UserScreenInner() {
   const countOf = useListCount();
   const friendState = useFriendState(id);
   const [library, setLibrary] = useState<UserGame[] | null>(null);
+  const [version, setVersion] = useState(0); // deslizar hacia abajo vuelve a cargar
 
   useEffect(() => {
     if (id === OFFICIAL_PROFILE_ID) return;
@@ -59,7 +60,7 @@ function UserScreenInner() {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, version]);
 
   const games = useMemo(() => ({ ...socialGames, ...localGames }), [socialGames, localGames]);
   const theirs = useMemo(() => library ?? [], [library]);
@@ -94,7 +95,12 @@ function UserScreenInner() {
   const cover = (width - 40 - 36 - 30) / 4;
 
   return (
-    <IgnScreen title={profile.displayName} back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen
+      title={profile.displayName}
+      back
+      onRefresh={() => setVersion((v) => v + 1)}
+      contentStyle={{ paddingHorizontal: 20, gap: 16 }}
+    >
       <View style={styles.head}>
         <UserAvatar profile={profile} size={84} />
         <View style={{ flex: 1, gap: 2 }}>

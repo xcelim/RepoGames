@@ -8,6 +8,7 @@ import {
   Animated,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -28,6 +29,7 @@ import { GameCover } from './games';
 import { ReplayBadge } from './replayBadge';
 import { ThemedText } from './ThemedText';
 import type { IconName } from './ui';
+import { refreshEverything } from '@/cloud/refresh';
 import { goBack } from '@/utils/nav';
 
 // ---------- Colores derivados ----------
@@ -98,6 +100,8 @@ type IgnScreenProps = {
   // A partir de cuántos píxeles aparece la barra pequeña.
   collapseAt?: number;
   barTint?: string;
+  // Además de actualizar todo al deslizar hacia abajo, lo propio de la pantalla.
+  onRefresh?: () => Promise<unknown> | void;
 } & Pick<ScrollViewProps, 'refreshControl' | 'keyboardShouldPersistTaps' | 'stickyHeaderIndices'>;
 
 export function IgnScreen({
@@ -111,8 +115,15 @@ export function IgnScreen({
   contentStyle,
   collapseAt = 56,
   barTint,
+  onRefresh,
+  refreshControl,
   ...rest
 }: IgnScreenProps) {
+  const [refreshing, setRefreshing] = useState(false);
+  const pull = () => {
+    setRefreshing(true);
+    Promise.allSettled([refreshEverything(), Promise.resolve(onRefresh?.())]).finally(() => setRefreshing(false));
+  };
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
   const [scrollY] = useState(() => new Animated.Value(0));
@@ -146,6 +157,11 @@ export function IgnScreen({
       <Backdrop />
       <Animated.ScrollView
         {...rest}
+        refreshControl={
+          refreshControl ?? (
+            <RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={c.text} colors={[c.accent]} />
+          )
+        }
         scrollEventThrottle={16}
         onScroll={onScroll}
         contentContainerStyle={[{ paddingBottom: insets.bottom + 110 }, contentStyle]}

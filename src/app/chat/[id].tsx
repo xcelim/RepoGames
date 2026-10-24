@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fetchProfile, markRead, sendMessage, useFriendState, useSocial, type Message } from '@/cloud/social';
+import {
+  fetchProfile,
+  markRead,
+  sendMessage,
+  useChatPolling,
+  useFriendState,
+  useSocial,
+  type Message,
+} from '@/cloud/social';
 import { FriendButton } from '@/components/FriendButton';
 import { GameCover } from '@/components/games';
 import { Sheet, useIgnColors } from '@/components/ign';
@@ -31,6 +39,7 @@ const dayLabel = (iso: string) => {
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const otherId = id ?? '';
+  useChatPolling();
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
   const uid = useStore((s) => s.cloudUserId);

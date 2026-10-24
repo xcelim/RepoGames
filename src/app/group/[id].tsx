@@ -9,6 +9,7 @@ import {
   leaveGroup,
   markGroupRead,
   sendGroupMessage,
+  useChatPolling,
   useSocial,
   type GroupMessage,
 } from '@/cloud/social';
@@ -39,6 +40,7 @@ export default function GroupChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const groupId = id ?? '';
   const c = useIgnColors();
+  useChatPolling();
   const insets = useSafeAreaInsets();
   const uid = useStore((s) => s.cloudUserId);
   const localGames = useStore((s) => s.games);

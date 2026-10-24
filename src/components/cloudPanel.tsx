@@ -10,6 +10,7 @@ import { deleteAccount, fetchCommunity, signOutCloud } from '@/cloud/sync';
 import { useStore } from '@/store/useStore';
 
 import { Card, DarkButton, LightButton, useIgnColors } from './ign';
+import { useSocial } from '@/cloud/social';
 import { ThemedText } from './ThemedText';
 import { TextField } from './ui';
 
@@ -149,6 +150,7 @@ export function CloudAccountPanel() {
       <ThemedText variant="muted" size={11}>
         Proyecto: {cloudConfig()?.url}
       </ThemedText>
+      {uid ? <LiveStatus /> : null}
       {pending ? (
         <ThemedText size={13}>
           {pending} {pending === 1 ? 'cambio pendiente' : 'cambios pendientes'} de subir.
@@ -306,3 +308,17 @@ const styles = StyleSheet.create({
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   fill: { height: '100%' },
 });
+
+// Estado del tiempo real (para saber por qué no llegan los mensajes al instante).
+function LiveStatus() {
+  const realtime = useSocial((s) => s.realtime);
+  const mode = useSocial((s) => s.chatMode);
+  const ok = realtime === 'conectado';
+  return (
+    <ThemedText variant="muted" size={11}>
+      {`Tiempo real: ${realtime}${ok ? ' ✓' : ' (se comprueba cada pocos segundos igualmente)'} · Mensajes: ${
+        mode === 'v2' ? 'base de datos nueva' : mode === 'legacy' ? 'tablas antiguas (falta el SQL nuevo)' : '…'
+      }`}
+    </ThemedText>
+  );
+}

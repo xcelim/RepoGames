@@ -1,5 +1,6 @@
 // Amigos, chat y actividad de amigos (Supabase + tiempo real).
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
@@ -21,6 +22,20 @@ import {
 } from './mappers';
 import { notifyLocal, setupLocalNotifications } from '@/utils/localNotify';
 
+import {
+  addConversationMembers,
+  createGroupConversation,
+  hasConversations,
+  leaveConversation,
+  loadConversations,
+  markConversationRead,
+  openDirect,
+  postMessage,
+  toDirectMessage,
+  toGroupMessage,
+  type ConvMeta,
+  type MsgRow,
+} from './conversations';
 import { syncNow } from './engine';
 import { useRemote } from './remote';
 import { getSupabase } from './supabase';
@@ -80,6 +95,11 @@ const fromMessage = (r: MessageRow): Message => ({
 
 type SocialState = {
   ready: boolean;
+  // 'v2' = base de datos nueva (conversaciones); 'legacy' = tablas antiguas (antes de ejecutar el SQL)
+  chatMode: 'unknown' | 'v2' | 'legacy';
+  dmConv: Record<string, string>; // amigo → conversación (v2)
+  convMeta: Record<string, ConvMeta>;
+  realtime: string; // estado del tiempo real (para Ajustes)
   missingTables: boolean; // no se ha ejecutado el SQL de amigos y chat
   friendships: Friendship[];
   profiles: Record<string, Profile>;
@@ -123,6 +143,10 @@ export const REACTIONS = ['👍', '🔥', '😂', '😮', '❤️', '🏆'];
 
 export const useSocial = create<SocialState>()(() => ({
   ready: false,
+  chatMode: 'unknown',
+  dmConv: {},
+  convMeta: {},
+  realtime: 'sin conectar',
   missingTables: false,
   friendships: [],
   profiles: {},
@@ -270,10 +294,51 @@ export async function removeFriend(otherId: string): Promise<void> {
 
 // ---------- Chat ----------
 
+const v2 = () => useSocial.getState().chatMode === 'v2';
+
+async function detectChatMode(): Promise<void> {
+  if (useSocial.getState().chatMode !== 'unknown') return;
+  useSocial.setState({ chatMode: (await hasConversations()) ? 'v2' : 'legacy' });
+}
+
+const chatSig = (c: Record<string, { id: string; readAt?: string | null }[]>) =>
+  Object.entries(c)
+    .map(([k, ms]) => `${k}:${ms.length}:${ms[ms.length - 1]?.id}:${ms.filter((m) => m.readAt).length}`)
+    .sort()
+    .join('|');
+
+// Base de datos nueva: todas las conversaciones de una vez (chats de dos y grupos).
+async function refreshConversations(): Promise<void> {
+  const data = await loadConversations();
+  if (!data) return;
+  const st = useSocial.getState();
+  const pending =
+    Object.values(st.chats).some((ms) => ms.some((m) => m.pending)) ||
+    Object.values(st.groupChats).some((ms) => ms.some((m) => m.pending));
+  const groupsSig = (gs: ChatGroup[]) =>
+    gs.map((g) => `${g.id}:${g.name}:${g.members.join(',')}:${g.lastReadAt}`).join('|');
+  if (
+    pending ||
+    chatSig(st.chats) !== chatSig(data.chats) ||
+    chatSig(st.groupChats) !== chatSig(data.groupChats) ||
+    groupsSig(st.groups) !== groupsSig(data.groups) ||
+    JSON.stringify(st.convMeta) !== JSON.stringify(data.convMeta)
+  )
+    useSocial.setState(data);
+  await ensureProfiles([...Object.keys(data.chats), ...data.groups.flatMap((g) => g.members)]);
+  await ensureGames(
+    [...Object.values(data.chats), ...Object.values(data.groupChats)].flatMap((ms) =>
+      ms.map((m) => m.gameId).filter((g): g is string => !!g),
+    ),
+  );
+}
+
 export async function refreshInbox(): Promise<void> {
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) return;
+  await detectChatMode();
+  if (v2()) return refreshConversations();
   const { data, error } = await client
     .from('messages')
     .select('*')
@@ -317,6 +382,36 @@ export async function sendMessage(otherId: string, body: string, gameId?: string
     pending: true,
   };
   useSocial.setState((s) => ({ chats: { ...s.chats, [otherId]: [...(s.chats[otherId] ?? []), temp] } }));
+  if (v2()) {
+    try {
+      let conv = useSocial.getState().dmConv[otherId];
+      if (!conv) {
+        conv = await openDirect(otherId);
+        useSocial.setState((s) => ({
+          dmConv: { ...s.dmConv, [otherId]: conv },
+          convMeta: {
+            ...s.convMeta,
+            [conv]: s.convMeta[conv] ?? { kind: 'direct', other: otherId, myRead: '', otherRead: '' },
+          },
+        }));
+      }
+      const row = await postMessage(conv, text, gameId);
+      const meta = useSocial.getState().convMeta[conv];
+      const sent = toDirectMessage(row, uid, meta);
+      useSocial.setState((s) => ({
+        chats: {
+          ...s.chats,
+          [otherId]: (s.chats[otherId] ?? []).filter((m) => m.id !== temp.id && m.id !== sent.id).concat([sent]),
+        },
+      }));
+    } catch (e) {
+      useSocial.setState((s) => ({
+        chats: { ...s.chats, [otherId]: (s.chats[otherId] ?? []).filter((m) => m.id !== temp.id) },
+      }));
+      throw e;
+    }
+    return;
+  }
   // El juego que mandas tiene que existir en la base de datos.
   if (gameId) {
     const g = useStore.getState().games[gameId];
@@ -354,6 +449,11 @@ export async function markRead(otherId: string): Promise<void> {
       [otherId]: (s.chats[otherId] ?? []).map((m) => (m.recipient === uid && !m.readAt ? { ...m, readAt: now } : m)),
     },
   }));
+  if (v2()) {
+    const conv = useSocial.getState().dmConv[otherId];
+    if (conv) await markConversationRead(conv);
+    return;
+  }
   await client.rpc('mark_chat_read', { other: otherId });
 }
 
@@ -474,6 +574,8 @@ export async function refreshGroups(): Promise<void> {
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) return;
+  await detectChatMode();
+  if (v2()) return refreshConversations();
   const { data: mine, error } = await client
     .from('chat_group_members')
     .select('group_id,last_read_at')
@@ -514,6 +616,11 @@ export async function createGroup(name: string, members: string[]): Promise<stri
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) throw new Error('Necesitas conexión');
+  if (v2()) {
+    const id = await createGroupConversation(name, members);
+    await refreshConversations();
+    return id;
+  }
   const { data, error } = await client
     .from('chat_groups')
     .insert({ name: name.trim(), created_by: uid })
@@ -534,6 +641,11 @@ export async function createGroup(name: string, members: string[]): Promise<stri
 export async function addGroupMembers(groupId: string, members: string[]): Promise<void> {
   const client = getSupabase();
   if (!client || !members.length) return;
+  if (v2()) {
+    await addConversationMembers(groupId, members);
+    await refreshConversations();
+    return;
+  }
   const { error } = await client
     .from('chat_group_members')
     .insert(members.map((p) => ({ group_id: groupId, profile_id: p })));
@@ -545,7 +657,8 @@ export async function leaveGroup(groupId: string): Promise<void> {
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) return;
-  await client.from('chat_group_members').delete().eq('group_id', groupId).eq('profile_id', uid);
+  if (v2()) await leaveConversation(groupId);
+  else await client.from('chat_group_members').delete().eq('group_id', groupId).eq('profile_id', uid);
   await refreshGroups();
 }
 
@@ -564,6 +677,23 @@ export async function sendGroupMessage(groupId: string, body: string, gameId?: s
     pending: true,
   };
   useSocial.setState((s) => ({ groupChats: { ...s.groupChats, [groupId]: [...(s.groupChats[groupId] ?? []), temp] } }));
+  if (v2()) {
+    try {
+      const sent = toGroupMessage(await postMessage(groupId, text, gameId));
+      useSocial.setState((s) => ({
+        groupChats: {
+          ...s.groupChats,
+          [groupId]: (s.groupChats[groupId] ?? []).filter((m) => m.id !== temp.id && m.id !== sent.id).concat([sent]),
+        },
+      }));
+    } catch (e) {
+      useSocial.setState((s) => ({
+        groupChats: { ...s.groupChats, [groupId]: (s.groupChats[groupId] ?? []).filter((m) => m.id !== temp.id) },
+      }));
+      throw e;
+    }
+    return;
+  }
   if (gameId) {
     const g = useStore.getState().games[gameId];
     if (g) await client.from('games').upsert(toGameRow(g, g.source === 'igdb' || g.source === 'rawg' ? null : uid));
@@ -590,6 +720,10 @@ export async function markGroupRead(groupId: string): Promise<void> {
   if (!client || !uid) return;
   const now = new Date().toISOString();
   useSocial.setState((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, lastReadAt: now } : g)) }));
+  if (v2()) {
+    await markConversationRead(groupId);
+    return;
+  }
   await client.from('chat_group_members').update({ last_read_at: now }).eq('group_id', groupId).eq('profile_id', uid);
 }
 
@@ -608,7 +742,9 @@ let tick = 0;
 // Todo lo social de golpe (al arrancar, al volver a la app y cada cierto tiempo).
 export async function refreshSocial(full = true): Promise<void> {
   await refreshFriends();
-  await Promise.all([refreshInbox(), refreshGroups()]);
+  await detectChatMode();
+  if (v2()) await refreshInbox();
+  else await Promise.all([refreshInbox(), refreshGroups()]);
   if (!full) return;
   const uid = me();
   const people = new Set([...friendIds(), ...Object.keys(useSocial.getState().chats)]);
@@ -628,8 +764,12 @@ export function startSocial(): () => void {
   const uid = me();
   if (!client || !uid) return () => undefined;
   setupLocalNotifications().catch(() => undefined);
-  refreshSocial().catch(() => undefined);
-  connectRealtime(client, uid);
+  detectChatMode()
+    .catch(() => undefined)
+    .finally(() => {
+      refreshSocial().catch(() => undefined);
+      if (me() === uid) connectRealtime(client, uid);
+    });
   if (poller) clearInterval(poller);
   poller = setInterval(() => {
     if (AppState.currentState !== 'active' || !me()) return;
@@ -676,49 +816,110 @@ function connectRealtime(client: NonNullable<ReturnType<typeof getSupabase>>, ui
     ensureProfiles([other]).catch(() => undefined);
     if (m.gameId) ensureGames([m.gameId]).catch(() => undefined);
   };
-  const ch = client
-    .channel(`social-${uid}-${Date.now()}`)
-    .on(
+  const ch = client.channel(`social-${uid}-${Date.now()}`);
+  if (useSocial.getState().chatMode === 'v2') {
+    // Base de datos nueva: un solo canal para todos los mensajes (las normas de la base de datos
+    // solo dejan pasar los de tus conversaciones).
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const softRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => refreshInbox().catch(() => undefined), 400);
+    };
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
+      const row = p.new as MsgRow;
+      const st = useSocial.getState();
+      const meta = st.convMeta[row.conversation_id];
+      if (!meta) {
+        softRefresh(); // conversación nueva
+        return;
+      }
+      if (row.game_id) ensureGames([row.game_id]).catch(() => undefined);
+      if (meta.kind === 'direct' && meta.other) {
+        const other = meta.other;
+        const m = toDirectMessage(row, uid, meta);
+        if (m.sender !== uid)
+          ensureProfiles([other])
+            .then(() =>
+              notifyLocal(nameOf(other), m.gameId ? '🎮 Te ha recomendado un juego' : m.body, `/chat/${other}`),
+            )
+            .catch(() => undefined);
+        useSocial.setState((s) => {
+          const list = (s.chats[other] ?? []).filter((x) => x.id !== m.id && !(x.pending && x.body === m.body));
+          return {
+            chats: { ...s.chats, [other]: [...list, m].sort((x, y) => x.createdAt.localeCompare(y.createdAt)) },
+          };
+        });
+      } else {
+        const m = toGroupMessage(row);
+        if (m.sender !== uid) {
+          const g = st.groups.find((x) => x.id === m.groupId);
+          notifyLocal(
+            g?.name ?? 'Grupo',
+            `${nameOf(m.sender)}: ${m.gameId ? '🎮 un juego' : m.body}`,
+            `/group/${m.groupId}`,
+          );
+        }
+        useSocial.setState((s) => {
+          const list = (s.groupChats[m.groupId] ?? []).filter(
+            (x) => x.id !== m.id && !(x.pending && x.body === m.body && x.sender === m.sender),
+          );
+          return {
+            groupChats: {
+              ...s.groupChats,
+              [m.groupId]: [...list, m].sort((x, y) => x.createdAt.localeCompare(y.createdAt)),
+            },
+          };
+        });
+      }
+    });
+    // Leídos (✓✓), gente que entra o sale de un grupo, nombres de grupo...
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members' }, softRefresh);
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, softRefresh);
+  } else {
+    ch.on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient=eq.${uid}` },
       (p) => onMessage(p.new as MessageRow, true),
     )
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender=eq.${uid}` }, (p) =>
-      onMessage(p.new as MessageRow),
-    )
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => {
-      const m = fromGroupMessage(p.new as GroupMessageRow);
-      if (m.sender !== uid) {
-        const g = useSocial.getState().groups.find((x) => x.id === m.groupId);
-        notifyLocal(
-          g?.name ?? 'Grupo',
-          `${nameOf(m.sender)}: ${m.gameId ? '🎮 un juego' : m.body}`,
-          `/group/${m.groupId}`,
-        );
-      }
-      if (!useSocial.getState().groups.some((g) => g.id === m.groupId)) {
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender=eq.${uid}` },
+        (p) => onMessage(p.new as MessageRow),
+      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => {
+        const m = fromGroupMessage(p.new as GroupMessageRow);
+        if (m.sender !== uid) {
+          const g = useSocial.getState().groups.find((x) => x.id === m.groupId);
+          notifyLocal(
+            g?.name ?? 'Grupo',
+            `${nameOf(m.sender)}: ${m.gameId ? '🎮 un juego' : m.body}`,
+            `/group/${m.groupId}`,
+          );
+        }
+        if (!useSocial.getState().groups.some((g) => g.id === m.groupId)) {
+          refreshGroups().catch(() => undefined);
+          return;
+        }
+        useSocial.setState((s) => {
+          const list = (s.groupChats[m.groupId] ?? []).filter(
+            (x) => x.id !== m.id && !(x.pending && x.body === m.body && x.sender === m.sender),
+          );
+          return {
+            groupChats: {
+              ...s.groupChats,
+              [m.groupId]: [...list, m].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+            },
+          };
+        });
+        if (m.gameId) ensureGames([m.gameId]).catch(() => undefined);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_group_members' }, () => {
         refreshGroups().catch(() => undefined);
-        return;
-      }
-      useSocial.setState((s) => {
-        const list = (s.groupChats[m.groupId] ?? []).filter(
-          (x) => x.id !== m.id && !(x.pending && x.body === m.body && x.sender === m.sender),
-        );
-        return {
-          groupChats: {
-            ...s.groupChats,
-            [m.groupId]: [...list, m].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-          },
-        };
       });
-      if (m.gameId) ensureGames([m.gameId]).catch(() => undefined);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_group_members' }, () => {
-      refreshGroups().catch(() => undefined);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => {
-      refreshReactions().catch(() => undefined);
-    })
+  }
+  ch.on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => {
+    refreshReactions().catch(() => undefined);
+  })
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'challenge_members', filter: `profile_id=eq.${uid}` },
@@ -746,8 +947,11 @@ function connectRealtime(client: NonNullable<ReturnType<typeof getSupabase>>, ui
         .catch(() => undefined);
     });
   channel = ch;
-  ch.subscribe((status) => {
+  ch.subscribe((status, err) => {
     if (channel !== ch) return; // es un canal viejo que acabamos de cerrar
+    useSocial.setState({
+      realtime: status === 'SUBSCRIBED' ? 'conectado' : `${status.toLowerCase()}${err ? `: ${err.message}` : ''}`,
+    });
     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
       if (retry || !me()) return;
       retry = setTimeout(() => {
@@ -801,4 +1005,24 @@ export async function removeListMember(listId: string, profileId: string): Promi
   const { error } = await client.from('list_members').delete().eq('list_id', listId).eq('profile_id', profileId);
   if (error) throw new Error(error.message);
   await syncNow();
+}
+
+// Con un chat abierto se comprueba cada 4 s (por si el tiempo real no llega).
+let chatFocus = 0;
+let chatPoll: ReturnType<typeof setInterval> | null = null;
+export function useChatPolling(): void {
+  useEffect(() => {
+    chatFocus++;
+    if (!chatPoll)
+      chatPoll = setInterval(() => {
+        if (AppState.currentState === 'active' && me()) refreshInbox().catch(() => undefined);
+      }, 4000);
+    return () => {
+      chatFocus--;
+      if (chatFocus <= 0 && chatPoll) {
+        clearInterval(chatPoll);
+        chatPoll = null;
+      }
+    };
+  }, []);
 }

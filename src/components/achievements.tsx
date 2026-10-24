@@ -76,7 +76,11 @@ export function AchievementsCard({ game, expanded }: { game: GameRecord; expande
   useEffect(() => {
     let alive = true;
     fetchAchievements(game)
-      .then((set) => alive && setState({ id: game.id, set, error: null }))
+      .then((set) => {
+        if (!alive) return;
+        setState({ id: game.id, set, error: null });
+        if (set.list.length) useStore.getState().setAchievementsTotal(game.id, set.list.length);
+      })
       .catch(
         (e: unknown) =>
           alive &&

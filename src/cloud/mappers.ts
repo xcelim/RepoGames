@@ -104,6 +104,7 @@ export type UserGameRow = {
   review_private?: boolean;
   replays_extra?: number;
   achievements?: string[];
+  achievements_total?: number;
   added_at: string;
   updated_at: string;
 };
@@ -272,6 +273,7 @@ export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
   review_private: u.reviewPrivate ?? false,
   ...(u.replaysExtra !== undefined ? { replays_extra: u.replaysExtra } : {}),
   ...(u.achievements !== undefined ? { achievements: u.achievements } : {}),
+  ...(u.achievementsTotal ? { achievements_total: u.achievementsTotal } : {}),
   added_at: u.addedAt,
   updated_at: u.updatedAt,
 });
@@ -296,6 +298,7 @@ export const fromUserGameRow = (r: UserGameRow, localProfileId: string): UserGam
   reviewPrivate: r.review_private ?? false,
   ...(r.replays_extra ? { replaysExtra: r.replays_extra } : {}),
   ...(r.achievements?.length ? { achievements: r.achievements } : {}),
+  ...(r.achievements_total ? { achievementsTotal: r.achievements_total } : {}),
   addedAt: r.added_at,
   updatedAt: r.updated_at,
 });

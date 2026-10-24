@@ -51,6 +51,8 @@ export async function computeAchievements(
     if (!game) continue;
     const set = await fetchAchievements(game).catch(() => null);
     if (!set || !set.list.length) continue;
+    if (ug.profileId === useStore.getState().currentProfileId)
+      useStore.getState().setAchievementsTotal(game.id, set.list.length);
     const done = new Set(ug.achievements);
     for (const a of set.list) if (done.has(a.id)) earned.push({ game, achievement: a });
     if (set.list.every((a) => done.has(a.id))) platinums.push({ game, ug, total: set.list.length, list: set.list });

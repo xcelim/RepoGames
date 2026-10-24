@@ -151,6 +151,7 @@ export type UserGame = {
   reviewPrivate?: boolean;
   replaysExtra?: number; // rejugadas que no están en ninguna lista (se suman al total)
   achievements?: string[]; // logros marcados (ids de RAWG)
+  achievementsTotal?: number; // cuántos logros tiene el juego (para el platino y el nivel)
   addedAt: string;
   updatedAt: string;
 };

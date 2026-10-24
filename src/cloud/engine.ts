@@ -262,13 +262,15 @@ async function doFlush(): Promise<void> {
   const ugDown = ugKeys.filter((g) => !state.userGames[userGameKey(uid, g)]);
   await step('user_games', ugUp, async () => {
     for (const part of chunks(ugUp)) {
-      check(
-        await client.from('user_games').upsert(
-          part.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid)),
+      const rows = part.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid));
+      let res = await client.from('user_games').upsert(rows, { onConflict: 'profile_id,game_id' });
+      // Si aún no se ha ejecutado el SQL nuevo, se sube sin la columna que falta.
+      if (res.error && /achievements_total/.test(res.error.message))
+        res = await client.from('user_games').upsert(
+          rows.map(({ achievements_total: _t, ...r }) => r),
           { onConflict: 'profile_id,game_id' },
-        ),
-        'Biblioteca',
-      );
+        );
+      check(res, 'Biblioteca');
     }
   });
   await step('user_games', ugDown, async () => {
@@ -356,7 +358,8 @@ export async function pull(): Promise<void> {
   const followPre = await client.from('list_follows').select('list_id').eq('profile_id', uid);
   const followIds = ((followPre.data ?? []) as { list_id: string }[]).map((r) => r.list_id);
   const otherIds = [...new Set([...memberIds, ...followIds])].filter((id) => !ownRows.some((l) => l.id === id));
-  const otherRows = await selectIn<ListRow>('lists', 'id', otherIds);
+  // Las oficiales que sigues ya están en la app (catálogo): aquí solo cuenta que las sigues.
+  const otherRows = (await selectIn<ListRow>('lists', 'id', otherIds)).filter((r) => !r.official && r.owner_id);
   const listRows = [...ownRows, ...otherRows];
   const itemRows = await selectIn<ListItemRow>(
     'list_items',

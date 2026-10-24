@@ -1,8 +1,10 @@
 // Barra lateral de la web en el PC: las mismas secciones que las pestañas de la app.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, usePathname, type Href } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+
+import { refreshEverything } from '@/cloud/refresh';
 
 import { usePendingRequests, useUnreadCount } from '@/cloud/social';
 import { useUnreadNotifications } from '@/hooks/useNotifications';
@@ -108,6 +110,7 @@ export function WebSidebar() {
   const uid = useStore((s) => s.cloudUserId);
   const social = useUnreadCount() + usePendingRequests();
   const notes = useUnreadNotifications();
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => setPageBackground(skin.colors.bg), [skin.colors.bg]);
   if (!desktop || !uid || !profile?.onboarded || HIDDEN.some((h) => path.startsWith(h))) return null;
 
@@ -161,6 +164,29 @@ export function WebSidebar() {
       <View style={styles.group}>{MAIN.map((it) => row(it, it.href === '/social' ? social : 0))}</View>
       <View style={[styles.sep, { backgroundColor: skin.colors.line }]} />
       <View style={styles.group}>{EXTRA.map((it) => row(it, it.href === '/notifications' ? notes : 0))}</View>
+      <Pressable
+        onPress={() => {
+          if (refreshing) return;
+          setRefreshing(true);
+          refreshEverything().finally(() => setRefreshing(false));
+        }}
+        style={({ hovered }: { hovered?: boolean }) => [
+          styles.item,
+          {
+            borderRadius: Math.min(skin.radius, 14),
+            backgroundColor: hovered ? `${skin.colors.panel2}99` : 'transparent',
+          },
+        ]}
+      >
+        {refreshing ? (
+          <ActivityIndicator size="small" color={skin.colors.muted} style={{ width: 22 }} />
+        ) : (
+          <Ionicons name="refresh" size={22} color={skin.colors.muted} />
+        )}
+        <ThemedText size={15} style={{ color: skin.colors.muted, flex: 1 }}>
+          {refreshing ? 'Actualizando…' : 'Actualizar'}
+        </ThemedText>
+      </Pressable>
       <View style={{ flex: 1 }} />
       <Pressable onPress={() => router.navigate('/profile')} style={[styles.me, { borderTopColor: skin.colors.line }]}>
         <UserAvatar profile={profile} size={38} />

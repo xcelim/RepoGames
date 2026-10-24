@@ -4,7 +4,8 @@ import { CANON } from '@/data/canon';
 import { OFFICIAL_SERIES, officialListId, type OfficialSeries } from '@/data/catalog';
 import { useStore } from '@/store/useStore';
 
-import { fetchSeries, onlineSources, resolveGames, toGameRecord } from './games';
+import { fetchSeries, resolveGames, toGameRecord } from './games';
+import { fetchOfficialFromDb, publishMissingOfficial, publishOfficial } from './officialDb';
 
 // Descarga de la base de datos los juegos de las bibliotecas oficiales.
 
@@ -38,6 +39,15 @@ export async function loadOfficialList(series: OfficialSeries, force = false): P
   if (useOfficialStatus.getState().loading[listId]) return;
   setLoading(listId, true);
   try {
+    // Primero, la versión publicada en la base de datos (si la hay y no se pide forzar).
+    if (!force) {
+      const saved = await fetchOfficialFromDb(listId).catch(() => null);
+      if (saved?.length) {
+        useStore.getState().setOfficialList(listId, saved);
+        setLoading(listId, false);
+        return;
+      }
+    }
     const canon = CANON[series.id];
     let games;
     if (canon) {
@@ -58,15 +68,16 @@ export async function loadOfficialList(series: OfficialSeries, force = false): P
     if (games.length === 0) throw new Error('La API no ha devuelto juegos');
     useStore.getState().setOfficialList(listId, games);
     setLoading(listId, false);
+    publishOfficial(listId, games).catch(() => undefined); // solo si eres administrador
   } catch (error) {
     setLoading(listId, false, error instanceof Error ? error.message : 'No se pudo descargar');
   }
 }
 
 export async function loadAllOfficial(force = false): Promise<void> {
-  const sources = await onlineSources();
-  if (!sources.igdb && !sources.rawg) return;
+  // Aunque no haya API de juegos (por ejemplo, en la web), se leen de la base de datos.
   for (const series of OFFICIAL_SERIES) {
     await loadOfficialList(series, force);
   }
+  publishMissingOfficial().catch(() => undefined);
 }

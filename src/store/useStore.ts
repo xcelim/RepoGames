@@ -70,6 +70,7 @@ type Actions = {
   patchGames: (patches: (Partial<GameRecord> & { id: string })[]) => void;
   setStatus: (gameId: string, status: PlayStatus) => void;
   updateUserGame: (gameId: string, patch: Partial<UserGame>) => void;
+  setAchievementsTotal: (gameId: string, total: number) => void;
   removeFromLibrary: (gameId: string) => void;
 
   createList: (data: NewList) => string;
@@ -313,6 +314,16 @@ export const useStore = create<Store>()(
               [key]: { ...current, ...patch, id: key, profileId, gameId, updatedAt: now() },
             },
           });
+        },
+
+        // Cuántos logros tiene un juego (no cuenta como «actualizado» para tus amigos).
+        setAchievementsTotal: (gameId, total) => {
+          const id = get().currentProfileId;
+          if (!id) return;
+          const key = userGameKey(id, gameId);
+          const current = get().userGames[key];
+          if (!current || current.achievementsTotal === total) return;
+          set({ userGames: { ...get().userGames, [key]: { ...current, achievementsTotal: total } } });
         },
 
         removeFromLibrary: (gameId) => {

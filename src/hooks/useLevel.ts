@@ -13,15 +13,27 @@ export function useLevel() {
   const userGames = useStore((s) => s.userGames);
   const lists = useStore((s) => s.lists);
   const items = useStore((s) => s.items);
-  const { platinums, earned, loading } = useAchievementData();
+  // Mantiene al día cuántos logros tiene cada juego (para el platino).
+  useAchievementData();
+  const loading = false;
   return useMemo(() => {
+    // Todo sale de tu biblioteca (que es la misma en todos tus dispositivos), así el nivel
+    // es idéntico en el móvil, en el PC y el que ven tus amigos.
+    let platinums = 0;
+    let achievements = 0;
+    for (const u of Object.values(userGames)) {
+      if (u.profileId !== profileId) continue;
+      const n = u.achievements?.length ?? 0;
+      achievements += n;
+      if (u.achievementsTotal && n >= u.achievementsTotal) platinums++;
+    }
     const { xp, breakdown } = computeXp({
       profileId: profileId ?? '',
       userGames,
       lists,
       items,
-      platinums: platinums.length,
-      achievements: earned.length,
+      platinums,
+      achievements,
     });
     const lv = levelFromXp(xp);
     const bestFrame = frameIndexForLevel(lv.level);
@@ -30,5 +42,5 @@ export function useLevel() {
     const frame =
       chosen === null ? null : chosen !== undefined && chosen <= bestFrame ? chosen : bestFrame >= 0 ? bestFrame : null;
     return { xp, breakdown, ...lv, slots: showcaseSlots(lv.level), bestFrame, frame, loading };
-  }, [profileId, userGames, lists, items, platinums.length, earned.length, profile?.frame, loading]);
+  }, [profileId, userGames, lists, items, profile?.frame, loading]);
 }
