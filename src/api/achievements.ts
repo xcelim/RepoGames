@@ -65,7 +65,9 @@ async function fromSteam(appId: number): Promise<Achievement[] | null> {
   if (!BUILT_IN.steamKey && !BUILT_IN.proxyUrl) return null;
   const [schema, pct] = await Promise.all([
     getJson<SteamSchema>(steamUrl('ISteamUserStats/GetSchemaForGame/v2', { appid: String(appId), l: 'spanish' })),
-    getJson<SteamPercents>(steamUrl('ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2', { gameid: String(appId) })),
+    getJson<SteamPercents>(
+      steamUrl('ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2', { gameid: String(appId) }),
+    ),
   ]);
   const list = schema?.game?.availableGameStats?.achievements;
   if (!list?.length) return null;

@@ -12,7 +12,7 @@ import { useStore } from '@/store/useStore';
 import type { ListItem, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { daysSince } from '@/utils/fun';
-import { replayStats, sortEntries, type Entry } from '@/utils/library';
+import { replayTotals, sortEntries, type Entry } from '@/utils/library';
 
 // Los juegos de la biblioteca con un estado (o todos), como en IGN.
 export default function LibraryStatusScreen() {
@@ -32,6 +32,10 @@ export default function LibraryStatusScreen() {
   const [query, setQuery] = useState('');
   const sheets = useGameSheets();
 
+  const replays = useMemo(
+    () => (profileId ? replayTotals({ lists, items, userGames }, profileId) : new Map<string, number>()),
+    [lists, items, userGames, profileId],
+  );
   const entries = useMemo(() => {
     const statuses = statusesOfRow(row);
     const mine = Object.values(userGames)
@@ -72,7 +76,7 @@ export default function LibraryStatusScreen() {
           game: e.game,
           status: e.userGame?.status,
           rank: e.rank,
-          replays: profileId ? replayStats({ lists, items, userGames }, profileId, e.game.id).total : 0,
+          replays: replays.get(e.game.id) ?? 0,
           physical: e.userGame?.owned,
           subtitle:
             e.userGame?.status === 'playing' && daysSince(e.userGame.startedAt) != null

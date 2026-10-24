@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -216,6 +217,7 @@ export default function ProfileScreen() {
         {(profile.showcases ?? []).slice(0, lv.slots).map((sc, i) => (
           <ShowcaseView key={`${sc.type}-${i}`} showcase={sc} profile={profile} />
         ))}
+        <ArcadeBanner />
         <View style={styles.quick}>
           <QuickButton
             icon="albums-outline"
@@ -404,6 +406,37 @@ function PlatinumsEntry() {
   );
 }
 
+// Entrada a la sala de juegos (oráculo, duelos, tier lists, estantería, estadísticas...).
+function ArcadeBanner() {
+  return (
+    <Pressable
+      onPress={() => router.push('/arcade')}
+      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
+    >
+      <LinearGradient
+        colors={['#7b2ff7', '#f107a3', '#ff8a00']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.arcade}
+      >
+        <View style={{ flex: 1, gap: 4 }}>
+          <ThemedText variant="display" size={22} style={{ color: '#fff' }}>
+            Sala de juegos
+          </ThemedText>
+          <ThemedText size={12} style={{ color: '#ffffffdd' }}>
+            Oráculo, duelos, tier lists, estantería, estadísticas y más
+          </ThemedText>
+        </View>
+        <View style={styles.arcadeIcons}>
+          {(['sparkles', 'flash', 'podium'] as const).map((n, i) => (
+            <Ionicons key={n} name={n} size={22 - i * 2} color="#fff" style={{ opacity: 1 - i * 0.2 }} />
+          ))}
+        </View>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
 function QuickButton({
   icon,
   label,
@@ -461,6 +494,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   quick: { flexDirection: 'row', gap: 10 },
+  arcade: { borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  arcadeIcons: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   quickBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth },
   summaryRow: { flexDirection: 'row', paddingVertical: 12 },
   summaryDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 18 },

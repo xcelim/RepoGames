@@ -100,6 +100,17 @@ export type Profile = {
   level?: number; // nivel (lo calcula su app y lo publica para que lo vean los demás)
   xp?: number;
   frame?: number | null; // marco elegido (índice de FRAMES; null = sin marco; sin definir = el mejor)
+  tierlists?: TierList[]; // tier lists que has hecho (S, A, B...)
+  elo?: Record<string, number>; // puntuación de cada juego en los duelos «¿cuál prefieres?»
+  duels?: number; // duelos jugados
+};
+
+export type TierList = {
+  id: string;
+  title: string;
+  tiers: { label: string; color: string; gameIds: string[] }[];
+  pool?: string[]; // añadidos pero aún sin colocar
+  updatedAt: string;
 };
 
 // Tu rango en un competitivo: juego (de la lista o escrito a mano), rango y división.

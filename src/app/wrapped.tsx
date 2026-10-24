@@ -17,7 +17,7 @@ import { useLevel } from '@/hooks/useLevel';
 import { useAchievementData } from '@/hooks/usePlatinums';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { funFact } from '@/utils/fun';
-import { formatHours, replayStats } from '@/utils/library';
+import { formatHours, replayTotals } from '@/utils/library';
 import { buildWrapped, MONTHS, wrappedYears, type WrappedData } from '@/utils/wrapped';
 
 const DURATION = 6500;
@@ -50,13 +50,10 @@ export default function WrappedScreen() {
   const mine = useMemo(() => Object.values(userGames).filter((u) => u.profileId === profileId), [userGames, profileId]);
   const years = useMemo(() => wrappedYears(mine), [mine]);
   const [year, setYear] = useState(() => years[0] ?? new Date().getFullYear());
-  const data = useMemo(
-    () =>
-      buildWrapped(year, mine, games, mode, (gid) =>
-        profileId ? replayStats({ lists, items, userGames }, profileId, gid).total : 0,
-      ),
-    [year, mine, games, mode, lists, items, userGames, profileId],
-  );
+  const data = useMemo(() => {
+    const totals = profileId ? replayTotals({ lists, items, userGames }, profileId) : new Map<string, number>();
+    return buildWrapped(year, mine, games, mode, (gid) => totals.get(gid) ?? 0);
+  }, [year, mine, games, mode, lists, items, userGames, profileId]);
   const yearPlats = platinums.filter((p) => p.ug.updatedAt.startsWith(String(year)));
   const slides = useMemo(() => makeSlides(data, yearPlats.length), [data, yearPlats.length]);
   const [index, setIndex] = useState(0);

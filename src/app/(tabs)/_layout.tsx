@@ -146,6 +146,8 @@ export default function TabsLayout() {
           headerShown: false,
           sceneStyle: { backgroundColor: skin.colors.bg },
           animation: 'fade',
+          // Las pestañas que no estás viendo no se vuelven a pintar con cada cambio.
+          freezeOnBlur: true,
         }}
       >
         {TABS.map((tab) => (

@@ -213,3 +213,23 @@ export function replayStats(
   const extra = state.userGames[userGameKey(profileId, gameId)]?.replaysExtra ?? 0;
   return { fromLists, extra, total: Math.max(0, fromLists + extra), perList };
 }
+
+// Rejugadas totales de todos tus juegos de una pasada (para rejillas largas: replayStats por
+// juego recorre todos los elementos de todas las listas cada vez).
+export function replayTotals(
+  state: { lists: Record<string, GameList>; items: Record<string, ListItem>; userGames: Record<string, UserGame> },
+  profileId: string,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const item of Object.values(state.items)) {
+    if (!item.replays) continue;
+    const list = state.lists[item.listId];
+    if (!list || list.ownerId !== profileId) continue;
+    out.set(item.gameId, (out.get(item.gameId) ?? 0) + item.replays);
+  }
+  for (const ug of Object.values(state.userGames)) {
+    if (ug.profileId !== profileId || !ug.replaysExtra) continue;
+    out.set(ug.gameId, Math.max(0, (out.get(ug.gameId) ?? 0) + ug.replaysExtra));
+  }
+  return out;
+}

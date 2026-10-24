@@ -46,6 +46,8 @@ import { useCommunityLists, useGame, useListCount, useListPreview, useMyLists } 
 import { useStore } from '@/store/useStore';
 import { daysSince } from '@/utils/fun';
 import { userGameKey } from '@/utils/library';
+import { finishEta } from '@/utils/stats';
+import { longDate } from '@/hooks/useMyGames';
 import type { GameDetails } from '@/api/types';
 import type { GameRecord } from '@/types';
 
@@ -120,14 +122,20 @@ export default function GameScreen() {
         </ThemedText>
       </Pressable>
       <View style={styles.coverWrap}>
-        <View>
+        <Pressable
+          onPress={() => router.push(`/holo/${encodeURIComponent(game.id)}`)}
+          accessibilityLabel="Ver como carta holográfica"
+        >
           <GameCover game={game} width={coverW} url={cover} radius={c.radius} />
           {status ? (
             <View style={styles.coverBadge}>
               <StatusBadge status={status} />
             </View>
           ) : null}
-        </View>
+          <View style={styles.holoHint}>
+            <Ionicons name="sparkles" size={14} color="#fff" />
+          </View>
+        </Pressable>
       </View>
       <Pressable
         disabled={!details?.url}
@@ -257,6 +265,7 @@ function Overview({
     full: game.full ?? details?.timeToBeat?.full ?? null,
   };
   const known = [times.main, times.extra, times.full].filter((h): h is number => h != null);
+  const eta = userGame ? finishEta(userGame, times.main ?? times.extra) : null;
   const average = known.length ? Math.round(known.reduce((a, b) => a + b, 0) / known.length) : null;
   const shots = details?.screenshots ?? [];
   const video = details?.videoIds[0];
@@ -345,6 +354,13 @@ function Overview({
                   {daysSince(userGame.startedAt) === 0
                     ? 'Lo has empezado hoy'
                     : `Llevas ${daysSince(userGame.startedAt)} ${daysSince(userGame.startedAt) === 1 ? 'día' : 'días'} con él`}
+                </ThemedText>
+              ) : null}
+              {eta ? (
+                <ThemedText size={13} style={{ marginTop: 4, color: c.accent }}>
+                  {eta.assumed
+                    ? `Jugando 1 h al día, lo terminas el ${longDate(eta.date)}`
+                    : `A tu ritmo (${eta.perWeek} h/semana) lo terminas el ${longDate(eta.date)}`}
                 </ThemedText>
               ) : null}
             </View>
@@ -736,6 +752,17 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   coverBadge: { position: 'absolute', right: 8, bottom: 8 },
+  holoHint: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',

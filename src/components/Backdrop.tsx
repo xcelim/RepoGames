@@ -1,6 +1,6 @@
 // Dibujos de fondo de cada estética (minimalistas, muy suaves, no se pueden tocar).
-import { memo, useMemo, type ReactElement } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { memo, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { Animated, InteractionManager, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Defs, G, Line, Path, Pattern, Rect } from 'react-native-svg';
 
 import { DECOR, decorColor, type Decor, type Motif } from '@/theme/decor';
@@ -415,12 +415,24 @@ function BackdropInner({ skin, w, h }: { skin: Skin; w: number; h: number }) {
 
 const MemoBackdrop = memo(BackdropInner);
 
+// Se dibuja cuando termina la animación de entrada de la pantalla (y aparece suave):
+// así abrir una pantalla no espera a pintar decenas de dibujos.
 export function Backdrop() {
   const skin = useSkin();
   const { width, height } = useWindowDimensions();
+  const [ready, setReady] = useState(false);
+  const [fade] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setReady(true));
+    return () => task.cancel();
+  }, []);
+  useEffect(() => {
+    if (ready) Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, [ready, fade]);
+  if (!DECOR[skin.id]) return null;
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <MemoBackdrop skin={skin} w={Math.round(width)} h={Math.round(height)} />
-    </View>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: fade }]}>
+      {ready ? <MemoBackdrop skin={skin} w={Math.round(width)} h={Math.round(height)} /> : null}
+    </Animated.View>
   );
 }

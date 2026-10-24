@@ -79,6 +79,8 @@ export default function RootLayout() {
           headerShown: false,
           contentStyle: { backgroundColor: skin.colors.bg },
           animation: 'slide_from_right',
+          // Las pantallas de debajo no se vuelven a pintar mientras no se ven.
+          freezeOnBlur: true,
         }}
       >
         <Stack.Screen name="(tabs)" />

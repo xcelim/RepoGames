@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 're
 import { useAchievementData, type Earned, type Platinum } from '@/hooks/usePlatinums';
 import { useStore } from '@/store/useStore';
 import type { GameRecord, Profile, Showcase, UserGame } from '@/types';
-import { formatHours, replayStats } from '@/utils/library';
+import { formatHours, replayTotals } from '@/utils/library';
 import { SHOWCASES } from '@/utils/level';
 
 import { AchievementIcon } from './AchievementIcon';
@@ -152,8 +152,9 @@ export function ShowcaseView({
       );
     }
     case 'replays': {
+      const totals = replayTotals({ lists, items, userGames }, profile.id);
       const top = mine
-        .map((u) => ({ g: games[u.gameId], n: replayStats({ lists, items, userGames }, profile.id, u.gameId).total }))
+        .map((u) => ({ g: games[u.gameId], n: totals.get(u.gameId) ?? 0 }))
         .filter((x): x is { g: GameRecord; n: number } => !!x.g && x.n > 0)
         .sort((a, b) => b.n - a.n)
         .slice(0, 8);

@@ -9,6 +9,7 @@ import type {
   Showcase,
   UserGame,
   Visibility,
+  TierList,
 } from '@/types';
 
 export type ProfileRow = {
@@ -28,6 +29,9 @@ export type ProfileRow = {
     level?: number;
     xp?: number;
     steamId?: string | null;
+    tierlists?: TierList[];
+    elo?: Record<string, number>;
+    duels?: number;
   } | null;
   created_at: string;
   updated_at?: string;
@@ -122,6 +126,8 @@ export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['setti
           ...(p.frame !== undefined ? { frame: p.frame } : {}),
           ...(p.level !== undefined ? { level: p.level, xp: p.xp } : {}),
           ...(p.steamId !== undefined ? { steamId: p.steamId } : {}),
+          ...(p.tierlists ? { tierlists: p.tierlists } : {}),
+          ...(p.elo ? { elo: p.elo, duels: p.duels ?? 0 } : {}),
         },
       }
     : {}),
@@ -143,6 +149,10 @@ export const fromProfileRow = (r: ProfileRow): Profile => ({
   ...(r.settings?.frame !== undefined ? { frame: r.settings.frame } : {}),
   ...(typeof r.settings?.level === 'number' ? { level: r.settings.level, xp: r.settings.xp } : {}),
   ...(r.settings?.steamId !== undefined ? { steamId: r.settings.steamId } : {}),
+  ...(Array.isArray(r.settings?.tierlists) ? { tierlists: r.settings.tierlists } : {}),
+  ...(r.settings?.elo && typeof r.settings.elo === 'object'
+    ? { elo: r.settings.elo, duels: r.settings.duels ?? 0 }
+    : {}),
 });
 
 export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => ({

@@ -3,7 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { type ReactNode, useMemo, useState } from 'react';
+import { createContext, memo, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -115,9 +115,14 @@ export function IgnScreen({
   const c = useIgnColors();
   const insets = useSafeAreaInsets();
   const [scrollY] = useState(() => new Animated.Value(0));
+  const [scrollEnd] = useState(createScrollEnd);
   const onScroll = useMemo(
-    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
-    [scrollY],
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: onScrollNearEnd(scrollEnd) as never,
+      }),
+    [scrollY, scrollEnd],
   );
   const barOpacity = scrollY.interpolate({
     inputRange: [collapseAt - 20, collapseAt + 10],
@@ -164,7 +169,7 @@ export function IgnScreen({
             </View>
           </View>
         )}
-        {children}
+        <ScrollEndContext.Provider value={scrollEnd}>{children}</ScrollEndContext.Provider>
       </Animated.ScrollView>
       <Animated.View
         pointerEvents="box-none"
@@ -183,6 +188,52 @@ export function IgnScreen({
       </Animated.View>
     </View>
   );
+}
+
+// ---------- Pintar poco a poco las rejillas largas ----------
+// La pantalla avisa cuando el scroll se acerca al final y las rejillas pintan más portadas:
+// así abrir una biblioteca de 400 juegos solo dibuja las primeras y va fluido.
+
+type EndListener = () => void;
+export type ScrollEnd = { subscribe: (fn: EndListener) => () => void; emit: () => void };
+
+export function createScrollEnd(): ScrollEnd {
+  const listeners = new Set<EndListener>();
+  return {
+    subscribe: (fn) => {
+      listeners.add(fn);
+      return () => {
+        listeners.delete(fn);
+      };
+    },
+    emit: () => listeners.forEach((fn) => fn()),
+  };
+}
+
+export const ScrollEndContext = createContext<ScrollEnd | null>(null);
+
+export function onScrollNearEnd(end: ScrollEnd, margin = 1200) {
+  return (e: {
+    nativeEvent: {
+      layoutMeasurement: { height: number };
+      contentOffset: { y: number };
+      contentSize: { height: number };
+    };
+  }) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - margin) end.emit();
+  };
+}
+
+// Cuántos elementos pintar: empieza con pocos y crece al bajar (o del todo si no hay scroll que avise).
+export function useProgressive(total: number, first = 12, step = 16): number {
+  const end = useContext(ScrollEndContext);
+  const [count, setCount] = useState(first);
+  useEffect(() => {
+    if (!end) return;
+    return end.subscribe(() => setCount((n) => (n < total ? n + step : n)));
+  }, [end, total, step]);
+  return end ? Math.min(total, count) : total;
 }
 
 // Icono redondo de cabecera (⊕, buscar, compartir...).
@@ -334,7 +385,7 @@ export function RankCircle({ rank, size = 26 }: { rank: number; size?: number })
 
 // ---------- Portada con título (rejillas y carruseles) ----------
 
-export function CoverTile({
+function CoverTileInner({
   game,
   width,
   status,
@@ -424,6 +475,19 @@ export function CoverTile({
     </Pressable>
   );
 }
+
+// Las funciones cambian en cada pintado pero hacen lo mismo con el mismo juego:
+// solo se vuelve a pintar la portada si cambian sus datos.
+export const CoverTile = memo(CoverTileInner, (a, b) => {
+  for (const k of Object.keys({ ...a, ...b }) as (keyof typeof a)[]) {
+    if (typeof a[k] === 'function' || typeof b[k] === 'function') {
+      if (!a[k] !== !b[k]) return false;
+      continue;
+    }
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+});
 
 // ---------- Mosaico de portadas de una lista ----------
 
@@ -1070,9 +1134,10 @@ export function EntryGrid({
   onReplays?: (game: GameRecord) => void;
 }) {
   const tileW = (width - 20 * 2 - 14) / 2;
+  const count = useProgressive(entries.length);
   return (
     <View style={gridStyles.grid}>
-      {entries.map((e, i) => (
+      {entries.slice(0, count).map((e, i) => (
         <CoverTile
           key={`${e.game.id}-${i}`}
           game={e.game}

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, Platform } from 'react-native';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware';
 
 import { OFFICIAL_LISTS } from '@/data/catalog';
 import type {
@@ -152,6 +153,44 @@ function copyList(
 
 function withoutKeys<T>(record: Record<string, T>, keep: (value: T) => boolean) {
   return Object.fromEntries(Object.entries(record).filter(([, value]) => keep(value)));
+}
+
+// Sin la descarga para usar sin conexión, en el móvil solo se guardan los ajustes,
+// la sesión y los cambios que aún no han llegado a Supabase (para no perderlos).
+let pendingWrite: { name: string; value: StorageValue<Persisted> } | null = null;
+let writeTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function flushStorage(): Promise<void> {
+  if (writeTimer) clearTimeout(writeTimer);
+  writeTimer = null;
+  const job = pendingWrite;
+  pendingWrite = null;
+  if (!job) return Promise.resolve();
+  const data = { state: persistedPart(job.value.state as unknown as Store), version: job.value.version };
+  return AsyncStorage.setItem(job.name, JSON.stringify(data)).catch(() => undefined);
+}
+
+const lazyStorage: PersistStorage<Persisted> = {
+  getItem: async (name) => {
+    const raw = await AsyncStorage.getItem(name);
+    return raw ? (JSON.parse(raw) as StorageValue<Persisted>) : null;
+  },
+  setItem: (name, value) => {
+    pendingWrite = { name, value };
+    if (!writeTimer) writeTimer = setTimeout(() => void flushStorage(), 500);
+  },
+  removeItem: (name) => {
+    pendingWrite = null;
+    return AsyncStorage.removeItem(name);
+  },
+};
+
+if (Platform.OS === 'web') {
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', () => void flushStorage());
+} else {
+  AppState.addEventListener('change', (st) => {
+    if (st !== 'active') void flushStorage();
+  });
 }
 
 export const useStore = create<Store>()(
@@ -534,10 +573,10 @@ export const useStore = create<Store>()(
         if (version < 4) state = { ...state, officialLoadedAt: {} };
         return state;
       },
-      storage: createJSONStorage(() => AsyncStorage),
-      // Sin la descarga para usar sin conexión, en el móvil solo se guardan los ajustes,
-      // la sesión y los cambios que aún no han llegado a Supabase (para no perderlos).
-      partialize: (state) => persistedPart(state),
+      // Guardar en el móvil es caro con muchos juegos: se agrupan los cambios y se escribe
+      // como mucho cada medio segundo (y al salir de la app), sin frenar lo que estás haciendo.
+      storage: lazyStorage,
+      partialize: (state) => state as unknown as Persisted,
     },
   ),
 );
