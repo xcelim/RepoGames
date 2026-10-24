@@ -14,7 +14,8 @@ import {
 } from '@/cloud/social';
 import { FriendButton } from '@/components/FriendButton';
 import { GameCover } from '@/components/games';
-import { Card, IgnScreen, ProgressBar, useIgnColors } from '@/components/ign';
+import { Card, EntryGrid, IgnScreen, ProgressBar, useIgnColors } from '@/components/ign';
+import { Chip } from '@/components/ui';
 import { LevelBadge } from '@/components/LevelBadge';
 import { ListCard } from '@/components/lists';
 import { OfflineGate } from '@/components/offline';
@@ -27,7 +28,7 @@ import { FINISHED } from '@/data/meta';
 import { useListCount, useProfileLookup } from '@/hooks/useLists';
 import { useAchievementsOf } from '@/hooks/usePlatinums';
 import { useStore } from '@/store/useStore';
-import type { GameRecord, UserGame } from '@/types';
+import type { GameRecord, PlayStatus, UserGame } from '@/types';
 import { compatibility } from '@/utils/compat';
 import { levelColor, levelFromXp, showcaseSlots } from '@/utils/level';
 
@@ -212,6 +213,8 @@ function UserScreenInner() {
             ))
         : null}
 
+      {library && library.length ? <TheirLibrary library={theirs} games={games} width={width} /> : null}
+
       <ThemedText variant="display" size={20} style={{ marginTop: 6 }}>
         Listas públicas
       </ThemedText>
@@ -229,6 +232,73 @@ function UserScreenInner() {
         </View>
       )}
     </IgnScreen>
+  );
+}
+
+const LIB_FILTERS: { id: string; label: string; statuses: PlayStatus[] | null }[] = [
+  { id: 'all', label: 'Todos', statuses: null },
+  { id: 'playing', label: 'Jugando', statuses: ['playing'] },
+  { id: 'finished', label: 'Terminados', statuses: ['beaten', 'completed'] },
+  { id: 'pending', label: 'Pendientes', statuses: ['backlog', 'paused', 'library'] },
+  { id: 'wishlist', label: 'Deseados', statuses: ['wishlist'] },
+  { id: 'dropped', label: 'Abandonados', statuses: ['dropped'] },
+];
+
+// Los juegos de otra persona, con su estado y su nota.
+function TheirLibrary({
+  library,
+  games,
+  width,
+}: {
+  library: UserGame[];
+  games: Record<string, GameRecord>;
+  width: number;
+}) {
+  const [filter, setFilter] = useState('all');
+  const f = LIB_FILTERS.find((x) => x.id === filter)!;
+  const entries = useMemo(
+    () =>
+      library
+        .filter((u) => games[u.gameId] && (!f.statuses || f.statuses.includes(u.status)))
+        .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+        .map((u, i) => ({
+          game: games[u.gameId],
+          status: u.status,
+          rank: i + 1,
+          physical: u.owned,
+          subtitle: u.rating ? `★ ${u.rating}/10` : undefined,
+        })),
+    [library, games, f],
+  );
+  const count = (st: PlayStatus[] | null) => library.filter((u) => !st || st.includes(u.status)).length;
+  return (
+    <View style={{ gap: 12, marginHorizontal: -20 }}>
+      <ThemedText variant="display" size={20} style={{ marginTop: 6, paddingHorizontal: 20 }}>
+        Biblioteca
+      </ThemedText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.libChips}>
+        {LIB_FILTERS.map((x) => (
+          <Chip
+            key={x.id}
+            label={`${x.label} (${count(x.statuses)})`}
+            selected={filter === x.id}
+            onPress={() => setFilter(x.id)}
+          />
+        ))}
+      </ScrollView>
+      {entries.length ? (
+        <EntryGrid
+          entries={entries}
+          width={width}
+          showRank={false}
+          onPress={(g) => router.push(`/game/${encodeURIComponent(g.id)}`)}
+        />
+      ) : (
+        <ThemedText variant="muted" size={13} style={{ paddingHorizontal: 20 }}>
+          Nada por aquí.
+        </ThemedText>
+      )}
+    </View>
   );
 }
 
@@ -258,6 +328,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  libChips: { gap: 8, paddingHorizontal: 20 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   levelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },

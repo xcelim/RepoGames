@@ -39,6 +39,7 @@ import type { GameRecord, ListSort } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { entryStats, formatHours, sortEntries } from '@/utils/library';
 import { notify } from '@/utils/notify';
+import { goBack } from '@/utils/nav';
 
 export default function ListScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -149,7 +150,7 @@ export default function ListScreen() {
         style: 'destructive',
         onPress: () => {
           removeListMember(list.id, profileId ?? '')
-            .then(() => router.back())
+            .then(() => goBack())
             .catch((e: unknown) => notify(e instanceof Error ? e.message : 'No se pudo'));
         },
       },
@@ -163,7 +164,7 @@ export default function ListScreen() {
         style: 'destructive',
         onPress: () => {
           deleteList(list.id);
-          router.back();
+          goBack('/lists');
         },
       },
     ]);
@@ -173,11 +174,7 @@ export default function ListScreen() {
     <View style={{ paddingTop: insets.top + 6 }}>
       <BlurHero url={heroCover} colors={[list.color, list.color2]} height={heroH} />
       <View style={styles.topBar}>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/lists'))}
-          style={styles.backRow}
-          hitSlop={10}
-        >
+        <Pressable onPress={() => goBack()} style={styles.backRow} hitSlop={10}>
           <Ionicons name="chevron-back" size={20} color="#fff" />
           <ThemedText size={16} style={styles.white}>
             Atrás

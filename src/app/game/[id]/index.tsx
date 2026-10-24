@@ -50,6 +50,7 @@ import { finishEta } from '@/utils/stats';
 import { longDate } from '@/hooks/useMyGames';
 import type { GameDetails } from '@/api/types';
 import type { GameRecord } from '@/types';
+import { goBack } from '@/utils/nav';
 
 type Tab = 'overview' | 'lists' | 'reviews';
 
@@ -111,11 +112,7 @@ export default function GameScreen() {
   const header = (
     <View style={{ paddingTop: insets.top + 6 }}>
       <BlurHero url={cover} colors={gameColors(game)} height={insets.top + 50 + coverW * 0.75} />
-      <Pressable
-        onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-        style={styles.backRow}
-        hitSlop={10}
-      >
+      <Pressable onPress={() => goBack()} style={styles.backRow} hitSlop={10}>
         <Ionicons name="chevron-back" size={20} color="#fff" />
         <ThemedText size={16} style={{ color: '#fff' }}>
           Atrás

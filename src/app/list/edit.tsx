@@ -17,6 +17,7 @@ import { useStore } from '@/store/useStore';
 import type { GameList, Visibility } from '@/types';
 import type { Entry } from '@/utils/library';
 import { notify } from '@/utils/notify';
+import { goBack } from '@/utils/nav';
 
 const ROW_H = 100;
 
@@ -135,7 +136,7 @@ function NewList({ addGame }: { addGame?: string }) {
     if (addGame) {
       addToList(newId, addGame);
       notify('Lista creada con el juego');
-      router.back();
+      goBack();
     } else {
       router.replace(`/list/${newId}`);
     }
@@ -179,7 +180,7 @@ function EditItems({ list }: { list: GameList }) {
   const header = (
     <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 20 }}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backRow} hitSlop={10}>
+        <Pressable onPress={() => goBack()} style={styles.backRow} hitSlop={10}>
           <Ionicons name="chevron-back" size={20} color={c.text} />
           <ThemedText size={16}>Atrás</ThemedText>
         </Pressable>

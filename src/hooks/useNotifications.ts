@@ -14,14 +14,37 @@ export type Note = {
   text: string;
   who?: string; // perfil
   href: string;
+  kind?: 'friend-request' | 'challenge';
+  ref?: string; // a quién aceptar / qué reto
 };
 
 const SEEN_KEY = 'notes:seenAt';
-export const useNotesSeen = create<{ seenAt: string; loaded: boolean }>(() => ({ seenAt: '', loaded: false }));
+const DISMISSED_KEY = 'notes:dismissed';
+export const useNotesSeen = create<{ seenAt: string; loaded: boolean; dismissed: string[] }>(() => ({
+  seenAt: '',
+  loaded: false,
+  dismissed: [],
+}));
 
 export async function loadNotesSeen() {
-  const v = await AsyncStorage.getItem(SEEN_KEY).catch(() => null);
-  useNotesSeen.setState({ seenAt: v ?? '', loaded: true });
+  const [v, d] = await Promise.all([
+    AsyncStorage.getItem(SEEN_KEY).catch(() => null),
+    AsyncStorage.getItem(DISMISSED_KEY).catch(() => null),
+  ]);
+  let dismissed: string[] = [];
+  try {
+    dismissed = d ? (JSON.parse(d) as string[]) : [];
+  } catch {
+    dismissed = [];
+  }
+  useNotesSeen.setState({ seenAt: v ?? '', loaded: true, dismissed });
+}
+
+// Borrar avisos (se recuerdan los borrados; se guardan los últimos 500).
+export async function dismissNotes(ids: string[]) {
+  const dismissed = [...new Set([...useNotesSeen.getState().dismissed, ...ids])].slice(-500);
+  useNotesSeen.setState({ dismissed });
+  await AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify(dismissed)).catch(() => undefined);
 }
 export async function markNotesSeen() {
   const now = new Date().toISOString();
@@ -34,6 +57,7 @@ export function useNotifications(): Note[] {
   const { friendships, profiles, chats, reactions, groups, groupChats, games } = useSocial();
   const localGames = useStore((s) => s.games);
   const challenges = useChallenges((s) => s.list);
+  const dismissed = useNotesSeen((s) => s.dismissed);
   useEffect(() => {
     if (!useNotesSeen.getState().loaded) loadNotesSeen().catch(() => undefined);
   }, []);
@@ -45,12 +69,14 @@ export function useNotifications(): Note[] {
     for (const f of friendships) {
       if (f.status === 'pending' && f.addressee === uid) {
         out.push({
-          id: `fr-${f.requester}`,
+          id: `fr-${f.requester}-${f.createdAt}`,
           at: f.createdAt,
           icon: 'person-add',
           text: `${name(f.requester)} quiere ser tu amigo`,
           who: f.requester,
-          href: '/social',
+          href: `/user/${f.requester}`,
+          kind: 'friend-request',
+          ref: f.requester,
         });
       }
       if (f.status === 'accepted' && f.requester === uid && f.acceptedAt) {
@@ -97,7 +123,7 @@ export function useNotifications(): Note[] {
     for (const r of reactions) {
       if (r.targetProfile === uid && r.profileId !== uid) {
         out.push({
-          id: `re-${r.profileId}-${r.gameId}`,
+          id: `re-${r.profileId}-${r.gameId}-${r.emoji}-${r.createdAt}`,
           at: r.createdAt,
           icon: 'happy',
           text: `${name(r.profileId)} ha reaccionado ${r.emoji} a ${title(r.gameId)}`,
@@ -115,7 +141,9 @@ export function useNotifications(): Note[] {
           icon: 'trophy',
           text: `${name(ch.creator)} te reta: ${ch.title}`,
           who: ch.creator,
-          href: '/challenges',
+          href: `/challenge/${ch.id}`,
+          kind: 'challenge',
+          ref: ch.id,
         });
       }
       for (const m of ch.members) {
@@ -131,8 +159,12 @@ export function useNotifications(): Note[] {
         }
       }
     }
-    return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 80);
-  }, [uid, friendships, profiles, chats, reactions, groups, groupChats, games, localGames, challenges]);
+    const gone = new Set(dismissed);
+    return out
+      .filter((n) => !gone.has(n.id))
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .slice(0, 80);
+  }, [uid, friendships, profiles, chats, reactions, groups, groupChats, games, localGames, challenges, dismissed]);
 }
 
 export function useUnreadNotifications(): number {

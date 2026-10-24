@@ -643,3 +643,25 @@ exception when undefined_object then
 end;
 $$;
 
+
+-- ---------------------------------------------------------------------
+-- 12. Biblioteca de otra persona (también juegos con reseña privada, sin la reseña)
+-- ---------------------------------------------------------------------
+create or replace function public.user_library(p uuid)
+returns setof public.user_games
+language plpgsql
+stable
+security definer set search_path = public
+as $$
+declare r public.user_games;
+begin
+  for r in select * from public.user_games where profile_id = p loop
+    if r.review_private and r.profile_id is distinct from auth.uid() then
+      r.review := '';
+    end if;
+    return next r;
+  end loop;
+end;
+$$;
+revoke all on function public.user_library(uuid) from public;
+grant execute on function public.user_library(uuid) to anon, authenticated;

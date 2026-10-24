@@ -1,5 +1,6 @@
 // Amigos, chat y actividad de amigos (Supabase + tiempo real).
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import { useStore } from '@/store/useStore';
@@ -144,10 +145,11 @@ function isMissing(error: { message: string; code?: string } | null): boolean {
   );
 }
 
-export async function ensureProfiles(ids: string[]): Promise<void> {
+// Perfiles de otros (nombre, foto, nivel...). Con `force` se vuelven a pedir aunque ya los tengamos.
+export async function ensureProfiles(ids: string[], force = false): Promise<void> {
   const client = getSupabase();
   const known = useSocial.getState().profiles;
-  const missing = [...new Set(ids)].filter((id) => id && !known[id]);
+  const missing = [...new Set(ids)].filter((id) => id && (force || !known[id]));
   if (!client || !missing.length) return;
   const { data } = await client.from('profiles').select('*').in('id', missing);
   if (!data) return;
@@ -182,7 +184,14 @@ export async function refreshFriends(): Promise<void> {
   }
   if (error) throw new Error(error.message);
   const friendships = (data as FriendshipRow[]).map(fromFriendship);
-  useSocial.setState({ friendships, missingTables: false, ready: true });
+  const sig = (fs: Friendship[]) =>
+    fs
+      .map((f) => `${f.requester}>${f.addressee}:${f.status}`)
+      .sort()
+      .join('|');
+  const st = useSocial.getState();
+  if (!st.ready || st.missingTables || sig(st.friendships) !== sig(friendships))
+    useSocial.setState({ friendships, missingTables: false, ready: true });
   await ensureProfiles(friendships.map((f) => otherOf(f, uid)));
 }
 
@@ -279,7 +288,15 @@ export async function refreshInbox(): Promise<void> {
     (chats[other] ??= []).push(m);
   }
   for (const k of Object.keys(chats)) chats[k].sort((x, y) => x.createdAt.localeCompare(y.createdAt));
-  useSocial.setState({ chats });
+  // Solo se repinta si algo cambió (esto se consulta cada pocos segundos).
+  const sig = (c: Record<string, Message[]>) =>
+    Object.entries(c)
+      .map(([k, ms]) => `${k}:${ms.length}:${ms[ms.length - 1]?.id}:${ms.filter((m) => m.readAt).length}`)
+      .sort()
+      .join('|');
+  const old = useSocial.getState().chats;
+  const pendings = Object.values(old).some((ms) => ms.some((m) => m.pending));
+  if (pendings || sig(old) !== sig(chats)) useSocial.setState({ chats });
   await ensureProfiles(Object.keys(chats));
   await ensureGames(Object.values(chats).flatMap((ms) => ms.map((m) => m.gameId).filter((g): g is string => !!g)));
 }
@@ -379,14 +396,20 @@ export async function refreshActivity(): Promise<void> {
 export async function fetchUserLibrary(profileId: string): Promise<UserGame[]> {
   const client = getSupabase();
   if (!client) return [];
-  const { data } = await client.from('user_games').select('*').eq('profile_id', profileId).limit(2000);
-  const list = ((data as UserGameRow[] | null) ?? []).map((r) => fromUserGameRow(r, profileId));
+  // Con la función del SQL se ven también los juegos con reseña privada (sin la reseña).
+  const rpc = await client.rpc('user_library', { p: profileId });
+  const rows =
+    !rpc.error && Array.isArray(rpc.data)
+      ? (rpc.data as UserGameRow[])
+      : (((await client.from('user_games').select('*').eq('profile_id', profileId).limit(3000)).data as
+          UserGameRow[] | null) ?? []);
+  const list = rows.map((r) => fromUserGameRow(r, profileId));
   await ensureGames(list.map((u) => u.gameId));
   return list;
 }
 
 export async function fetchProfile(profileId: string): Promise<Profile | null> {
-  await ensureProfiles([profileId]);
+  await ensureProfiles([profileId], true); // siempre lo último (foto, nivel...)
   return useSocial.getState().profiles[profileId] ?? null;
 }
 
@@ -577,17 +600,66 @@ export function groupUnread(g: ChatGroup, msgs: GroupMessage[] | undefined, uid:
 // ---------- Tiempo real ----------
 
 let channel: RealtimeChannel | null = null;
+let poller: ReturnType<typeof setInterval> | null = null;
+let retry: ReturnType<typeof setTimeout> | null = null;
+let appSub: { remove: () => void } | null = null;
+let tick = 0;
 
+// Todo lo social de golpe (al arrancar, al volver a la app y cada cierto tiempo).
+export async function refreshSocial(full = true): Promise<void> {
+  await refreshFriends();
+  await Promise.all([refreshInbox(), refreshGroups()]);
+  if (!full) return;
+  const uid = me();
+  const people = new Set([...friendIds(), ...Object.keys(useSocial.getState().chats)]);
+  if (uid) people.delete(uid);
+  await Promise.all([
+    refreshActivity(),
+    refreshReactions(),
+    ensureProfiles([...people], true),
+    import('./challenges').then(({ refreshChallenges }) => refreshChallenges()),
+  ]);
+}
+
+// Tiempo real + red de seguridad: si el canal se cae (el móvil se duerme, cambias de red...),
+// se vuelve a conectar, y además se consulta cada 15 s mientras la app está abierta.
 export function startSocial(): () => void {
   const client = getSupabase();
   const uid = me();
   if (!client || !uid) return () => undefined;
   setupLocalNotifications().catch(() => undefined);
-  refreshFriends()
-    .then(() => Promise.all([refreshInbox(), refreshActivity(), refreshReactions(), refreshGroups()]))
-    .then(() => import('./challenges').then(({ refreshChallenges }) => refreshChallenges()))
-    .catch(() => undefined);
-  if (channel) client.removeChannel(channel);
+  refreshSocial().catch(() => undefined);
+  connectRealtime(client, uid);
+  if (poller) clearInterval(poller);
+  poller = setInterval(() => {
+    if (AppState.currentState !== 'active' || !me()) return;
+    tick++;
+    refreshSocial(tick % 4 === 0).catch(() => undefined);
+  }, 15_000);
+  appSub?.remove();
+  appSub = AppState.addEventListener('change', (st) => {
+    if (st !== 'active' || !me()) return;
+    refreshSocial().catch(() => undefined);
+    connectRealtime(client, uid);
+  });
+  return () => {
+    if (poller) clearInterval(poller);
+    if (retry) clearTimeout(retry);
+    poller = null;
+    retry = null;
+    appSub?.remove();
+    appSub = null;
+    if (channel) client.removeChannel(channel);
+    channel = null;
+  };
+}
+
+function connectRealtime(client: NonNullable<ReturnType<typeof getSupabase>>, uid: string): void {
+  if (retry) clearTimeout(retry);
+  retry = null;
+  const old = channel;
+  channel = null;
+  if (old) client.removeChannel(old);
   const nameOf = (id: string) => useSocial.getState().profiles[id]?.displayName ?? 'Saga Quest';
   const onMessage = (row: MessageRow, fresh = false) => {
     const m = fromMessage(row);
@@ -604,8 +676,8 @@ export function startSocial(): () => void {
     ensureProfiles([other]).catch(() => undefined);
     if (m.gameId) ensureGames([m.gameId]).catch(() => undefined);
   };
-  channel = client
-    .channel(`social-${uid}`)
+  const ch = client
+    .channel(`social-${uid}-${Date.now()}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient=eq.${uid}` },
@@ -657,6 +729,11 @@ export function startSocial(): () => void {
           .catch(() => undefined);
       },
     )
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (p) => {
+      const row = p.new as ProfileRow;
+      if (row?.id && useSocial.getState().profiles[row.id])
+        useSocial.setState((s) => ({ profiles: { ...s.profiles, [row.id]: fromProfileRow(row) } }));
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, (p) => {
       const row = p.new as FriendshipRow | undefined;
       if (p.eventType === 'INSERT' && row?.addressee === uid) {
@@ -667,12 +744,18 @@ export function startSocial(): () => void {
       refreshFriends()
         .then(refreshActivity)
         .catch(() => undefined);
-    })
-    .subscribe();
-  return () => {
-    if (channel) client.removeChannel(channel);
-    channel = null;
-  };
+    });
+  channel = ch;
+  ch.subscribe((status) => {
+    if (channel !== ch) return; // es un canal viejo que acabamos de cerrar
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      if (retry || !me()) return;
+      retry = setTimeout(() => {
+        retry = null;
+        if (me() === uid && channel === ch) connectRealtime(client, uid);
+      }, 5000);
+    }
+  });
 }
 
 // Listas públicas de un usuario (se guardan con las de la comunidad).

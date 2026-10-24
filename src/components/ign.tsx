@@ -28,6 +28,7 @@ import { GameCover } from './games';
 import { ReplayBadge } from './replayBadge';
 import { ThemedText } from './ThemedText';
 import type { IconName } from './ui';
+import { goBack } from '@/utils/nav';
 
 // ---------- Colores derivados ----------
 
@@ -129,11 +130,11 @@ export function IgnScreen({
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-  const goBack = typeof back === 'function' ? back : () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const onBack = typeof back === 'function' ? back : () => goBack();
 
   const backButton =
     back || close ? (
-      <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
+      <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
         <Ionicons name={close ? 'close' : 'chevron-back'} size={24} color={c.text} />
       </Pressable>
     ) : (
@@ -152,7 +153,7 @@ export function IgnScreen({
         {header ?? (
           <View style={[styles.largeHeader, { paddingTop: insets.top + 10 }]}>
             {back || close ? (
-              <Pressable onPress={goBack} hitSlop={12} style={styles.backRow}>
+              <Pressable onPress={onBack} hitSlop={12} style={styles.backRow}>
                 <Ionicons name={close ? 'close' : 'chevron-back'} size={20} color={c.text} />
                 <ThemedText size={16}>{close ? 'Cerrar' : 'Atrás'}</ThemedText>
               </Pressable>
@@ -1084,7 +1085,7 @@ const styles = StyleSheet.create({
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
   platChip: { borderRadius: 3 },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', paddingHorizontal: 18 },
-  sheet: { padding: 18, maxHeight: '100%' },
+  sheet: { padding: 18, maxHeight: '100%', width: '100%', maxWidth: 560, alignSelf: 'center' },
   sheetTitle: { textAlign: 'center', letterSpacing: 1.5, marginBottom: 14 },
   sheetScroll: { flexGrow: 0 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 8 },
@@ -1133,8 +1134,10 @@ export function EntryGrid({
   onLongPress?: (game: GameRecord) => void;
   onReplays?: (game: GameRecord) => void;
 }) {
-  const tileW = (width - 20 * 2 - 14) / 2;
-  const count = useProgressive(entries.length);
+  // Dos columnas en el móvil; en pantallas anchas (web en el PC), las que quepan.
+  const cols = Math.max(2, Math.floor((width - 40 + 14) / (196 + 14)));
+  const tileW = (width - 20 * 2 - 14 * (cols - 1)) / cols;
+  const count = useProgressive(entries.length, cols * 6, cols * 6);
   return (
     <View style={gridStyles.grid}>
       {entries.slice(0, count).map((e, i) => (

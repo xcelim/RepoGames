@@ -12,6 +12,7 @@ import { TextField } from '@/components/ui';
 import { useGame } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import { notify } from '@/utils/notify';
+import { goBack } from '@/utils/nav';
 
 // Recomendar un juego a uno o varios amigos (les llega al chat).
 export default function ShareGameScreen() {
@@ -33,7 +34,7 @@ export default function ShareGameScreen() {
     try {
       for (const f of picked) await sendMessage(f, note, id);
       notify(picked.length === 1 ? 'Recomendación enviada' : `Enviado a ${picked.length} amigos`);
-      router.back();
+      goBack();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'No se pudo enviar');
     } finally {

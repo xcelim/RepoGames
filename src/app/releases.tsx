@@ -1,16 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { useDiscover } from '@/api/discover';
+import { useUpcomingWide } from '@/api/discover';
+import { UPCOMING_PLATFORMS } from '@/api/igdb';
 import { toGameRecord } from '@/api/games';
 import { GameCover } from '@/components/games';
-import { Card, IgnScreen, useIgnColors } from '@/components/ign';
+import { Card, IgnScreen, useIgnColors, useProgressive } from '@/components/ign';
+import { Chip } from '@/components/ui';
 import { ThemedText } from '@/components/ThemedText';
 import { STATUS_META } from '@/data/meta';
-import { daysBetween, longDate, todayIso, useMyGames } from '@/hooks/useMyGames';
+import { daysBetween, longDate, MONTHS_LONG, todayIso, useMyGames } from '@/hooks/useMyGames';
 import { useStore } from '@/store/useStore';
 import type { GameRecord, PlayStatus } from '@/types';
 import { notify } from '@/utils/notify';
@@ -91,7 +93,8 @@ export default function ReleasesScreen() {
   const mine = useMyGames();
   const today = todayIso();
   const { alerts, toggle } = useReleaseAlerts();
-  const upcoming = useDiscover('upcoming', 20);
+  const upcoming = useUpcomingWide();
+  const [platform, setPlatform] = useState<string>('all');
 
   const { waiting, out } = useMemo(() => {
     const dated = mine.filter((m) => m.game.releaseDate && m.ug.status !== 'beaten' && m.ug.status !== 'completed');
@@ -105,10 +108,18 @@ export default function ReleasesScreen() {
     };
   }, [mine, today]);
   const mineIds = new Set(mine.map((m) => m.game.id));
-  const popular = upcoming.data
-    .map((r) => toGameRecord(r, null))
-    .filter((g) => g.releaseDate && g.releaseDate >= today && !mineIds.has(g.id))
-    .sort((a, b) => a.releaseDate!.localeCompare(b.releaseDate!));
+  const plat = UPCOMING_PLATFORMS.find((p) => p.id === platform);
+  const popular = useMemo(
+    () =>
+      upcoming.data
+        .map((r) => toGameRecord(r, null))
+        .filter((g) => g.releaseDate && g.releaseDate >= today && !mineIds.has(g.id))
+        .filter((g) => !plat || plat.match.test(g.platforms))
+        .sort((a, b) => a.releaseDate!.localeCompare(b.releaseDate!)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [upcoming.data, today, platform, mine],
+  );
+  const shown = useProgressive(popular.length, 20, 20);
 
   const onAlert = (g: GameRecord, date: string) =>
     toggle(g.id, g.title, date).then((on) => notify(on ? `Te avisaremos cuando salga ${g.title}` : 'Aviso quitado'));
@@ -167,14 +178,25 @@ export default function ReleasesScreen() {
       )}
 
       <ThemedText variant="bold" size={13} style={styles.caps}>
-        Los más esperados
+        Calendario de lanzamientos
       </ThemedText>
+      <View style={styles.chips}>
+        <Chip label="Todas" selected={platform === 'all'} onPress={() => setPlatform('all')} />
+        {UPCOMING_PLATFORMS.map((p) => (
+          <Chip key={p.id} label={p.label} selected={platform === p.id} onPress={() => setPlatform(p.id)} />
+        ))}
+      </View>
       {upcoming.loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 30 }} />
       ) : popular.length ? (
         <Card padded={false}>
-          {popular.map((g, i) => (
+          {popular.slice(0, shown).map((g, i) => (
             <View key={g.id} style={i ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line } : null}>
+              {i === 0 || popular[i - 1].releaseDate!.slice(0, 7) !== g.releaseDate!.slice(0, 7) ? (
+                <ThemedText variant="bold" size={12} style={[styles.month, { backgroundColor: c.soft }]}>
+                  {`${MONTHS_LONG[Number(g.releaseDate!.slice(5, 7)) - 1]} ${g.releaseDate!.slice(0, 4)}`.toUpperCase()}
+                </ThemedText>
+              ) : null}
               <ReleaseRow
                 game={g}
                 date={g.releaseDate!}
@@ -187,7 +209,9 @@ export default function ReleasesScreen() {
       ) : (
         <Card>
           <ThemedText variant="muted" size={14}>
-            No se pudieron cargar los próximos lanzamientos.
+            {upcoming.error
+              ? 'No se pudieron cargar los próximos lanzamientos.'
+              : 'No hay lanzamientos con ese filtro.'}
           </ThemedText>
         </Card>
       )}
@@ -197,6 +221,8 @@ export default function ReleasesScreen() {
 
 const styles = StyleSheet.create({
   caps: { letterSpacing: 0.8, textTransform: 'uppercase' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  month: { paddingHorizontal: 12, paddingVertical: 6, letterSpacing: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   count: { width: 68, height: 64, alignItems: 'center', justifyContent: 'center' },
   alert: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },

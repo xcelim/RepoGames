@@ -122,7 +122,7 @@ export default function VersusScreen() {
     [pool, elo],
   );
 
-  const coverW = (width - 40 - 50) / 2;
+  const coverW = Math.min(260, (width - 40 - 50) / 2);
   const vsScale = vs.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] });
 
   return (

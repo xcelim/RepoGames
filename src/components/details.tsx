@@ -1,7 +1,7 @@
 // Detalles de tu partida: fechas, físico, rejugadas y notas por lista.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { createElement, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { useStore } from '@/store/useStore';
@@ -61,23 +61,10 @@ export function DateField({
 }) {
   const c = useIgnColors();
   const [iosOpen, setIosOpen] = useState(false);
-  const [text, setText] = useState(value ?? '');
   const current = value ? new Date(`${value}T12:00:00`) : new Date();
 
-  if (Platform.OS === 'web') {
-    return (
-      <TextField
-        label={label}
-        placeholder="AAAA-MM-DD"
-        value={text}
-        onChangeText={setText}
-        onEndEditing={() => onChange(/^\d{4}-\d{2}-\d{2}$/.test(text.trim()) ? text.trim() : null)}
-        onBlur={() => onChange(/^\d{4}-\d{2}-\d{2}$/.test(text.trim()) ? text.trim() : null)}
-      />
-    );
-  }
-
   const open = () => {
+    if (Platform.OS === 'web') return;
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: current,
@@ -103,8 +90,39 @@ export function DateField({
         <ThemedText variant={value ? 'bold' : 'muted'} size={14}>
           {formatDay(value) ?? 'Elegir fecha'}
         </ThemedText>
+        {Platform.OS === 'web'
+          ? // En la web, el calendario del navegador (un campo de fecha invisible encima de la fila).
+            createElement('input', {
+              type: 'date',
+              value: value ?? '',
+              max: iso(new Date()),
+              'aria-label': label,
+              onChange: (e: { target: { value: string } }) => onChange(e.target.value || null),
+              onClick: (e: { currentTarget: { showPicker?: () => void } }) => {
+                try {
+                  e.currentTarget.showPicker?.();
+                } catch {
+                  // algunos navegadores no lo permiten: se abre igual al tocar
+                }
+              },
+              style: {
+                position: 'absolute',
+                inset: 0,
+                opacity: 0,
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer',
+                border: 0,
+              },
+            })
+          : null}
         {value ? (
-          <Pressable onPress={() => onChange(null)} hitSlop={10} accessibilityLabel={`Quitar ${label}`}>
+          <Pressable
+            onPress={() => onChange(null)}
+            hitSlop={10}
+            accessibilityLabel={`Quitar ${label}`}
+            style={{ zIndex: 2 }}
+          >
             <Ionicons name="close-circle" size={20} color={c.muted} />
           </Pressable>
         ) : null}

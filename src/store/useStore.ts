@@ -224,7 +224,6 @@ export const useStore = create<Store>()(
             createdAt: now(),
           };
           set({ profiles: { ...get().profiles, [id]: profile }, currentProfileId: id });
-          get().seedOfficialCopies(id);
           return id;
         },
 

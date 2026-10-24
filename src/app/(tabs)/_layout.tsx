@@ -13,6 +13,7 @@ import { notify } from '@/utils/notify';
 import type { IconName } from '@/components/ui';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
+import { useDesktop } from '@/web/frame';
 
 // Pestañas: Descubrir, Biblioteca, Listas, Amigos y Perfil.
 const TABS: {
@@ -65,9 +66,12 @@ function IgnTabBar({ state, navigation }: BarProps) {
   const offline = useOfflineMode() && isCloudEnabled();
   const current = state.routes[state.index]?.name;
   const badge = useUnreadCount() + usePendingRequests();
+  const desktop = useDesktop();
   useEffect(() => {
     if (offline && current && NEEDS_NET.has(current)) navigation.navigate('profile');
   }, [offline, current, navigation]);
+  // En el PC (web) las secciones están en la barra lateral.
+  if (desktop) return <OfflineBanner />;
   return (
     <View>
       <OfflineBanner />

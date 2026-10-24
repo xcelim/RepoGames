@@ -27,6 +27,7 @@ import { LIKE_TAGS, platformBadge, PLATFORMS, scoreColor, STATUS_META } from '@/
 import { useGame } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import { userGameKey } from '@/utils/library';
+import { goBack } from '@/utils/nav';
 
 const STEPS = 5;
 const MAX_TEXT = 2000;
@@ -60,7 +61,7 @@ export default function ReviewWizard() {
 
   if (!game) return null;
 
-  const exit = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const exit = () => goBack();
   const back = () => (step === 0 ? exit() : setStep(step - 1));
   const publish = () => {
     if (!useStore.getState().games[game.id]) upsertGame(game);
@@ -98,7 +99,7 @@ export default function ReviewWizard() {
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: c.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
     >
       <View style={{ paddingTop: insets.top }}>
         <View style={styles.top}>

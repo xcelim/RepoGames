@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-import { hasIgdbCredentials, igdbBestOfYear, igdbRecentPopular, igdbUpcoming } from './igdb';
+import { hasIgdbCredentials, igdbBestOfYear, igdbRecentPopular, igdbUpcoming, igdbUpcomingWide } from './igdb';
 import type { OnlineResult } from './types';
 
 // Secciones de "Descubrir" (como IGN): mejor valorados del año, lo que se juega ahora y lo que viene.
@@ -75,5 +75,38 @@ export function useDiscover(kind: DiscoverKind, limit = 20) {
       cancelled = true;
     };
   }, [kind, limit]);
+  return state;
+}
+
+// Calendario de lanzamientos (todas las plataformas), guardado 12 horas.
+export function useUpcomingWide() {
+  const [state, setState] = useState<{ data: OnlineResult[]; loading: boolean; error: string | null }>({
+    data: [],
+    loading: true,
+    error: null,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const key = `${PREFIX}upcoming-wide`;
+      const cached = await AsyncStorage.getItem(key).catch(() => null);
+      if (cached) {
+        const { at, data } = JSON.parse(cached) as { at: number; data: OnlineResult[] };
+        if (Date.now() - at < MAX_AGE) return data;
+      }
+      if (!(await hasIgdbCredentials())) return [];
+      const data = await igdbUpcomingWide();
+      await AsyncStorage.setItem(key, JSON.stringify({ at: Date.now(), data })).catch(() => undefined);
+      return data;
+    })()
+      .then((data) => !cancelled && setState({ data, loading: false, error: null }))
+      .catch(
+        (e: unknown) =>
+          !cancelled && setState({ data: [], loading: false, error: e instanceof Error ? e.message : 'Error' }),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return state;
 }

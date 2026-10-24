@@ -322,6 +322,24 @@ async function selectIn<T>(table: string, column: string, values: string[]): Pro
   return out;
 }
 
+function same(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+// Devuelve `next`, pero reutilizando los objetos de `prev` que son iguales (y `prev` entero si nada cambió).
+export function keepSame<T>(prev: Record<string, T>, next: Record<string, T>): Record<string, T> {
+  let changed = Object.keys(prev).length !== Object.keys(next).length;
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(next)) {
+    if (k in prev && same(prev[k], v)) out[k] = prev[k];
+    else {
+      out[k] = v;
+      changed = true;
+    }
+  }
+  return changed ? out : prev;
+}
+
 export async function pull(): Promise<void> {
   const client = getSupabase();
   const uid = useStore.getState().cloudUserId;
@@ -427,16 +445,21 @@ export async function pull(): Promise<void> {
       : remote;
   }
 
+  // Lo que no ha cambiado conserva el mismo objeto: así las pantallas no se repintan
+  // (ni parpadean las portadas) cada vez que se comprueba si hay novedades.
   const patch: Partial<Store> = {
-    lists,
-    items,
-    userGames,
-    games,
-    follows: { ...state.follows, [uid]: [...follows] },
+    lists: keepSame(state.lists, lists),
+    items: keepSame(state.items, items),
+    userGames: keepSame(state.userGames, userGames),
+    games: keepSame(state.games, games),
+    follows: keepSame(state.follows, { ...state.follows, [uid]: [...follows] }),
   };
+  for (const k of Object.keys(patch) as (keyof typeof patch)[])
+    if (patch[k] === (state as Partial<Store>)[k]) delete patch[k];
   const profileRow = profileRes.data as ProfileRow | null;
   if (profileRow && !isDirty('profiles', uid)) {
-    patch.profiles = { ...state.profiles, [uid]: fromProfileRow(profileRow) };
+    const nextProfiles = keepSame(state.profiles, { ...state.profiles, [uid]: fromProfileRow(profileRow) });
+    if (nextProfiles !== state.profiles) patch.profiles = nextProfiles;
     const settings = profileRow.settings ?? {};
     if (settings.skin) patch.skin = settings.skin as Store['skin'];
     if (settings.durationMode) patch.durationMode = settings.durationMode as Store['durationMode'];
@@ -448,10 +471,8 @@ export async function pull(): Promise<void> {
     applyingRemote = false;
   }
 
-  // Cuenta nueva sin listas: se le añaden las bibliotecas oficiales (y se suben).
-  const after = useStore.getState();
-  const hasOwn = Object.values(after.lists).some((l) => l.ownerId === uid);
-  if (!hasOwn && !ownRows.length) after.seedOfficialCopies(uid);
+  // Las bibliotecas oficiales (Fire Emblem, Zelda...) ya NO se copian solas a cada cuenta:
+  // están en Descubrir y cada uno se añade las que quiera.
 }
 
 // ---------- Sincronizar ----------
@@ -556,6 +577,7 @@ export function startSyncEngine(): () => void {
   const appSub = AppState.addEventListener('change', (state) => {
     if (state === 'active' && Date.now() - lastActive > 30_000) {
       lastActive = Date.now();
+      subscribeRealtime(useStore.getState().cloudUserId);
       syncNow();
     }
     // Al irse a segundo plano se intenta subir lo pendiente.
@@ -565,11 +587,17 @@ export function startSyncEngine(): () => void {
   if (useStore.getState().offlineEnabled) useSync.setState({ ready: true });
   syncNow();
 
+  // Red de seguridad por si el tiempo real se pierde: se trae lo último cada minuto.
+  const poll = setInterval(() => {
+    if (AppState.currentState === 'active' && useStore.getState().cloudUserId) syncNow();
+  }, 60_000);
+
   return () => {
     unsubStore();
     unsubUser();
     unsubNet();
     appSub.remove();
+    clearInterval(poll);
     subscribeRealtime(null);
   };
 }

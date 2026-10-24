@@ -357,6 +357,30 @@ export async function igdbUpcoming(limit = 10): Promise<OnlineResult[]> {
   return withTimes(games);
 }
 
+// Calendario de lanzamientos amplio: lo más esperado en general y en cada plataforma
+// (si no, los de Nintendo, por ejemplo, se quedan fuera de los 20 primeros).
+export const UPCOMING_PLATFORMS: { id: string; label: string; igdb: number[]; match: RegExp }[] = [
+  { id: 'nintendo', label: 'Nintendo', igdb: [130, 508], match: /nintendo|switch/i },
+  { id: 'playstation', label: 'PlayStation', igdb: [167, 48], match: /playstation|ps[45]/i },
+  { id: 'xbox', label: 'Xbox', igdb: [169, 49], match: /xbox/i },
+  { id: 'pc', label: 'PC', igdb: [6], match: /\bpc\b|windows/i },
+];
+
+export async function igdbUpcomingWide(): Promise<OnlineResult[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const base = `where first_release_date > ${now} & version_parent = null & cover != null & hypes > 2`;
+  const queries = [
+    `${LIST_FIELDS} ${base}; sort hypes desc; limit 60;`,
+    ...UPCOMING_PLATFORMS.map(
+      (p) => `${LIST_FIELDS} ${base} & platforms = (${p.igdb.join(',')}); sort hypes desc; limit 40;`,
+    ),
+  ];
+  const batches = await Promise.all(queries.map((q) => query<IgdbSearchGame[]>('games', q).catch(() => [])));
+  const seen = new Set<number>();
+  const games = batches.flat().filter((g) => (seen.has(g.id) ? false : (seen.add(g.id), true)));
+  return games.map((g) => toResult(g)); // aún no han salido: no hay duraciones
+}
+
 // ---------- Ficha completa ----------
 
 type IgdbDetailGame = IgdbSearchGame & {

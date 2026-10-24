@@ -22,6 +22,7 @@ import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { notify } from '@/utils/notify';
+import { goBack } from '@/utils/nav';
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 const dayLabel = (iso: string) => {
@@ -82,10 +83,11 @@ export default function GroupChatScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      // En Android (pantalla de borde a borde) el sistema ya no encoge la ventana: hay que subir el chat a mano.
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
     >
       <View style={[styles.header, { paddingTop: insets.top + 6, borderBottomColor: c.line, backgroundColor: c.bg }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => goBack()} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={c.text} />
         </Pressable>
         <Pressable onPress={() => setInfo(true)} style={styles.who}>
@@ -245,7 +247,7 @@ export default function GroupChatScreen() {
           onAdd={(ids) =>
             addGroupMembers(groupId, ids).catch((e: unknown) => notify(e instanceof Error ? e.message : 'No se pudo'))
           }
-          onLeave={() => leaveGroup(groupId).then(() => router.back())}
+          onLeave={() => leaveGroup(groupId).then(() => goBack())}
           onClose={() => setInfo(false)}
         />
       ) : null}

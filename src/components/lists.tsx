@@ -10,6 +10,7 @@ import type { GameList } from '@/types';
 
 import { ThemedText } from './ThemedText';
 import { IconButton, type IconName } from './ui';
+import { goBack } from '@/utils/nav';
 
 // ---------- Tarjeta de lista con forma de carpeta ----------
 type ListCardProps = {
@@ -94,7 +95,7 @@ export function ScreenHeader({ title, back, close, right }: ScreenHeaderProps) {
         <IconButton
           icon={close ? 'close' : 'chevron-back'}
           label={close ? 'Cerrar' : 'Volver'}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          onPress={() => goBack()}
         />
       ) : null}
       <ThemedText variant="display" size={20} numberOfLines={1} style={styles.headerTitle}>

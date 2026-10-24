@@ -23,7 +23,8 @@ function DiscoverListScreenInner() {
   const profileId = useStore((s) => s.currentProfileId);
   const upsertGame = useStore((s) => s.upsertGame);
   const sheets = useGameSheets();
-  const tileW = (width - 20 * 2 - 14) / 2;
+  const cols = Math.max(2, Math.floor((width - 40 + 14) / (196 + 14)));
+  const tileW = (width - 20 * 2 - 14 * (cols - 1)) / cols;
 
   return (
     <IgnScreen title={meta.title(year)} back>

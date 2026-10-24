@@ -93,6 +93,8 @@ export default function StatsScreen() {
   const mode = useStore((s) => s.durationMode);
   const [selDay, setSelDay] = useState<string | null>(null);
   const year = new Date().getFullYear();
+  // Medio año en el móvil; el año entero si cabe.
+  const weeks = width >= 900 ? 52 : 26;
 
   const data = useMemo(() => {
     const activity = activityByDay(mine);
@@ -125,7 +127,7 @@ export default function StatsScreen() {
     const rated = mine.filter((m) => m.ug.rating);
     return {
       activity,
-      grid: heatmapGrid(activity, 26),
+      grid: heatmapGrid(activity, weeks),
       streak: streaks(activity),
       monthly,
       platforms: [...platforms.entries()]
@@ -143,9 +145,9 @@ export default function StatsScreen() {
       arch: archetype(mine, mode),
       activeDays: activity.size,
     };
-  }, [mine, mode, year]);
+  }, [mine, mode, year, weeks]);
 
-  const cell = Math.floor((width - 40 - 36 - 25 * 3) / 26);
+  const cell = Math.min(16, Math.floor((width - 40 - 36 - (weeks - 1) * 3) / weeks));
   const maxDay = Math.max(1, ...[...data.activity.values()]);
   const shade = (n: number) => (n === 0 ? c.soft : c.accent);
   const alpha = (n: number) => (n === 0 ? 1 : [0.35, 0.55, 0.8, 1][Math.min(3, Math.floor((n / maxDay) * 3.99))]);
@@ -175,7 +177,7 @@ export default function StatsScreen() {
 
       <Card style={{ gap: 10 }}>
         <ThemedText variant="bold" size={13} style={styles.caps}>
-          Últimos 6 meses
+          {weeks === 52 ? 'Último año' : 'Últimos 6 meses'}
         </ThemedText>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           <View style={{ gap: 3, width: 30 }}>

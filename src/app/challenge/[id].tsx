@@ -23,6 +23,7 @@ import { Card, IgnScreen, ProgressBar, Sheet, useIgnColors } from '@/components/
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar } from '@/components/ui';
 import { useStore } from '@/store/useStore';
+import { goBack } from '@/utils/nav';
 
 type Row = { profileId: string; value: number; max: number; done: boolean; label: string; finishedAt: string | null };
 
@@ -143,7 +144,7 @@ export default function ChallengeScreen() {
                 {
                   text: 'Borrar',
                   style: 'destructive',
-                  onPress: () => deleteChallenge(ch.id).then(() => router.back()),
+                  onPress: () => deleteChallenge(ch.id).then(() => goBack()),
                 },
               ])
             }

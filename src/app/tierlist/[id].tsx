@@ -1,9 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Sharing from 'expo-sharing';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 import { GameCover } from '@/components/games';
 import { Card, DarkButton, HeaderIcon, IgnScreen, LightButton, Sheet, SheetRow, useIgnColors } from '@/components/ign';
@@ -16,8 +14,32 @@ import type { GameRecord, TierList } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { notify } from '@/utils/notify';
 import { locate, moveTo, removeGame } from '@/utils/tierlist';
+import { shareImage } from '@/utils/shareImage';
+import { goBack } from '@/utils/nav';
 
 const COLS = 5;
+
+// Una portada de la tier list: no se vuelve a crear al tocar otra (así no parpadea).
+const TierCover = memo(function TierCover({
+  game,
+  width,
+  on,
+  onTap,
+  accent,
+}: {
+  game: GameRecord;
+  width: number;
+  on: boolean;
+  onTap: (id: string) => void;
+  accent: string;
+}) {
+  return (
+    <Pressable onPress={() => onTap(game.id)} style={{ transform: [{ scale: on ? 1.08 : 1 }] }}>
+      <GameCover game={game} width={width} plain radius={4} />
+      {on ? <View pointerEvents="none" style={[styles.selected, { borderColor: accent }]} /> : null}
+    </Pressable>
+  );
+});
 
 // Editor de una tier list: toca un juego para elegirlo y toca una fila para colocarlo.
 export default function TierEditorScreen() {
@@ -36,6 +58,8 @@ export default function TierEditorScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sharing, setSharing] = useState(false);
   const board = useRef<View>(null);
+  // El título se guarda al terminar de escribir (no con cada letra).
+  const [title, setTitle] = useState<string | null>(null);
 
   const save = (next: TierList) => updateProfile({ tierlists: lists.map((x) => (x.id === next.id ? next : x)) });
 
@@ -62,6 +86,11 @@ export default function TierEditorScreen() {
   const where = selected ? locate(t, selected) : null;
 
   const tap = (gameId: string) => setSelected((s) => (s === gameId ? null : gameId));
+  const commitTitle = () => {
+    if (title !== null && title.trim() && title !== t.title)
+      save({ ...t, title: title.trim(), updatedAt: new Date().toISOString() });
+    setTitle(null);
+  };
   const drop = (tier: number) => {
     if (!selected) return;
     save(moveTo(t, selected, tier));
@@ -69,32 +98,16 @@ export default function TierEditorScreen() {
   };
 
   const share = async () => {
-    if (Platform.OS === 'web') {
-      notify('Compartir como imagen funciona en el móvil.');
-      return;
-    }
     try {
       setSharing(true);
       setSelected(null);
       await new Promise((r) => setTimeout(r, 60));
-      const uri = await captureRef(board, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t.title });
+      await shareImage(board, t.title);
     } catch {
       notify('No se pudo compartir');
     } finally {
       setSharing(false);
     }
-  };
-
-  const Cover = ({ game }: { game: GameRecord }) => {
-    const on = selected === game.id;
-    return (
-      <Pressable onPress={() => tap(game.id)} style={{ transform: [{ scale: on ? 1.08 : 1 }] }}>
-        <View style={[styles.cell, on ? { borderColor: c.accent, borderWidth: 2 } : null]}>
-          <GameCover game={game} width={cell - (on ? 4 : 0)} plain radius={4} />
-        </View>
-      </Pressable>
-    );
   };
 
   return (
@@ -110,8 +123,10 @@ export default function TierEditorScreen() {
       contentStyle={{ paddingHorizontal: 20, gap: 14 }}
     >
       <TextInput
-        value={t.title}
-        onChangeText={(title) => save({ ...t, title, updatedAt: new Date().toISOString() })}
+        value={title ?? t.title}
+        onChangeText={setTitle}
+        onEndEditing={commitTitle}
+        onBlur={commitTitle}
         style={[styles.title, { color: c.text, borderColor: c.line, borderRadius: c.radius }]}
         placeholder="Título"
         placeholderTextColor={c.muted}
@@ -143,7 +158,18 @@ export default function TierEditorScreen() {
               </ThemedText>
             </View>
             <View style={styles.tierGames}>
-              {tier.gameIds.map((gid) => (games[gid] ? <Cover key={gid} game={games[gid]} /> : null))}
+              {tier.gameIds.map((gid) =>
+                games[gid] ? (
+                  <TierCover
+                    key={gid}
+                    game={games[gid]}
+                    width={cell}
+                    on={selected === gid}
+                    onTap={tap}
+                    accent={c.accent}
+                  />
+                ) : null,
+              )}
             </View>
           </Pressable>
         ))}
@@ -179,7 +205,11 @@ export default function TierEditorScreen() {
         {`Sin colocar (${(t.pool ?? []).length})`}
       </ThemedText>
       <Pressable onPress={() => drop(-1)} style={[styles.pool, { borderColor: c.line, borderRadius: c.radius }]}>
-        {(t.pool ?? []).map((gid) => (games[gid] ? <Cover key={gid} game={games[gid]} /> : null))}
+        {(t.pool ?? []).map((gid) =>
+          games[gid] ? (
+            <TierCover key={gid} game={games[gid]} width={cell} on={selected === gid} onTap={tap} accent={c.accent} />
+          ) : null,
+        )}
         {!(t.pool ?? []).length ? (
           <ThemedText variant="muted" size={13} style={{ padding: 8 }}>
             Pulsa ⊕ arriba para añadir juegos de tu biblioteca.
@@ -195,7 +225,7 @@ export default function TierEditorScreen() {
             return;
           }
           updateProfile({ tierlists: lists.filter((x) => x.id !== t.id) });
-          router.back();
+          goBack();
         }}
         style={styles.delete}
       >
@@ -234,7 +264,7 @@ const styles = StyleSheet.create({
   tierRow: { flexDirection: 'row', borderWidth: 1, borderRadius: 8, overflow: 'hidden', minHeight: 72 },
   tierLabel: { alignItems: 'center', justifyContent: 'center' },
   tierGames: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4, padding: 6 },
-  cell: { borderRadius: 6, borderColor: 'transparent', borderWidth: 0 },
+  selected: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 5, borderWidth: 2.5 },
   pool: {
     flexDirection: 'row',
     flexWrap: 'wrap',

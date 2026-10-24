@@ -15,6 +15,7 @@ import { slugify } from '@/utils/text';
 import { AVATAR_COLORS } from '@/data/meta';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
+import { goBack } from '@/utils/nav';
 
 export default function ProfileEditScreen() {
   const skin = useSkin();
@@ -68,7 +69,7 @@ export default function ProfileEditScreen() {
       avatarColor: color,
       photo,
     });
-    router.back();
+    goBack();
   };
 
   return (

@@ -347,10 +347,10 @@ describe('subir y bajar', () => {
     expect(useStore.getState().lists.COOP).toBeUndefined();
   });
 
-  it('una cuenta nueva recibe las bibliotecas oficiales', async () => {
+  it('una cuenta nueva NO recibe copias de las bibliotecas oficiales (ni vuelven al borrar todo)', async () => {
     await pull();
     const own = Object.values(useStore.getState().lists).filter((l) => l.ownerId === UID);
-    expect(own.length).toBe(8);
+    expect(own.length).toBe(0);
   });
 });
 

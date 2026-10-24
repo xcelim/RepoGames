@@ -1,11 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
 
 import { PlatinumBadge } from '@/components/achievements';
 import { AvatarFrame } from '@/components/AvatarFrame';
@@ -19,6 +17,8 @@ import { useCurrentProfile, useStore } from '@/store/useStore';
 import { funFact } from '@/utils/fun';
 import { formatHours, replayTotals } from '@/utils/library';
 import { buildWrapped, MONTHS, wrappedYears, type WrappedData } from '@/utils/wrapped';
+import { shareImage } from '@/utils/shareImage';
+import { goBack } from '@/utils/nav';
 
 const DURATION = 6500;
 const PALETTES: [string, string][] = [
@@ -77,10 +77,8 @@ export default function WrappedScreen() {
   const go = (d: number) => setIndex((i) => Math.max(0, Math.min(slides.length - 1, i + d)));
 
   const share = async () => {
-    if (Platform.OS === 'web') return;
     try {
-      const uri = await captureRef(shotRef, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: `Mi ${year} en Saga Quest` });
+      await shareImage(shotRef, `Mi ${year} en Saga Quest`);
     } catch {
       // nada
     }
@@ -144,7 +142,7 @@ export default function WrappedScreen() {
         <ThemedText variant="bold" size={13} style={styles.white}>
           Tu {year}
         </ThemedText>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => goBack()} hitSlop={12}>
           <Ionicons name="close" size={28} color="#fff" />
         </Pressable>
       </View>

@@ -81,7 +81,9 @@ const TOOLS: Tool[] = [
 export default function ArcadeScreen() {
   const { width } = useWindowDimensions();
   const mine = useMyGames();
-  const half = (width - 40 - 12) / 2;
+  // Dos por fila en el móvil; tres en pantallas anchas.
+  const cols = width >= 800 ? 3 : 2;
+  const half = (width - 40 - 12 * (cols - 1)) / cols;
   return (
     <IgnScreen title="Sala de juegos" back contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
       <ThemedText variant="muted" size={13}>

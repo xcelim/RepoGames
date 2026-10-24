@@ -14,6 +14,8 @@ import { loadFonts } from '@/theme/fonts';
 import { SKINS } from '@/theme/skins';
 import { CelebrationHost } from '@/components/Celebration';
 import { SocialBoot } from '@/components/SocialBoot';
+import { WebSidebar } from '@/components/WebSidebar';
+import { Platform } from 'react-native';
 import { useSkin } from '@/theme/useSkin';
 
 SplashScreen.preventAutoHideAsync();
@@ -124,6 +126,7 @@ export default function RootLayout() {
       </Stack>
       <CelebrationHost />
       <SocialBoot />
+      {Platform.OS === 'web' ? <WebSidebar /> : null}
     </GestureHandlerRootView>
   );
 }

@@ -17,6 +17,7 @@ import { useSkin } from '@/theme/useSkin';
 import type { PlayStatus } from '@/types';
 import { today } from '@/utils/id';
 import { userGameKey } from '@/utils/library';
+import { goBack } from '@/utils/nav';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -128,7 +129,7 @@ export default function EditGameScreen() {
         review: review.trim(),
       });
     }
-    router.back();
+    goBack();
   };
 
   const remove = () =>
@@ -139,7 +140,7 @@ export default function EditGameScreen() {
         style: 'destructive',
         onPress: () => {
           removeFromLibrary(game.id);
-          router.back();
+          goBack();
         },
       },
     ]);

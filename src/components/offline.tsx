@@ -13,6 +13,7 @@ import { useStore } from '@/store/useStore';
 
 import { DarkButton, LightButton, useIgnColors } from './ign';
 import { ThemedText } from './ThemedText';
+import { goBack } from '@/utils/nav';
 
 export function useOfflineMode(): boolean {
   const online = useOnline();
@@ -59,7 +60,7 @@ export function OfflineGate({ children, what = 'Esta pantalla' }: { children: Re
       text={`${what} necesita internet. Mientras tanto puedes ver y gestionar tu perfil.`}
     >
       <DarkButton label="Ir a mi perfil" onPress={() => router.replace('/profile')} />
-      {router.canGoBack() ? <LightButton label="Volver" onPress={() => router.back()} /> : null}
+      {router.canGoBack() ? <LightButton label="Volver" onPress={() => goBack()} /> : null}
     </OfflineNotice>
   );
 }

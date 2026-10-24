@@ -456,7 +456,14 @@ function QuickButton({
       ]}
     >
       <Ionicons name={icon} size={22} color={c.text} />
-      <ThemedText variant="bold" size={11} numberOfLines={1}>
+      <ThemedText
+        variant="bold"
+        size={11}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        style={{ textAlign: 'center' }}
+      >
         {label}
       </ThemedText>
     </Pressable>
@@ -496,7 +503,14 @@ const styles = StyleSheet.create({
   quick: { flexDirection: 'row', gap: 10 },
   arcade: { borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
   arcadeIcons: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  quickBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth },
+  quickBtn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   summaryRow: { flexDirection: 'row', paddingVertical: 12 },
   summaryDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 18 },
   platCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },

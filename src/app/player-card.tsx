@@ -1,8 +1,6 @@
-import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 import { PlatinumBadge } from '@/components/achievements';
 import { AvatarFrame } from '@/components/AvatarFrame';
@@ -19,6 +17,7 @@ import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
 import type { GameRecord } from '@/types';
 import { levelColor } from '@/utils/level';
+import { shareImage } from '@/utils/shareImage';
 
 // Tarjeta de jugador para compartir (como una carta coleccionable).
 export default function PlayerCardScreen() {
@@ -52,14 +51,9 @@ export default function PlayerCardScreen() {
 
   const share = async () => {
     setMsg('');
-    if (Platform.OS === 'web') {
-      setMsg('Compartir la tarjeta funciona en el móvil.');
-      return;
-    }
     try {
       setBusy(true);
-      const uri = await captureRef(ref, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Mi tarjeta de Saga Quest' });
+      await shareImage(ref, 'Mi tarjeta de Saga Quest');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'No se pudo compartir');
     } finally {

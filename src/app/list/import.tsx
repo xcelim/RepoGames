@@ -15,6 +15,7 @@ import { useStore } from '@/store/useStore';
 import type { Visibility } from '@/types';
 import { parseImportText, type ImportLine } from '@/utils/importText';
 import { notify } from '@/utils/notify';
+import { goBack } from '@/utils/nav';
 
 type Row = { line: ImportLine; result: OnlineResult | null; include: boolean };
 
@@ -198,7 +199,7 @@ export default function ImportListScreen() {
             </ThemedText>
           ) : null}
           <DarkButton label={`Crear lista con ${found.length} juegos`} disabled={!found.length} onPress={create} />
-          <LightButton label="Cancelar" onPress={() => router.back()} />
+          <LightButton label="Cancelar" onPress={() => goBack()} />
         </View>
       ) : null}
     </IgnScreen>

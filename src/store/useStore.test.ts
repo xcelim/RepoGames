@@ -30,25 +30,20 @@ beforeEach(() => {
 });
 
 describe('perfiles', () => {
-  it('al crear un perfil copia las bibliotecas oficiales y las rellena al descargarlas', () => {
+  it('un perfil nuevo empieza sin listas; las oficiales se descargan aparte', () => {
     const id = get().createProfile({ displayName: 'Yeray', username: 'yeray', avatarColor: '#f00' });
     expect(get().currentProfileId).toBe(id);
     const mine = Object.values(get().lists).filter((l) => l.ownerId === id);
-    expect(mine).toHaveLength(OFFICIAL_LISTS.length);
-    const zelda = mine.find((l) => l.forkedFrom === 'official-zelda')!;
-    expect(get().pendingSeeds).toContain(zelda.id);
+    expect(mine).toHaveLength(0);
 
     get().setOfficialList('official-zelda', [game('igdb-1', 'The Legend of Zelda'), game('igdb-2', 'Zelda II')]);
     expect(itemsOfList(get().items, 'official-zelda').map((i) => i.gameId)).toEqual(['igdb-1', 'igdb-2']);
-    expect(itemsOfList(get().items, zelda.id).map((i) => i.gameId)).toEqual(['igdb-1', 'igdb-2']);
-    expect(get().pendingSeeds).not.toContain(zelda.id);
     expect(get().games['igdb-1'].title).toBe('The Legend of Zelda');
 
     // Al actualizar no se pierden datos que ya teníamos.
     get().upsertGame({ ...get().games['igdb-1'], main: 12 });
     get().setOfficialList('official-zelda', [game('igdb-1', 'The Legend of Zelda')]);
     expect(get().games['igdb-1'].main).toBe(12);
-    expect(itemsOfList(get().items, zelda.id)).toHaveLength(2);
   });
 
   it('cada perfil tiene sus propios datos', () => {

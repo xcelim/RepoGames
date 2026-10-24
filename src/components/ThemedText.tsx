@@ -17,6 +17,8 @@ export function ThemedText({ variant = 'body', size = 15, style, ...rest }: Them
 
   return (
     <Text
+      // Con la letra del sistema muy grande, la app se descuadra: se permite crecer, pero con límite.
+      maxFontSizeMultiplier={1.25}
       {...rest}
       style={[
         {

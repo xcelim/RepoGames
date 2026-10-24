@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lookupBarcode } from '@/api/barcode';
 import { DarkButton, LightButton } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
+import { goBack } from '@/utils/nav';
 
 // Escanear el código de barras de la caja de un juego y buscarlo en IGDB.
 export default function ScanScreen() {
@@ -42,7 +43,7 @@ export default function ScanScreen() {
   };
 
   const close = (
-    <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.close, { top: insets.top + 10 }]}>
+    <Pressable onPress={() => goBack()} hitSlop={12} style={[styles.close, { top: insets.top + 10 }]}>
       <Ionicons name="close" size={30} color="#fff" />
     </Pressable>
   );
@@ -51,7 +52,7 @@ export default function ScanScreen() {
     return (
       <View style={styles.center}>
         <ThemedText size={15}>El escáner solo funciona en el móvil.</ThemedText>
-        <LightButton label="Volver" onPress={() => router.back()} />
+        <LightButton label="Volver" onPress={() => goBack()} />
       </View>
     );
   }

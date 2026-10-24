@@ -1,10 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import { DeviceMotion } from 'expo-sensors';
-import * as Sharing from 'expo-sharing';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, PanResponder, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 import { GameCover } from '@/components/games';
 import { DarkButton, IgnScreen, StatusBadge, useIgnColors } from '@/components/ign';
@@ -12,6 +10,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { formatHours, gameHours, userGameKey } from '@/utils/library';
 import { notify } from '@/utils/notify';
+import { shareImage } from '@/utils/shareImage';
 
 type Rarity = { name: string; colors: [string, string, string] };
 
@@ -103,14 +102,9 @@ export default function HoloCardScreen() {
   const hours = ug?.hoursPlayed ?? gameHours(game, mode);
 
   const share = async () => {
-    if (Platform.OS === 'web') {
-      notify('Compartir la carta funciona en el móvil.');
-      return;
-    }
     try {
       setBusy(true);
-      const uri = await captureRef(card, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: game.title });
+      await shareImage(card, game.title);
     } catch {
       notify('No se pudo compartir');
     } finally {
