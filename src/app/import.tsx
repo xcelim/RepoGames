@@ -32,7 +32,7 @@ import {
 
 type Row = { entry: TableEntry; result: OnlineResult | null; include: boolean };
 const MAX = 2000;
-const DEFAULTS: PlayStatus[] = ['library', 'backlog', 'beaten', 'wishlist'];
+const DEFAULTS: PlayStatus[] = ['library', 'beaten', 'completed', 'backlog', 'wishlist', 'watched'];
 type Field = 'title' | 'status' | 'rating' | 'hours' | 'platform' | 'finished';
 const FIELDS: { id: Field; label: string }[] = [
   { id: 'title', label: 'Título' },
@@ -170,8 +170,11 @@ export default function ImportScreen() {
       const existing = useStore.getState().userGames[userGameKey(pid, record.id)];
       if (existing && !updateExisting) continue;
       const e = row.entry;
-      const status = e.status ?? (existing ? null : fallback);
-      if (status && status !== existing?.status) s.setStatus(record.id, status);
+      // «jugado» (o sin estado) va a lo que elijas; lo demás, a lo que diga cada línea.
+      const status = !e.status || e.status === 'library' ? fallback : e.status;
+      // «Mis juegos» no rebaja un juego que ya tenías terminado, pendiente...
+      const keep = existing && status === 'library';
+      if (!keep && status !== existing?.status) s.setStatus(record.id, status);
       const patch: Parameters<typeof s.updateUserGame>[1] = {};
       if (e.rating != null) patch.rating = e.rating;
       if (e.hours != null && e.hours > (existing?.hoursPlayed ?? 0)) patch.hoursPlayed = e.hours;
@@ -302,7 +305,7 @@ export default function ImportScreen() {
         <>
           <View style={{ gap: 8 }}>
             <ThemedText variant="bold" size={13}>
-              Si un juego no dice su estado, ponerlo en…
+              Los que dicen «jugado» o no dicen estado van a…
             </ThemedText>
             <View style={styles.chips}>
               {DEFAULTS.map((s) => (
