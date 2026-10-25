@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { EventBanner } from '@/components/EventBanner';
 import { IgnScreen } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import type { IconName } from '@/components/ui';
@@ -11,6 +12,64 @@ import { useMyGames } from '@/hooks/useMyGames';
 type Tool = { href: Href; icon: IconName; title: string; caption: string; colors: [string, string]; wide?: boolean };
 
 const TOOLS: Tool[] = [
+  {
+    href: '/world',
+    icon: 'business',
+    title: 'Mundo gamer',
+    caption: 'Tu ciudad en 3D: un edificio por juego terminado y tus horas son monedas',
+    colors: ['#0f2027', '#2c5364'],
+    wide: true,
+  },
+  {
+    href: '/cards',
+    icon: 'albums',
+    title: 'Cromos',
+    caption: 'Un sobre gratis cada día, cromos brillantes e intercambios con amigos',
+    colors: ['#c471f5', '#fa71cd'],
+    wide: true,
+  },
+  {
+    href: '/bingo',
+    icon: 'grid',
+    title: 'Bingo gamer',
+    caption: 'Un cartón nuevo cada mes',
+    colors: ['#fc4a1a', '#f7b733'],
+  },
+  {
+    href: '/hilo',
+    icon: 'swap-vertical',
+    title: '¿Más o menos?',
+    caption: '¿Más nota o más horas? Haz racha',
+    colors: ['#00b09b', '#96c93d'],
+  },
+  {
+    href: '/trophies',
+    icon: 'trophy',
+    title: 'Trofeos',
+    caption: 'Los trofeos de Saga Quest',
+    colors: ['#1d2b64', '#6a3093'],
+  },
+  {
+    href: '/events',
+    icon: 'calendar-number',
+    title: 'Eventos',
+    caption: 'Retos de temporada e insignias',
+    colors: ['#ff7518', '#3d0c5c'],
+  },
+  {
+    href: '/deals',
+    icon: 'pricetags',
+    title: 'Ofertas',
+    caption: 'Precios de tus deseados',
+    colors: ['#2fa84f', '#0b6e4f'],
+  },
+  {
+    href: '/import',
+    icon: 'cloud-download',
+    title: 'Importar',
+    caption: 'Steam, Excel, CSV y otras apps',
+    colors: ['#485563', '#29323c'],
+  },
   {
     href: '/oracle',
     icon: 'sparkles',
@@ -91,6 +150,7 @@ export default function ArcadeScreen() {
           ? `Juega con tu biblioteca de ${mine.length} ${mine.length === 1 ? 'juego' : 'juegos'}.`
           : 'Añade juegos a tu biblioteca para sacarle partido a todo esto.'}
       </ThemedText>
+      <EventBanner />
       <View style={styles.grid}>
         {TOOLS.map((t) => (
           <Pressable

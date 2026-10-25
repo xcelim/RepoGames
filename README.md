@@ -48,6 +48,10 @@ Todo se guarda en Supabase: tu perfil y tus ajustes, tus listas (públicas y pri
 4. **Google**: en Google Cloud crea un *ID de cliente de OAuth* de tipo *Aplicación web* con la URI de redirección `https://<tu-proyecto>.supabase.co/auth/v1/callback`; en Supabase, **Authentication → Sign In / Providers → Google**, actívalo y pega el Client ID y el Client Secret; en **Authentication → URL Configuration → Redirect URLs** añade `sagaquest://auth-callback`.
 5. **Project Settings → API**: copia la *Project URL* y la clave *anon public* y guárdalas en GitHub (Settings → Secrets and variables → Actions) como `SUPABASE_URL` y `SUPABASE_ANON_KEY`. El siguiente APK ya va conectado.
 
+**Actualizar una base de datos que ya tienes**: ejecuta en el SQL Editor los archivos de `supabase/migrations/` que aún no hayas ejecutado, por orden de fecha. El de cromos (`2026-10-26-cromos.sql`) crea los cromos, los sobres diarios y los intercambios; el azar lo pone la base de datos, así que nadie puede fabricarse cromos.
+
+**Servidor intermedio de la web** (`supabase/functions/games`): si cambias este archivo, vuelve a desplegarlo (Edge Functions → games → pega el archivo → Deploy). La versión actual añade los precios de Steam y CheapShark para la pantalla de ofertas.
+
 La clave *anon* es pública por diseño: lo que protege los datos son las normas Row Level Security (las listas privadas solo las lee su dueño y nadie puede cambiar lo de otro).
 
 **Cómo se guarda**: la app escribe primero en el móvil y lo sube a Supabase enseguida. Cada subida se comprueba; si falla (sin red, error), el cambio queda pendiente y se reintenta al volver la conexión. Al abrir la app, al volver internet o si cambias algo en otro móvil (tiempo real), se descarga lo último sin pisar lo que tengas pendiente.

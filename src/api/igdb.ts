@@ -687,3 +687,43 @@ export async function igdbBySteamAppIds(appIds: number[]): Promise<Map<number, O
   }
   return out;
 }
+
+// Temas y géneros de IGDB de varios juegos (para los retos de temporada: terror, plataformas...).
+const themeMem = new Map<number, { themes: number[]; genres: number[] }>();
+export async function igdbThemes(ids: number[]): Promise<Map<number, { themes: number[]; genres: number[] }>> {
+  const out = new Map<number, { themes: number[]; genres: number[] }>();
+  const missing: number[] = [];
+  for (const id of ids) {
+    const hit = themeMem.get(id);
+    if (hit) out.set(id, hit);
+    else {
+      const raw = await AsyncStorage.getItem(`themes:${id}`).catch(() => null);
+      if (raw) {
+        try {
+          const v = JSON.parse(raw) as { themes: number[]; genres: number[] };
+          themeMem.set(id, v);
+          out.set(id, v);
+          continue;
+        } catch {
+          // se vuelve a pedir
+        }
+      }
+      missing.push(id);
+    }
+  }
+  for (let i = 0; i < missing.length; i += 200) {
+    const chunk = missing.slice(i, i + 200);
+    const rows = await query<{ id: number; themes?: number[]; genres?: number[] }[]>(
+      'games',
+      `fields themes,genres; where id = (${chunk.join(',')}); limit 200;`,
+      'low',
+    ).catch(() => []);
+    for (const r of rows) {
+      const v = { themes: r.themes ?? [], genres: r.genres ?? [] };
+      themeMem.set(r.id, v);
+      out.set(r.id, v);
+      AsyncStorage.setItem(`themes:${r.id}`, JSON.stringify(v)).catch(() => undefined);
+    }
+  }
+  return out;
+}

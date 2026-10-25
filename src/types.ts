@@ -103,6 +103,20 @@ export type Profile = {
   tierlists?: TierList[]; // tier lists que has hecho (S, A, B...)
   elo?: Record<string, number>; // puntuación de cada juego en los duelos «¿cuál prefieres?»
   duels?: number; // duelos jugados
+  hilo?: { rating?: number; hours?: number }; // récords de «¿Más o menos?»
+  trophies?: Record<string, string>; // trofeos Saga Quest conseguidos (id → fecha)
+  city?: CityState; // tu mundo gamer (lo que has comprado con tus horas)
+  events?: Record<string, string>; // eventos de temporada completados (id → fecha)
+};
+
+export type CityItem = { id: string; kind: string; x: number; y: number };
+export type CityState = {
+  spent: number; // monedas gastadas
+  size: number; // lado del terreno (en casillas)
+  items: CityItem[]; // decoración colocada
+  upgrades: Record<string, number>; // nivel de cada edificio (juego → 1..3)
+  sky?: string; // cielo elegido
+  skies?: string[]; // cielos comprados
 };
 
 export type TierList = {

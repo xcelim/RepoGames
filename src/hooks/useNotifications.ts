@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 
+import { useCards } from '@/cloud/cards';
 import { useChallenges } from '@/cloud/challenges';
 import { groupUnread, useSocial } from '@/cloud/social';
 import { useStore } from '@/store/useStore';
@@ -69,6 +70,7 @@ export function useNotifications(): Note[] {
   const localGames = useStore((s) => s.games);
   const challenges = useChallenges((s) => s.list);
   const dismissed = useNotesSeen((s) => s.dismissed);
+  const trades = useCards((s) => s.trades);
   useEffect(() => {
     if (!useNotesSeen.getState().loaded) loadNotesSeen().catch(() => undefined);
   }, []);
@@ -170,12 +172,36 @@ export function useNotifications(): Note[] {
         }
       }
     }
+    for (const t of trades) {
+      if (t.status === 'pending' && t.to === uid)
+        out.push({
+          id: `ct-${t.id}`,
+          at: t.createdAt,
+          icon: 'swap-horizontal',
+          text: `${name(t.from)} te propone un intercambio de cromos`,
+          who: t.from,
+          href: '/cards/trades',
+        });
+    }
     const gone = new Set(dismissed);
     return out
       .filter((n) => !gone.has(n.id))
       .sort((a, b) => b.at.localeCompare(a.at))
       .slice(0, 80);
-  }, [uid, friendships, profiles, chats, reactions, groups, groupChats, games, localGames, challenges, dismissed]);
+  }, [
+    uid,
+    friendships,
+    profiles,
+    chats,
+    reactions,
+    groups,
+    groupChats,
+    games,
+    localGames,
+    challenges,
+    dismissed,
+    trades,
+  ]);
 }
 
 export function useUnreadNotifications(): number {

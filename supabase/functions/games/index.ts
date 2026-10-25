@@ -11,6 +11,8 @@
 //   POST /igdb/<endpoint>      (cuerpo Apicalypse)
 //   GET  /rawg/<ruta>?<parámetros>
 //   GET  /steam/<Interfaz>/<Método>/<versión>/?<parámetros>
+//   GET  /price/steam/appdetails?appids=…&cc=es      (precio en la tienda de Steam)
+//   GET  /price/cheapshark/games?…                    (mejores ofertas de PC)
 
 /* eslint-disable */
 declare const Deno: {
@@ -110,6 +112,24 @@ Deno.serve(async (req) => {
       params.set('key', Deno.env.get('STEAM_API_KEY') ?? '');
       const res = await fetch(`https://api.steampowered.com/${method}/?${params}`);
       return json(await res.text(), res.status, method.startsWith('ISteamUserStats/GetSchema') ? 86400 : 0);
+    }
+    if (path === '/price/steam/appdetails' && req.method === 'GET') {
+      const appids = url.searchParams.get('appids') ?? '';
+      if (!/^\d{1,10}$/.test(appids)) return json({ error: 'appid no válido' }, 400);
+      const params = new URLSearchParams({ appids, cc: 'es', l: 'spanish' });
+      const res = await fetch(`https://store.steampowered.com/api/appdetails?${params}`);
+      return json(await res.text(), res.status, 3600);
+    }
+    if (path === '/price/cheapshark/games' && req.method === 'GET') {
+      const params = new URLSearchParams();
+      for (const k of ['id', 'steamAppID', 'title', 'limit']) {
+        const v = url.searchParams.get(k);
+        if (v) params.set(k, v.slice(0, 120));
+      }
+      const res = await fetch(`https://www.cheapshark.com/api/1.0/games?${params}`, {
+        headers: { 'User-Agent': 'SagaQuest/2 (games proxy)' },
+      });
+      return json(await res.text(), res.status, 3600);
     }
     return json({ error: 'ruta no encontrada' }, 404);
   } catch (error) {

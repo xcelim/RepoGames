@@ -754,6 +754,7 @@ export async function refreshSocial(full = true): Promise<void> {
     refreshReactions(),
     ensureProfiles([...people], true),
     import('./challenges').then(({ refreshChallenges }) => refreshChallenges()),
+    import('./cards').then(({ refreshCards, useCards }) => (useCards.getState().missing ? undefined : refreshCards())),
   ]);
 }
 

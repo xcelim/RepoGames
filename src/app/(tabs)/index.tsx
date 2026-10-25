@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { DISCOVER_META, useDiscover, type DiscoverKind } from '@/api/discover';
 import { toGameRecord } from '@/api/games';
@@ -27,6 +27,7 @@ import type { GameList, GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
 import { shortDate, untilLabel } from '@/hooks/useMyGames';
 import { OfflineGate } from '@/components/offline';
+import { EventBanner } from '@/components/EventBanner';
 import { HScroll } from '@/components/HScroll';
 import { Chip, type IconName } from '@/components/ui';
 
@@ -64,6 +65,7 @@ function DiscoverScreenInner() {
       right={<HeaderIcon icon="search" label="Buscar" onPress={() => router.push('/search')} />}
     >
       {/* Apartados: cada uno se abre a pantalla completa */}
+      <EventBanner style={{ marginHorizontal: 20, marginBottom: 14 }} />
       <HScroll contentContainerStyle={styles.sections}>
         {SECTIONS.map((sec) => (
           <Chip key={sec.label} label={sec.label} icon={sec.icon} onPress={() => router.push(sec.href)} />

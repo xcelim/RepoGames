@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { useSocial } from '@/cloud/social';
 import { useStore } from '@/store/useStore';
 import type { GameRecord, UserGame } from '@/types';
 
@@ -90,4 +91,11 @@ export function untilLabel(date: string): string {
 
 export function fullDate(iso: string): string {
   return `${longDate(iso)} de ${iso.slice(0, 4)}`;
+}
+
+// Busca la ficha de un juego entre los tuyos y los que se han bajado para amigos/cromos.
+export function useGameLookup(): (id: string) => GameRecord | undefined {
+  const local = useStore((s) => s.games);
+  const social = useSocial((s) => s.games);
+  return useMemo(() => (id: string) => local[id] ?? social[id], [local, social]);
 }

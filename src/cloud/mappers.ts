@@ -32,6 +32,10 @@ export type ProfileRow = {
     tierlists?: TierList[];
     elo?: Record<string, number>;
     duels?: number;
+    hilo?: Profile['hilo'];
+    trophies?: Record<string, string>;
+    city?: Profile['city'];
+    events?: Record<string, string>;
   } | null;
   created_at: string;
   updated_at?: string;
@@ -129,6 +133,10 @@ export const toProfileRow = (p: Profile, id = p.id, settings?: ProfileRow['setti
           ...(p.steamId !== undefined ? { steamId: p.steamId } : {}),
           ...(p.tierlists ? { tierlists: p.tierlists } : {}),
           ...(p.elo ? { elo: p.elo, duels: p.duels ?? 0 } : {}),
+          ...(p.hilo ? { hilo: p.hilo } : {}),
+          ...(p.trophies ? { trophies: p.trophies } : {}),
+          ...(p.city ? { city: p.city } : {}),
+          ...(p.events ? { events: p.events } : {}),
         },
       }
     : {}),
@@ -154,6 +162,10 @@ export const fromProfileRow = (r: ProfileRow): Profile => ({
   ...(r.settings?.elo && typeof r.settings.elo === 'object'
     ? { elo: r.settings.elo, duels: r.settings.duels ?? 0 }
     : {}),
+  ...(r.settings?.hilo && typeof r.settings.hilo === 'object' ? { hilo: r.settings.hilo } : {}),
+  ...(r.settings?.trophies && typeof r.settings.trophies === 'object' ? { trophies: r.settings.trophies } : {}),
+  ...(r.settings?.city && typeof r.settings.city === 'object' ? { city: r.settings.city } : {}),
+  ...(r.settings?.events && typeof r.settings.events === 'object' ? { events: r.settings.events } : {}),
 });
 
 export const toGameRow = (g: GameRecord, createdBy: string | null): GameRow => ({

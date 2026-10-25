@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AchievementsCard } from '@/components/achievements';
 import { PlayDetails } from '@/components/details';
+import { PriceCard } from '@/components/PriceCard';
 import { GameCover, gameColors } from '@/components/games';
 import { useGameSheets } from '@/components/gameSheets';
 import {
@@ -330,6 +331,8 @@ function Overview({
       </Card>
 
       {game && game.source !== 'custom' && !hideAchievements ? <AchievementsCard game={game} /> : null}
+
+      {game && game.source !== 'custom' ? <PriceCard game={game} /> : null}
 
       {userGame ? (
         <Card>

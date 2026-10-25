@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
@@ -8,7 +9,9 @@ import { getSavedCredentials, saveCredentials, testConnection } from '@/api/igdb
 import { loadAllOfficial } from '@/api/official';
 import { getSavedRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
 import { CloudAccountPanel, OfflineDownloadCard } from '@/components/cloudPanel';
+import { BOOT_OFF, bootEnabled } from '@/components/BootSplash';
 import { Button } from '@/components/Button';
+import { ToggleRow } from '@/components/ign';
 import { ScreenHeader } from '@/components/lists';
 import { Section } from '@/components/Section';
 import { Segmented } from '@/components/Segmented';
@@ -36,6 +39,10 @@ export default function SettingsScreen() {
   const [dbStatus, setDbStatus] = useState('');
   const dbOnline = sources.igdb || sources.rawg;
   const [rawgStatus, setRawgStatus] = useState('');
+  const [boot, setBoot] = useState(true);
+  useEffect(() => {
+    bootEnabled().then(setBoot);
+  }, []);
   useEffect(() => {
     onlineSources().then(setSources);
     getSavedCredentials().then((saved) => {
@@ -152,6 +159,18 @@ export default function SettingsScreen() {
               { value: 'extra', label: '+ Secundarias' },
               { value: 'full', label: '100 %' },
             ]}
+          />
+        </Section>
+
+        <Section title="Arranque">
+          <ToggleRow
+            label="Animación de inicio"
+            caption="El logo estilo consola al abrir la app (una vez al día)"
+            value={boot}
+            onChange={(v) => {
+              setBoot(v);
+              AsyncStorage.setItem(BOOT_OFF, v ? '0' : '1').catch(() => undefined);
+            }}
           />
         </Section>
 

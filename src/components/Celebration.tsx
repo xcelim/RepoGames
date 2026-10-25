@@ -12,7 +12,7 @@ import { PlatinumBadge } from './achievements';
 import { shape } from './Backdrop';
 import { ThemedText } from './ThemedText';
 
-type Event = { kind: 'finish' | 'platinum'; title: string; onDone?: () => void };
+type Event = { kind: 'finish' | 'platinum'; title: string; heading?: string; onDone?: () => void };
 export const useCelebration = create<{ event: Event | null; show: (e: Event) => void; close: () => void }>(
   (set, get) => ({
     event: null,
@@ -114,7 +114,7 @@ function Confetti({ count = 46 }: { count?: number }) {
   );
 }
 
-function FinishBanner({ title }: { title: string }) {
+function FinishBanner({ title, heading }: { title: string; heading?: string }) {
   const skin = useSkin();
   const [t] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -128,7 +128,7 @@ function FinishBanner({ title }: { title: string }) {
       ]}
     >
       <ThemedText variant="display" size={26} style={{ textAlign: 'center' }}>
-        ¡Terminado!
+        {heading ?? '¡Terminado!'}
       </ThemedText>
       <ThemedText size={15} style={{ textAlign: 'center' }} numberOfLines={2}>
         {title}
@@ -137,7 +137,7 @@ function FinishBanner({ title }: { title: string }) {
   );
 }
 
-function PlatinumCeremony({ title }: { title: string }) {
+function PlatinumCeremony({ title, heading }: { title: string; heading?: string }) {
   const [enter] = useState(() => new Animated.Value(0));
   const [spin] = useState(() => new Animated.Value(0));
   const [flip] = useState(() => new Animated.Value(0));
@@ -175,7 +175,7 @@ function PlatinumCeremony({ title }: { title: string }) {
       </Animated.View>
       <Animated.View style={{ opacity: enter, alignItems: 'center', marginTop: 26, gap: 6 }}>
         <ThemedText variant="display" size={28} style={styles.white}>
-          ¡PLATINO!
+          {heading ?? '¡PLATINO!'}
         </ThemedText>
         <ThemedText variant="bold" size={13} style={[styles.white, { letterSpacing: 2 }]}>
           SAGA QUEST
@@ -208,10 +208,10 @@ export function CelebrationHost() {
   return (
     <Pressable onPress={close} style={[StyleSheet.absoluteFill, event.kind === 'platinum' ? styles.dim : styles.clear]}>
       {event.kind === 'platinum' ? (
-        <PlatinumCeremony title={event.title} />
+        <PlatinumCeremony title={event.title} heading={event.heading} />
       ) : (
         <View style={styles.center}>
-          <FinishBanner title={event.title} />
+          <FinishBanner title={event.title} heading={event.heading} />
         </View>
       )}
       <Confetti count={event.kind === 'platinum' ? 70 : 46} />

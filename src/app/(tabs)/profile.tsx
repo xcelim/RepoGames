@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { PlatinumBadge } from '@/components/achievements';
 import { Collapsible } from '@/components/Collapsible';
@@ -34,6 +34,7 @@ import { Avatar, MenuRow } from '@/components/ui';
 import { FINISHED, scoreColor, STATUS_META, STATUS_ORDER } from '@/data/meta';
 import { useMyLists } from '@/hooks/useLists';
 import { useCurrentProfile, useStore } from '@/store/useStore';
+import { TROPHIES } from '@/utils/trophies';
 import { useSkin } from '@/theme/useSkin';
 import { findGame, formatHours } from '@/utils/library';
 import { HScroll } from '@/components/HScroll';
@@ -213,6 +214,7 @@ export default function ProfileScreen() {
         </Card>
 
         <PlatinumsEntry />
+        <TrophiesEntry />
 
         {/* Vitrinas */}
         {(profile.showcases ?? []).slice(0, lv.slots).map((sc, i) => (
@@ -374,6 +376,41 @@ export default function ProfileScreen() {
   );
 }
 
+// Entrada a la sala de trofeos.
+function TrophiesEntry() {
+  const c = useIgnColors();
+  const profile = useCurrentProfile();
+  const got = Object.keys(profile?.trophies ?? {}).length;
+  const total = TROPHIES.length + 1;
+  return (
+    <Pressable onPress={() => router.push('/trophies')} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+      <Card style={styles.platCard}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: '#f5c51833',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="trophy" size={24} color="#f5c518" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ThemedText variant="display" size={18}>
+            Trofeos
+          </ThemedText>
+          <ThemedText variant="muted" size={12}>
+            {`${got} de ${total} trofeos de Saga Quest`}
+          </ThemedText>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={c.muted} />
+      </Card>
+    </Pressable>
+  );
+}
+
 // Entrada a tus Platinos Saga Quest, con las portadas de los últimos.
 function PlatinumsEntry() {
   const c = useIgnColors();
@@ -425,7 +462,7 @@ function ArcadeBanner() {
             Sala de juegos
           </ThemedText>
           <ThemedText size={12} style={{ color: '#ffffffdd' }}>
-            Oráculo, duelos, tier lists, estantería, estadísticas y más
+            Mundo gamer, cromos, bingo, trofeos, oráculo, duelos y más
           </ThemedText>
         </View>
         <View style={styles.arcadeIcons}>
