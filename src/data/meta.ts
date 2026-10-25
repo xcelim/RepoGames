@@ -11,6 +11,7 @@ export const STATUS_ORDER: PlayStatus[] = [
   'paused',
   'beaten',
   'completed',
+  'watched',
   'dropped',
 ];
 
@@ -21,6 +22,7 @@ export const STATUS_CHOICES: PlayStatus[] = [
   'backlog',
   'playing',
   'beaten',
+  'watched',
   'paused',
   'dropped',
 ];
@@ -51,12 +53,22 @@ export const STATUS_META: Record<PlayStatus, StatusMeta> = {
   },
   beaten: { label: 'Terminados', short: 'Terminado', caption: 'LO HE COMPLETADO', icon: 'checkmark', color: '#6aa834' },
   completed: { label: 'Al 100 %', short: '100 %', caption: 'LO HE SACADO TODO', icon: 'trophy', color: '#c9a227' },
+  watched: { label: 'Vistos', short: 'Visto', caption: 'LO HE VISTO, NO JUGADO', icon: 'eye', color: '#3b82f6' },
   dropped: { label: 'Abandonados', short: 'Abandonado', caption: 'NO VOLVERÉ', icon: 'stop', color: '#e5484d' },
 };
 
 // Filas de la tarjeta de la Biblioteca. "all" = todos los juegos.
 export type LibraryRow = PlayStatus | 'all';
-export const LIBRARY_ROWS: LibraryRow[] = ['all', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'dropped'];
+export const LIBRARY_ROWS: LibraryRow[] = [
+  'all',
+  'wishlist',
+  'backlog',
+  'playing',
+  'paused',
+  'beaten',
+  'watched',
+  'dropped',
+];
 
 export const LIBRARY_ROW_META: Record<LibraryRow, StatusMeta> = {
   ...STATUS_META,

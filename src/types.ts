@@ -142,6 +142,7 @@ export type PlayStatus =
   | 'paused'
   | 'beaten'
   | 'completed'
+  | 'watched' // visto (en vídeo o en directo), sin jugarlo
   | 'dropped';
 
 // Lo que un usuario sabe de un juego: estado, nota, plataforma, reseña...

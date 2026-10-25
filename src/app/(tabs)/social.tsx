@@ -425,6 +425,8 @@ function activityVerb(status: string): string {
       return 'ha pausado';
     case 'dropped':
       return 'ha abandonado';
+    case 'watched':
+      return 'ha visto';
     case 'backlog':
       return 'tiene pendiente';
     case 'wishlist':

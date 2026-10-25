@@ -80,7 +80,7 @@ export default function ImportScreen() {
         status: l.status,
         rating: l.rating,
         year: l.year,
-        platform: null,
+        platform: l.platform,
         hours: null,
         finishedAt: null,
         review: null,
@@ -228,6 +228,13 @@ export default function ImportScreen() {
       ) : null}
 
       {paste ? (
+        <ThemedText variant="muted" size={12}>
+          Un juego por línea: «Título | plataforma | estado | nota». Todo menos el título es opcional y puede ir en
+          cualquier orden. Estados: pasado (o completado), al 100 %, jugado, visto, jugando, en pausa, abandonado,
+          pendiente, deseado.
+        </ThemedText>
+      ) : null}
+      {paste ? (
         <TextField
           label={`Juegos${entries.length ? ` (${entries.length})` : ''}`}
           value={text}
@@ -235,7 +242,7 @@ export default function ImportScreen() {
             setText(t);
             setRows(null);
           }}
-          placeholder={'Hades | pasado | 9\nTunic | pendiente\nCeleste (2018)'}
+          placeholder={'Hades | PC | pasado | 9\nZelda II | NES | visto | 6\nTunic | pendiente\nCeleste (2018)'}
           multiline
           autoCapitalize="none"
           autoCorrect={false}

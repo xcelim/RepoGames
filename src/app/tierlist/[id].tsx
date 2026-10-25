@@ -64,7 +64,7 @@ export default function TierEditorScreen() {
   const save = (next: TierList) => updateProfile({ tierlists: lists.map((x) => (x.id === next.id ? next : x)) });
 
   const candidates = useMemo(() => {
-    const order = (s: string) => ['completed', 'beaten', 'playing', 'paused', 'dropped'].indexOf(s);
+    const order = (s: string) => ['completed', 'beaten', 'playing', 'paused', 'watched', 'dropped'].indexOf(s);
     const sorted = [...mine].sort((a, b) => {
       const oa = order(a.ug.status);
       const ob = order(b.ug.status);

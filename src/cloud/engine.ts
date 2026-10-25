@@ -270,6 +270,11 @@ async function doFlush(): Promise<void> {
           rows.map(({ achievements_total: _t, ...r }) => r),
           { onConflict: 'profile_id,game_id' },
         );
+      // El estado «Visto» necesita el SQL del 27/10/2026: se avisa con un mensaje claro.
+      if (res.error && /status_check/.test(res.error.message))
+        throw new Error(
+          'Biblioteca: para guardar juegos «Vistos» falta ejecutar en Supabase el SQL 2026-10-27-visto.sql',
+        );
       check(res, 'Biblioteca');
     }
   });

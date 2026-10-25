@@ -171,7 +171,7 @@ alter table public.user_games add column if not exists replays_extra int not nul
 alter table public.user_games add column if not exists achievements text[] not null default '{}';
 alter table public.user_games drop constraint if exists user_games_status_check;
 alter table public.user_games add constraint user_games_status_check
-  check (status in ('library', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'dropped'));
+  check (status in ('library', 'wishlist', 'backlog', 'playing', 'paused', 'beaten', 'completed', 'watched', 'dropped'));
 create index if not exists user_games_game_idx on public.user_games (game_id);
 
 -- ---------------------------------------------------------------------

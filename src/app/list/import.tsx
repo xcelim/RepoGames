@@ -71,6 +71,7 @@ export default function ImportListScreen() {
       s.addToList(listId, record.id);
       if (row.line.status) s.setStatus(record.id, row.line.status);
       if (row.line.rating) s.updateUserGame(record.id, { rating: row.line.rating });
+      if (row.line.platform) s.updateUserGame(record.id, { platform: row.line.platform });
     }
     notify(`Lista creada con ${found.length} juegos`);
     router.replace(`/list/${listId}`);
@@ -82,9 +83,9 @@ export default function ImportListScreen() {
   return (
     <IgnScreen title="Importar lista" close contentStyle={{ paddingHorizontal: 20, gap: 18, paddingBottom: 60 }}>
       <ThemedText variant="muted" size={13}>
-        Pega un juego por línea. Detrás del título puedes poner, separado con «|», el año, el estado (pasado,
-        completado, jugando, en pausa, abandonado, pendiente, deseado) y tu nota del 1 al 10. Cada juego se busca en
-        IGDB y se añade con su ficha oficial.
+        Pega un juego por línea. Detrás del título puedes poner, separado con «|», el año, la plataforma, el estado
+        (pasado, al 100 %, jugado, visto, jugando, en pausa, abandonado, pendiente, deseado) y tu nota del 1 al 10. Cada
+        juego se busca en IGDB y se añade con su ficha oficial.
       </ThemedText>
       <TextField
         label="Nombre de la lista"

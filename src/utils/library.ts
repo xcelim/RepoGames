@@ -161,7 +161,7 @@ export function entryStats(entries: Entry[], mode: DurationMode): Stats {
     totalHours += hours;
     const done = userGame ? FINISHED.includes(userGame.status) : false;
     if (done) finished += 1;
-    else if (userGame?.status !== 'dropped') hoursLeft += hours;
+    else if (userGame?.status !== 'dropped' && userGame?.status !== 'watched') hoursLeft += hours;
     if (userGame?.status === 'playing') playing += 1;
     if (userGame?.rating != null) {
       ratingSum += userGame.rating;

@@ -12,7 +12,7 @@ import { useMyGames, type MyGame } from '@/hooks/useMyGames';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { ELO_START, eloUpdate } from '@/utils/elo';
 
-const PLAYED = new Set(['playing', 'paused', 'beaten', 'completed', 'dropped', 'library']);
+const PLAYED = new Set(['playing', 'paused', 'beaten', 'completed', 'dropped', 'library', 'watched']);
 
 function pickPair(pool: MyGame[], elo: Record<string, number>, avoid: string[]): [MyGame, MyGame] | null {
   if (pool.length < 2) return null;

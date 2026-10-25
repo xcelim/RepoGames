@@ -248,6 +248,7 @@ const LIB_FILTERS: { id: string; label: string; statuses: PlayStatus[] | null }[
   { id: 'finished', label: 'Terminados', statuses: ['beaten', 'completed'] },
   { id: 'pending', label: 'Pendientes', statuses: ['backlog', 'paused', 'library'] },
   { id: 'wishlist', label: 'Deseados', statuses: ['wishlist'] },
+  { id: 'watched', label: 'Vistos', statuses: ['watched'] },
   { id: 'dropped', label: 'Abandonados', statuses: ['dropped'] },
 ];
 

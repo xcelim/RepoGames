@@ -210,6 +210,7 @@ const STATUS_HINTS: [RegExp, PlayStatus][] = [
   [/(100 ?%|completionist|platin|mastered|completado|completed 100)/, 'completed'],
   [/(not played|no jugado|sin jugar|plan to play|planned|por jugar|backlog|pendiente|unplayed|to play)/, 'backlog'],
   [/(wish|deseado|lo quiero|want)/, 'wishlist'],
+  [/(watched|visto|vistos|seen|viewed)/, 'watched'],
   [/(abandon|retired|dropped|abandonado|dejado|quit)/, 'dropped'],
   [/(on hold|paused|pausa|shelved)/, 'paused'],
   [/(playing|jugando|in progress|en curso|currently)/, 'playing'],
