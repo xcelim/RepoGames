@@ -9,12 +9,15 @@ import { ThemedText } from '@/components/ThemedText';
 import { TextField } from '@/components/ui';
 import { useStore } from '@/store/useStore';
 import { notify } from '@/utils/notify';
+import { useShallow } from 'zustand/react/shallow';
 
 // Crear un chat de grupo con tus amigos.
 export default function NewGroupScreen() {
   const c = useIgnColors();
   const uid = useStore((s) => s.cloudUserId);
-  const { friendships, profiles } = useSocial();
+  const { friendships, profiles } = useSocial(
+    useShallow((s) => ({ friendships: s.friendships, profiles: s.profiles })),
+  );
   const friends = friendships
     .filter((f) => f.status === 'accepted')
     .map((f) => (f.requester === uid ? f.addressee : f.requester));

@@ -13,6 +13,7 @@ import { useGame } from '@/hooks/useLists';
 import { useStore } from '@/store/useStore';
 import { notify } from '@/utils/notify';
 import { goBack } from '@/utils/nav';
+import { useShallow } from 'zustand/react/shallow';
 
 // Recomendar un juego a uno o varios amigos (les llega al chat).
 export default function ShareGameScreen() {
@@ -21,7 +22,9 @@ export default function ShareGameScreen() {
   const c = useIgnColors();
   const game = useGame(id);
   const uid = useStore((s) => s.cloudUserId);
-  const { friendships, profiles } = useSocial();
+  const { friendships, profiles } = useSocial(
+    useShallow((s) => ({ friendships: s.friendships, profiles: s.profiles })),
+  );
   const friends = friendships
     .filter((f) => f.status === 'accepted')
     .map((f) => (f.requester === uid ? f.addressee : f.requester));

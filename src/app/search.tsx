@@ -15,20 +15,23 @@ import { Chip, Panel, TextField } from '@/components/ui';
 import { OFFICIAL_SERIES, officialListId } from '@/data/catalog';
 import { rankByQuery } from '@/utils/fuzzy';
 import { stripAccents } from '@/utils/text';
-import { useList } from '@/hooks/useLists';
+import { useList, useListCount, useProfileLookup } from '@/hooks/useLists';
+import { searchPublicLists } from '@/cloud/listSearch';
 import { useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
-import type { GameRecord } from '@/types';
+import type { GameList, GameRecord } from '@/types';
 import { uuid } from '@/utils/id';
 import { itemsOfList, userGameKey } from '@/utils/library';
 import { notify } from '@/utils/notify';
 import { OfflineGate } from '@/components/offline';
+import { HScroll } from '@/components/HScroll';
 
 function normalize(text: string): string {
   return stripAccents(text).toLowerCase();
 }
 
 type Row = { key: string; game: GameRecord; external?: boolean; source?: string };
+type ListRowItem = { key: string; list: GameList };
 
 function SearchScreenInner() {
   const { listId, q } = useLocalSearchParams<{ listId?: string; q?: string }>();
@@ -53,6 +56,33 @@ function SearchScreenInner() {
   const [form, setForm] = useState({ title: '', year: '', platforms: '', hours: '', cover: '' });
   const requestId = useRef(0);
   const sheets = useGameSheets();
+  // Buscar juegos o listas; y ocultar los juegos que ya tienes (para encontrar nuevos).
+  const [mode, setMode] = useState<'games' | 'lists'>('games');
+  const [hideOwned, setHideOwned] = useState(false);
+  const [listResults, setListResults] = useState<GameList[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const countOf = useListCount();
+  const lookup = useProfileLookup();
+
+  useEffect(() => {
+    if (mode !== 'lists') return;
+    let alive = true;
+    const timer = setTimeout(() => {
+      if (query.trim().length < 2) {
+        setListResults([]);
+        return;
+      }
+      setListLoading(true);
+      searchPublicLists(query)
+        .then((r) => alive && setListResults(r))
+        .catch(() => alive && setListResults([]))
+        .finally(() => alive && setListLoading(false));
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [query, mode]);
 
   useEffect(() => {
     onlineSources().then(setSources);
@@ -150,16 +180,22 @@ function SearchScreenInner() {
     choose({ key: game.id, game });
   };
 
-  const rows: (Row | { key: string; header: string })[] = [
-    ...(local.length ? [{ key: 'h-local', header: 'Ya en tu móvil' }] : []),
-    ...local,
-    ...(external.length ? [{ key: 'h-online', header: 'IGDB · RAWG' }] : []),
-    ...external,
-  ];
+  const owned = (r: Row) => !!(profileId && userGames[userGameKey(profileId, r.game.id)]);
+  const shownLocal = hideOwned ? local.filter((r) => !owned(r)) : local;
+  const shownExternal = hideOwned ? external.filter((r) => !owned(r)) : external;
+  const rows: (Row | ListRowItem | { key: string; header: string })[] =
+    mode === 'lists'
+      ? listResults.map((list) => ({ key: `l-${list.id}`, list }))
+      : [
+          ...(shownLocal.length ? [{ key: 'h-local', header: 'Ya en tu móvil' }] : []),
+          ...shownLocal,
+          ...(shownExternal.length ? [{ key: 'h-online', header: 'IGDB · RAWG' }] : []),
+          ...shownExternal,
+        ];
 
   return (
     <View style={styles.flex}>
-      <ScreenHeader back title={list ? `Añadir a ${list.name}` : 'Buscar juegos'} />
+      <ScreenHeader back title={list ? `Añadir a ${list.name}` : 'Buscar'} />
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}
@@ -172,7 +208,7 @@ function SearchScreenInner() {
                 <TextField
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Busca cualquier juego…"
+                  placeholder={mode === 'lists' ? 'Busca listas por nombre…' : 'Busca cualquier juego…'}
                   autoFocus={!q}
                   returnKeyType="search"
                 />
@@ -187,7 +223,50 @@ function SearchScreenInner() {
                 </Pressable>
               ) : null}
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            {!listId ? (
+              <View style={[styles.tabs, { backgroundColor: skin.colors.panel2, borderRadius: 12 }]}>
+                {(['games', 'lists'] as const).map((m) => (
+                  <Pressable
+                    key={m}
+                    onPress={() => setMode(m)}
+                    style={[
+                      styles.tab,
+                      { borderRadius: 10, backgroundColor: mode === m ? skin.colors.text : 'transparent' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={m === 'games' ? 'game-controller' : 'albums'}
+                      size={16}
+                      color={mode === m ? skin.colors.bg : skin.colors.text}
+                    />
+                    <ThemedText
+                      variant="bold"
+                      size={13}
+                      style={{ color: mode === m ? skin.colors.bg : skin.colors.text }}
+                    >
+                      {m === 'games' ? 'Juegos' : 'Listas'}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            {mode === 'games' ? (
+              <View style={{ flexDirection: 'row' }}>
+                <Chip
+                  label={hideOwned ? 'Ocultando los que ya tienes' : 'Ocultar los que ya tengo'}
+                  icon={hideOwned ? 'eye-off' : 'eye-off-outline'}
+                  selected={hideOwned}
+                  onPress={() => setHideOwned((v) => !v)}
+                />
+              </View>
+            ) : null}
+            {listLoading ? <ActivityIndicator color={skin.colors.accent} /> : null}
+            {mode === 'lists' && query.trim().length >= 2 && !listLoading && !listResults.length ? (
+              <ThemedText variant="muted" size={13}>
+                No hay listas públicas con ese nombre.
+              </ThemedText>
+            ) : null}
+            <HScroll contentContainerStyle={styles.chips}>
               {OFFICIAL_SERIES.map((saga) => (
                 <Chip
                   key={saga.id}
@@ -196,7 +275,7 @@ function SearchScreenInner() {
                   onPress={() => router.push(`/list/${officialListId(saga.id)}`)}
                 />
               ))}
-            </ScrollView>
+            </HScroll>
             {!online ? (
               <Panel>
                 <ThemedText variant="muted" size={13}>
@@ -219,6 +298,28 @@ function SearchScreenInner() {
           </View>
         }
         renderItem={({ item: row }) => {
+          if ('list' in row) {
+            const l = row.list;
+            return (
+              <Pressable
+                onPress={() => router.push(`/list/${l.id}`)}
+                style={[styles.listRow, { borderBottomColor: skin.colors.line }]}
+              >
+                <View style={[styles.listIcon, { backgroundColor: l.color }]}>
+                  <Ionicons name={(l.icon || 'albums') as never} size={20} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText variant="bold" size={15} numberOfLines={1}>
+                    {l.name}
+                  </ThemedText>
+                  <ThemedText variant="muted" size={12} numberOfLines={1}>
+                    {`${l.official ? 'Saga Quest' : (lookup(l.ownerId)?.displayName ?? 'Jugador')} · ${countOf(l.id)} juegos`}
+                  </ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={skin.colors.muted} />
+              </Pressable>
+            );
+          }
           if ('header' in row) {
             return (
               <ThemedText variant="bold" size={12} style={[styles.header, { color: skin.colors.accent2 }]}>
@@ -260,75 +361,77 @@ function SearchScreenInner() {
           );
         }}
         ListFooterComponent={
-          <View style={styles.footer}>
-            {sources.rawg && external.some((r) => r.source === 'RAWG') ? (
-              <ThemedText
-                variant="muted"
-                size={11}
-                style={styles.attribution}
-                onPress={() => Linking.openURL('https://rawg.io')}
-              >
-                Datos e imágenes de RAWG (rawg.io) e IGDB (igdb.com)
-              </ThemedText>
-            ) : null}
-            {creating ? (
-              <Panel>
-                <ThemedText variant="display" size={18}>
-                  Crear juego a mano
+          mode === 'lists' ? null : (
+            <View style={styles.footer}>
+              {sources.rawg && external.some((r) => r.source === 'RAWG') ? (
+                <ThemedText
+                  variant="muted"
+                  size={11}
+                  style={styles.attribution}
+                  onPress={() => Linking.openURL('https://rawg.io')}
+                >
+                  Datos e imágenes de RAWG (rawg.io) e IGDB (igdb.com)
                 </ThemedText>
-                <TextField
-                  label="Título"
-                  value={form.title}
-                  onChangeText={(title) => setForm((f) => ({ ...f, title }))}
-                />
-                <View style={styles.twoCols}>
-                  <View style={styles.flex}>
-                    <TextField
-                      label="Año"
-                      keyboardType="numeric"
-                      value={form.year}
-                      onChangeText={(year) => setForm((f) => ({ ...f, year }))}
-                    />
+              ) : null}
+              {creating ? (
+                <Panel>
+                  <ThemedText variant="display" size={18}>
+                    Crear juego a mano
+                  </ThemedText>
+                  <TextField
+                    label="Título"
+                    value={form.title}
+                    onChangeText={(title) => setForm((f) => ({ ...f, title }))}
+                  />
+                  <View style={styles.twoCols}>
+                    <View style={styles.flex}>
+                      <TextField
+                        label="Año"
+                        keyboardType="numeric"
+                        value={form.year}
+                        onChangeText={(year) => setForm((f) => ({ ...f, year }))}
+                      />
+                    </View>
+                    <View style={styles.flex}>
+                      <TextField
+                        label="Horas (historia)"
+                        keyboardType="numeric"
+                        value={form.hours}
+                        onChangeText={(hours) => setForm((f) => ({ ...f, hours }))}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.flex}>
-                    <TextField
-                      label="Horas (historia)"
-                      keyboardType="numeric"
-                      value={form.hours}
-                      onChangeText={(hours) => setForm((f) => ({ ...f, hours }))}
-                    />
-                  </View>
-                </View>
-                <TextField
-                  label="Plataformas"
-                  value={form.platforms}
-                  placeholder="Switch, PS5…"
-                  onChangeText={(platforms) => setForm((f) => ({ ...f, platforms }))}
+                  <TextField
+                    label="Plataformas"
+                    value={form.platforms}
+                    placeholder="Switch, PS5…"
+                    onChangeText={(platforms) => setForm((f) => ({ ...f, platforms }))}
+                  />
+                  <TextField
+                    label="Portada (enlace a una imagen, opcional)"
+                    value={form.cover}
+                    placeholder="https://…"
+                    autoCapitalize="none"
+                    keyboardType="url"
+                    onChangeText={(cover) => setForm((f) => ({ ...f, cover }))}
+                  />
+                  <ThemedText variant="muted" size={12}>
+                    Después podrás completar el resto de datos desde «Editar» en su ficha.
+                  </ThemedText>
+                  <Button label="Crear" onPress={createManual} />
+                </Panel>
+              ) : (
+                <Button
+                  kind="ghost"
+                  label="¿No lo encuentras? Créalo a mano"
+                  onPress={() => {
+                    setForm((f) => ({ ...f, title: query }));
+                    setCreating(true);
+                  }}
                 />
-                <TextField
-                  label="Portada (enlace a una imagen, opcional)"
-                  value={form.cover}
-                  placeholder="https://…"
-                  autoCapitalize="none"
-                  keyboardType="url"
-                  onChangeText={(cover) => setForm((f) => ({ ...f, cover }))}
-                />
-                <ThemedText variant="muted" size={12}>
-                  Después podrás completar el resto de datos desde «Editar» en su ficha.
-                </ThemedText>
-                <Button label="Crear" onPress={createManual} />
-              </Panel>
-            ) : (
-              <Button
-                kind="ghost"
-                label="¿No lo encuentras? Créalo a mano"
-                onPress={() => {
-                  setForm((f) => ({ ...f, title: query }));
-                  setCreating(true);
-                }}
-              />
-            )}
-          </View>
+              )}
+            </View>
+          )
         }
       />
       {sheets.element}
@@ -347,6 +450,10 @@ const styles = StyleSheet.create({
   footer: { marginTop: 16, gap: 12 },
   attribution: { textAlign: 'center', textDecorationLine: 'underline' },
   twoCols: { flexDirection: 'row', gap: 8 },
+  tabs: { flexDirection: 'row', padding: 4 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9 },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
+  listIcon: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default function SearchScreen() {

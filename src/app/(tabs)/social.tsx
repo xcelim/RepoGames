@@ -30,6 +30,7 @@ import { notify } from '@/utils/notify';
 import { STATUS_META } from '@/data/meta';
 import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
+import { useShallow } from 'zustand/react/shallow';
 
 type Tab = 'chats' | 'activity' | 'friends';
 
@@ -38,7 +39,20 @@ function SocialInner() {
   const uid = useStore((s) => s.cloudUserId);
   const localGames = useStore((s) => s.games);
   const { ready, missingTables, friendships, profiles, chats, activity, games, groups, groupChats, reactions } =
-    useSocial();
+    useSocial(
+      useShallow((s) => ({
+        ready: s.ready,
+        missingTables: s.missingTables,
+        friendships: s.friendships,
+        profiles: s.profiles,
+        chats: s.chats,
+        activity: s.activity,
+        games: s.games,
+        groups: s.groups,
+        groupChats: s.groupChats,
+        reactions: s.reactions,
+      })),
+    );
   const [tab, setTab] = useState<Tab>('chats');
   const [busy, setBusy] = useState(false);
 

@@ -7,6 +7,7 @@ import { createContext, memo, type ReactNode, useContext, useEffect, useMemo, us
 import {
   Animated,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -85,6 +86,16 @@ export function Card({
   );
 }
 
+// En la web, cada pantalla entra con un fundido suave (en el móvil ya hay animación nativa).
+const WEB_ENTER =
+  Platform.OS === 'web'
+    ? ({
+        animationName: 'sq-enter',
+        animationDuration: '180ms',
+        animationTimingFunction: 'ease-out',
+      } as object)
+    : null;
+
 // ---------- Pantalla con título grande que se encoge al bajar ----------
 
 type IgnScreenProps = {
@@ -153,7 +164,7 @@ export function IgnScreen({
     );
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={[{ flex: 1, backgroundColor: c.bg }, WEB_ENTER]}>
       <Backdrop />
       <Animated.ScrollView
         {...rest}
@@ -1023,7 +1034,14 @@ export function SectionHeader({
         <ThemedText variant="display" size={22} style={{ flex: 1 }} numberOfLines={1}>
           {title}
         </ThemedText>
-        {onPress ? <Ionicons name="chevron-forward" size={20} color={c.muted} /> : null}
+        {onPress ? (
+          <View style={styles.seeAll}>
+            <ThemedText variant="bold" size={12} style={{ color: c.muted }}>
+              Ver todo
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
+          </View>
+        ) : null}
       </View>
       {subtitle ? (
         <ThemedText variant="muted" size={13} numberOfLines={2}>
@@ -1035,6 +1053,7 @@ export function SectionHeader({
 }
 
 const styles = StyleSheet.create({
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   replayCorner: { position: 'absolute', top: 6, right: 6 },
   physicalCorner: {
     position: 'absolute',

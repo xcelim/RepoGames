@@ -79,7 +79,7 @@ const EXTRA: Item[] = [
   },
   {
     href: '/search',
-    label: 'Buscar juegos',
+    label: 'Buscar',
     icon: 'search-outline',
     iconActive: 'search',
     match: (p) => p.startsWith('/search'),

@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { useChallenges } from '@/cloud/challenges';
 import { groupUnread, useSocial } from '@/cloud/social';
 import { useStore } from '@/store/useStore';
+import { useShallow } from 'zustand/react/shallow';
 
 // Avisos de la app: solicitudes, mensajes, reacciones, retos… (se calculan con lo que ya hay).
 export type Note = {
@@ -54,7 +55,17 @@ export async function markNotesSeen() {
 
 export function useNotifications(): Note[] {
   const uid = useStore((s) => s.cloudUserId);
-  const { friendships, profiles, chats, reactions, groups, groupChats, games } = useSocial();
+  const { friendships, profiles, chats, reactions, groups, groupChats, games } = useSocial(
+    useShallow((s) => ({
+      friendships: s.friendships,
+      profiles: s.profiles,
+      chats: s.chats,
+      reactions: s.reactions,
+      groups: s.groups,
+      groupChats: s.groupChats,
+      games: s.games,
+    })),
+  );
   const localGames = useStore((s) => s.games);
   const challenges = useChallenges((s) => s.list);
   const dismissed = useNotesSeen((s) => s.dismissed);

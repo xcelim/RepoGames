@@ -9,6 +9,7 @@ import { TextField } from '@/components/ui';
 import { RANKED_GAMES } from '@/data/ranks';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import type { CompetitiveRank } from '@/types';
+import { HScroll } from '@/components/HScroll';
 
 const MAX = 6;
 
@@ -89,7 +90,7 @@ export default function RanksScreen() {
         <ThemedText variant="bold" size={13}>
           Juego
         </ThemedText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <HScroll contentContainerStyle={styles.chips}>
           {RANKED_GAMES.map((g) =>
             chip(g.name, g.id === gameId, () => {
               setGameId(g.id);
@@ -97,7 +98,7 @@ export default function RanksScreen() {
               setDivision(null);
             }),
           )}
-        </ScrollView>
+        </HScroll>
         {gameId === 'other' ? (
           <TextField value={custom} onChangeText={setCustom} placeholder="Nombre del juego" maxLength={24} />
         ) : null}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -6,6 +7,7 @@ import { toGameRecord } from '@/api/games';
 import { useGameSheets } from '@/components/gameSheets';
 import { CoverTile, IgnScreen, useIgnColors } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
+import { Chip } from '@/components/ui';
 import { useStore } from '@/store/useStore';
 import { userGameKey } from '@/utils/library';
 import { OfflineGate } from '@/components/offline';
@@ -23,6 +25,7 @@ function DiscoverListScreenInner() {
   const profileId = useStore((s) => s.currentProfileId);
   const upsertGame = useStore((s) => s.upsertGame);
   const sheets = useGameSheets();
+  const [hideOwned, setHideOwned] = useState(false);
   const cols = Math.max(2, Math.floor((width - 40 + 14) / (196 + 14)));
   const tileW = (width - 20 * 2 - 14 * (cols - 1)) / cols;
 
@@ -31,12 +34,21 @@ function DiscoverListScreenInner() {
       <ThemedText variant="muted" size={14} style={styles.sub}>
         {meta.subtitle(year)}
       </ThemedText>
+      <View style={styles.filterRow}>
+        <Chip
+          label={hideOwned ? 'Ocultando los que ya tienes' : 'Ocultar los que ya tengo'}
+          icon={hideOwned ? 'eye-off' : 'eye-off-outline'}
+          selected={hideOwned}
+          onPress={() => setHideOwned((v) => !v)}
+        />
+      </View>
       {loading ? <ActivityIndicator color={c.text} style={{ marginTop: 40 }} /> : null}
       <View style={styles.grid}>
         {data.map((r, i) => {
           const record = toGameRecord(r, null);
           const game = games[record.id] ? { ...record, ...games[record.id] } : record;
           const status = profileId ? userGames[userGameKey(profileId, game.id)]?.status : undefined;
+          if (hideOwned && status) return null;
           return (
             <CoverTile
               key={game.id}
@@ -59,6 +71,7 @@ function DiscoverListScreenInner() {
 }
 
 const styles = StyleSheet.create({
+  filterRow: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 16 },
   sub: { paddingHorizontal: 20, marginBottom: 20 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, rowGap: 22, paddingHorizontal: 20 },
 });

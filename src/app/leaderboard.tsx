@@ -10,6 +10,7 @@ import { useLevel } from '@/hooks/useLevel';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import type { Profile } from '@/types';
 import { levelColor, levelFromXp } from '@/utils/level';
+import { useShallow } from 'zustand/react/shallow';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -19,7 +20,9 @@ export default function LeaderboardScreen() {
   const uid = useStore((s) => s.cloudUserId);
   const me = useCurrentProfile();
   const lv = useLevel();
-  const { friendships, profiles } = useSocial();
+  const { friendships, profiles } = useSocial(
+    useShallow((s) => ({ friendships: s.friendships, profiles: s.profiles })),
+  );
   const friends = friendships
     .filter((f) => f.status === 'accepted')
     .map((f) => profiles[f.requester === uid ? f.addressee : f.requester])

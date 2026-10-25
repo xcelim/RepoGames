@@ -70,6 +70,14 @@ if (isWeb) {
       width: min(${CONTENT_MAX}px, calc(100vw - ${SIDEBAR_W}px));
     }
     * { -webkit-tap-highlight-color: transparent; }
+    [tabindex="0"] { cursor: pointer; }
+    [tabindex="0"]:focus-visible { outline: 2px solid rgba(127,127,255,.6); outline-offset: 2px; }
+    input, textarea { cursor: text; }
+    @keyframes sq-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes sq-spin-rev { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+    @keyframes sq-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    @keyframes sq-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes sq-sweep { 0% { left: -70%; } 53% { left: 170%; } 100% { left: 170%; } }
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-thumb { background: rgba(127,127,127,.35); border-radius: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }

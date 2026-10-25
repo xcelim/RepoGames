@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { LIBRARY_ROW_META, LIBRARY_ROWS, statusesOfRow } from '@/data/meta';
 import { useStore } from '@/store/useStore';
 import type { PlayStatus } from '@/types';
+import { HScroll } from '@/components/HScroll';
 
 export default function LibraryScreen() {
   const c = useIgnColors();
@@ -43,7 +44,7 @@ export default function LibraryScreen() {
         Jugando ahora
       </ThemedText>
       {playing.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+        <HScroll contentContainerStyle={styles.hRow}>
           {playing.map(({ ug, game }) => (
             <CoverTile
               key={ug.id}
@@ -53,7 +54,7 @@ export default function LibraryScreen() {
               onPress={() => router.push(`/game/${encodeURIComponent(game!.id)}`)}
             />
           ))}
-        </ScrollView>
+        </HScroll>
       ) : (
         <Pressable
           onPress={() => router.push('/search')}

@@ -31,6 +31,7 @@ import { useStore } from '@/store/useStore';
 import type { GameRecord, PlayStatus, UserGame } from '@/types';
 import { compatibility } from '@/utils/compat';
 import { levelColor, levelFromXp, showcaseSlots } from '@/utils/level';
+import { HScroll } from '@/components/HScroll';
 
 function UserScreenInner() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -92,7 +93,7 @@ function UserScreenInner() {
   const lv = levelFromXp(profile.xp ?? 0);
   const progress = profile.xp != null ? (lv.into / lv.need) * 100 : 0;
   const gameOf = (gid: string): GameRecord | undefined => games[gid];
-  const cover = (width - 40 - 36 - 30) / 4;
+  const cover = Math.min(130, (width - 40 - 36 - 30) / 4);
 
   return (
     <IgnScreen
@@ -148,11 +149,11 @@ function UserScreenInner() {
       ) : null}
 
       {profile.ranks?.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+        <HScroll contentContainerStyle={{ gap: 4 }}>
           {profile.ranks.map((r) => (
             <RankBadge key={r.game} rank={r} size={46} />
           ))}
-        </ScrollView>
+        </HScroll>
       ) : null}
 
       <Card style={styles.stats} padded={false}>
@@ -184,7 +185,7 @@ function UserScreenInner() {
               <ThemedText variant="bold" size={13}>
                 Le encantan y tú no los tienes
               </ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+              <HScroll contentContainerStyle={{ gap: 10 }}>
                 {compat.forYou.map((gid) => {
                   const g = gameOf(gid);
                   return g ? (
@@ -193,7 +194,7 @@ function UserScreenInner() {
                     </Pressable>
                   ) : null;
                 })}
-              </ScrollView>
+              </HScroll>
             </>
           ) : null}
           {compat.clash.length ? (
@@ -282,7 +283,7 @@ function TheirLibrary({
       <ThemedText variant="display" size={20} style={{ marginTop: 6, paddingHorizontal: 20 }}>
         Biblioteca
       </ThemedText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.libChips}>
+      <HScroll contentContainerStyle={styles.libChips}>
         {LIB_FILTERS.map((x) => (
           <Chip
             key={x.id}
@@ -291,7 +292,7 @@ function TheirLibrary({
             onPress={() => setFilter(x.id)}
           />
         ))}
-      </ScrollView>
+      </HScroll>
       {entries.length ? (
         <EntryGrid
           entries={entries}

@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useLists';
 import type { GameList } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
+import { HScroll } from '@/components/HScroll';
 
 export default function ListsScreen() {
   const c = useIgnColors();
@@ -73,7 +74,7 @@ export default function ListsScreen() {
       <ThemedText variant="display" size={22} style={styles.h2}>
         Actualizadas recientemente
       </ThemedText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+      <HScroll contentContainerStyle={styles.hRow}>
         {mine.slice(0, 10).map((list) => (
           <Pressable
             key={list.id}
@@ -106,7 +107,7 @@ export default function ListsScreen() {
             Nueva lista
           </ThemedText>
         </Pressable>
-      </ScrollView>
+      </HScroll>
 
       <View
         style={[

@@ -36,6 +36,7 @@ import { useMyLists } from '@/hooks/useLists';
 import { useCurrentProfile, useStore } from '@/store/useStore';
 import { useSkin } from '@/theme/useSkin';
 import { findGame, formatHours } from '@/utils/library';
+import { HScroll } from '@/components/HScroll';
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const skin = useSkin();
@@ -179,11 +180,11 @@ export default function ProfileScreen() {
         {/* Rangos competitivos */}
         {profile.ranks?.length ? (
           <Pressable onPress={() => router.push('/ranks')}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ranks}>
+            <HScroll contentContainerStyle={styles.ranks}>
               {profile.ranks.map((r) => (
                 <RankBadge key={r.game} rank={r} size={46} />
               ))}
-            </ScrollView>
+            </HScroll>
           </Pressable>
         ) : null}
 

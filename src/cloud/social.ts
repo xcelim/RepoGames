@@ -774,6 +774,9 @@ export function startSocial(): () => void {
   poller = setInterval(() => {
     if (AppState.currentState !== 'active' || !me()) return;
     tick++;
+    // Con el tiempo real conectado basta una comprobación por minuto; si no, cada 15 s.
+    const live = useSocial.getState().realtime === 'conectado';
+    if (live && tick % 4 !== 0) return;
     refreshSocial(tick % 4 === 0).catch(() => undefined);
   }, 15_000);
   appSub?.remove();

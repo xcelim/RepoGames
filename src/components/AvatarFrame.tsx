@@ -1,6 +1,6 @@
 // Foto de perfil con su marco de nivel (los 30 marcos de src/theme/frames.ts).
 import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import { Animated, Easing, Platform, View } from 'react-native';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { FRAMES, type FrameSpec, type Ornament } from '@/theme/frames';
@@ -194,7 +194,7 @@ export function AvatarFrame({ frame, size, children }: { frame: number | null; s
   const anim = spec?.anim;
 
   useEffect(() => {
-    if (!anim) return;
+    if (!anim || Platform.OS === 'web') return; // en la web van con animaciones CSS (más fluidas)
     const loop = Animated.loop(
       Animated.timing(t, {
         toValue: 1,
@@ -217,29 +217,57 @@ export function AvatarFrame({ frame, size, children }: { frame: number | null; s
   const pulse = t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.04, 1] });
   const spins = anim === 'spin' || anim === 'spin+shimmer';
   const shimmers = anim === 'shimmer' || anim === 'spin+shimmer';
+  const web = Platform.OS === 'web';
+  const frameStyle = web
+    ? spins && !spec.crown
+      ? cssSpin(9000)
+      : anim === 'pulse'
+        ? cssPulse(1800)
+        : null
+    : { transform: [spins && !spec.crown ? { rotate: spin } : { scale: anim === 'pulse' ? pulse : 1 }] };
+  const shimmerStyle = web
+    ? cssSpin(anim === 'shimmer' ? 2600 : 4500, anim !== 'shimmer')
+    : { transform: [{ rotate: shimmerSpin }] };
 
   return (
     <View style={{ width: total, height: total, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View
+      <Spinner
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: total,
-          height: total,
-          transform: [spins && !spec.crown ? { rotate: spin } : { scale: anim === 'pulse' ? pulse : 1 }],
-        }}
+        style={[{ position: 'absolute', width: total, height: total }, frameStyle as object]}
       >
         <FrameSvg spec={spec} size={size} total={total} />
-      </Animated.View>
+      </Spinner>
       <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>{children}</View>
       {shimmers ? (
-        <Animated.View
+        <Spinner
           pointerEvents="none"
-          style={{ position: 'absolute', width: total, height: total, transform: [{ rotate: shimmerSpin }] }}
+          style={[{ position: 'absolute', width: total, height: total }, shimmerStyle as object]}
         >
           <ShimmerRing size={size} total={total} width={spec.width} />
-        </Animated.View>
+        </Spinner>
       ) : null}
     </View>
   );
+}
+
+// En la web, una View normal (Animated.View descarta las animaciones CSS).
+const Spinner = (Platform.OS === 'web' ? View : Animated.View) as typeof Animated.View;
+
+// Animaciones CSS para la web (las hace el navegador, no se paran aunque la app esté ocupada).
+// Los @keyframes están en src/web/frame.ts.
+function cssSpin(ms: number, reverse = false): object {
+  return {
+    animationName: reverse ? 'sq-spin-rev' : 'sq-spin',
+    animationDuration: `${ms}ms`,
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+  };
+}
+function cssPulse(ms: number): object {
+  return {
+    animationName: 'sq-pulse',
+    animationDuration: `${ms}ms`,
+    animationTimingFunction: 'ease-in-out',
+    animationIterationCount: 'infinite',
+  };
 }

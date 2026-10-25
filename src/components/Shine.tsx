@@ -1,7 +1,7 @@
 // Marco brillante de los platinos: borde plateado con un destello que pasa cada poco.
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
 import { PlatinumBadge } from './achievements';
 
@@ -22,6 +22,7 @@ export function Shine({
 }) {
   const [x] = useState(() => new Animated.Value(0));
   useEffect(() => {
+    if (Platform.OS === 'web') return; // en la web, animación CSS
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(x, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -45,10 +46,20 @@ export function Shine({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Animated.View
+        <Streak
           style={[
             styles.streak,
-            { height: outerH * 1.6, top: -outerH * 0.3, transform: [{ translateX: sweep }, { rotate: '18deg' }] },
+            Platform.OS === 'web'
+              ? ({
+                  height: outerH * 1.6,
+                  top: -outerH * 0.3,
+                  transform: [{ rotate: '18deg' }],
+                  animationName: 'sq-sweep',
+                  animationDuration: '3000ms',
+                  animationTimingFunction: 'ease-in-out',
+                  animationIterationCount: 'infinite',
+                } as object)
+              : { height: outerH * 1.6, top: -outerH * 0.3, transform: [{ translateX: sweep }, { rotate: '18deg' }] },
           ]}
         >
           <LinearGradient
@@ -57,21 +68,32 @@ export function Shine({
             end={{ x: 1, y: 0.5 }}
             style={StyleSheet.absoluteFill}
           />
-        </Animated.View>
+        </Streak>
       </View>
       <View style={{ margin: border, width, height, borderRadius: radius, overflow: 'hidden' }}>
         {children}
         {/* El destello también cruza la portada, más suave */}
-        <Animated.View
+        <Streak
           pointerEvents="none"
           style={[
             styles.streak,
-            {
-              height: height * 1.6,
-              top: -height * 0.3,
-              opacity: 0.35,
-              transform: [{ translateX: sweep }, { rotate: '18deg' }],
-            },
+            Platform.OS === 'web'
+              ? ({
+                  height: height * 1.6,
+                  top: -height * 0.3,
+                  opacity: 0.35,
+                  transform: [{ rotate: '18deg' }],
+                  animationName: 'sq-sweep',
+                  animationDuration: '3000ms',
+                  animationTimingFunction: 'ease-in-out',
+                  animationIterationCount: 'infinite',
+                } as object)
+              : {
+                  height: height * 1.6,
+                  top: -height * 0.3,
+                  opacity: 0.35,
+                  transform: [{ translateX: sweep }, { rotate: '18deg' }],
+                },
           ]}
         >
           <LinearGradient
@@ -80,7 +102,7 @@ export function Shine({
             end={{ x: 1, y: 0.5 }}
             style={StyleSheet.absoluteFill}
           />
-        </Animated.View>
+        </Streak>
       </View>
       {badge ? (
         <View style={[styles.badge, { right: border + 4, bottom: border + 4 }]} pointerEvents="none">
@@ -103,3 +125,6 @@ const styles = StyleSheet.create({
   streak: { position: 'absolute', left: 0, width: 46 },
   badge: { position: 'absolute' },
 });
+
+// En la web, una View normal (Animated.View descarta las animaciones CSS).
+const Streak = (Platform.OS === 'web' ? View : Animated.View) as typeof Animated.View;

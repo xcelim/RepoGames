@@ -40,6 +40,7 @@ import { rankByQuery } from '@/utils/fuzzy';
 import { entryStats, formatHours, sortEntries } from '@/utils/library';
 import { notify } from '@/utils/notify';
 import { goBack } from '@/utils/nav';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function ListScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -569,7 +570,9 @@ function MembersSheet({
   const c = useIgnColors();
   const uid = useStore((s) => s.cloudUserId);
   const lookup = useProfileLookup();
-  const { friendships, profiles } = useSocial();
+  const { friendships, profiles } = useSocial(
+    useShallow((s) => ({ friendships: s.friendships, profiles: s.profiles })),
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const friends = friendships
     .filter((f) => f.status === 'accepted')

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { DISCOVER_META, useDiscover, type DiscoverKind } from '@/api/discover';
@@ -26,6 +26,8 @@ import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
 import { OfflineGate } from '@/components/offline';
+import { HScroll } from '@/components/HScroll';
+import { Chip, type IconName } from '@/components/ui';
 
 function useOpenOnline() {
   const upsertGame = useStore((s) => s.upsertGame);
@@ -34,6 +36,16 @@ function useOpenOnline() {
     router.push(`/game/${encodeURIComponent(game.id)}`);
   };
 }
+
+const SECTIONS: { label: string; icon: IconName; href: Href }[] = [
+  { label: 'Buscar juegos y listas', icon: 'search', href: '/search' },
+  { label: 'Listas destacadas', icon: 'star', href: '/browse/featured' },
+  { label: `Mejor valorados ${new Date().getFullYear()}`, icon: 'trophy', href: '/discover/best' },
+  { label: 'Se juega esta semana', icon: 'flame', href: '/discover/popular' },
+  { label: 'Próximos lanzamientos', icon: 'calendar', href: '/discover/upcoming' },
+  { label: 'Comunidad', icon: 'people', href: '/browse/community' },
+  { label: `Mejor de ${new Date().getFullYear() - 1}`, icon: 'ribbon', href: '/discover/best-last' },
+];
 
 function DiscoverScreenInner() {
   const { width } = useWindowDimensions();
@@ -50,17 +62,18 @@ function DiscoverScreenInner() {
       title="Descubrir"
       right={<HeaderIcon icon="search" label="Buscar" onPress={() => router.push('/search')} />}
     >
+      {/* Apartados: cada uno se abre a pantalla completa */}
+      <HScroll contentContainerStyle={styles.sections}>
+        {SECTIONS.map((sec) => (
+          <Chip key={sec.label} label={sec.label} icon={sec.icon} onPress={() => router.push(sec.href)} />
+        ))}
+      </HScroll>
       <SectionHeader
         title="Listas destacadas"
         subtitle="Los canónicos de cada saga en su mejor versión, elegidos por Saga Quest."
+        onPress={() => router.push('/browse/featured')}
       />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.hRow}
-        snapToInterval={cardW + 14}
-        decelerationRate="fast"
-      >
+      <HScroll contentContainerStyle={styles.hRow} snapToInterval={cardW + 14} decelerationRate="fast">
         {OFFICIAL_LISTS.map((list) => (
           <FeaturedCard
             key={list.id}
@@ -71,7 +84,7 @@ function DiscoverScreenInner() {
             author={OFFICIAL_PROFILE.displayName}
           />
         ))}
-      </ScrollView>
+      </HScroll>
 
       <CoverSection kind="best" year={year} onAdd={sheets.openStatus} />
       <RankedColumns kind="popular" year={year} width={width} onAdd={sheets.openStatus} />
@@ -81,9 +94,10 @@ function DiscoverScreenInner() {
         <View style={styles.section}>
           <SectionHeader
             title="Listas de la comunidad"
-            subtitle="Listas públicas de otros jugadores. Síguelas o cópialas a tu perfil."
+            subtitle="Listas públicas de otros jugadores. Añádelas a tu perfil para seguirlas."
+            onPress={() => router.push('/browse/community')}
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+          <HScroll contentContainerStyle={styles.hRow}>
             {community.slice(0, 12).map((list) => (
               <FeaturedCard
                 key={list.id}
@@ -94,7 +108,7 @@ function DiscoverScreenInner() {
                 author={lookup(list.ownerId)?.displayName ?? 'Jugador'}
               />
             ))}
-          </ScrollView>
+          </HScroll>
         </View>
       ) : null}
       <CoverSection kind="best-last" year={year} onAdd={sheets.openStatus} />
@@ -169,7 +183,7 @@ function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number;
       {loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 40 }} />
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+        <HScroll contentContainerStyle={styles.hRow}>
           {records.map(({ game, status }) => (
             <CoverTile
               key={game.id}
@@ -180,7 +194,7 @@ function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number;
               onAdd={() => onAdd(game)}
             />
           ))}
-        </ScrollView>
+        </HScroll>
       )}
     </View>
   );
@@ -212,13 +226,7 @@ function RankedColumns({
       {loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 40 }} />
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hRow}
-          snapToInterval={colW + 14}
-          decelerationRate="fast"
-        >
+        <HScroll contentContainerStyle={styles.hRow} snapToInterval={colW + 14} decelerationRate="fast">
           {columns.map((col, ci) => (
             <View key={ci} style={{ width: colW, gap: 14 }}>
               {col.map(({ game, status }, i) => (
@@ -242,7 +250,7 @@ function RankedColumns({
               ))}
             </View>
           ))}
-        </ScrollView>
+        </HScroll>
       )}
     </View>
   );
@@ -265,6 +273,7 @@ function NoApiCard() {
 }
 
 const styles = StyleSheet.create({
+  sections: { gap: 8, paddingHorizontal: 20, paddingBottom: 18 },
   hRow: { paddingHorizontal: 20, gap: 14 },
   section: { marginTop: 34 },
   caps: { letterSpacing: 0.8, marginTop: 3 },

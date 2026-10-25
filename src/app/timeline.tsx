@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { finishedDay, shortDate, useMyGames, type MyGame } from '@/hooks/useMyGames';
 import { useStore } from '@/store/useStore';
 import { formatHours, gameHours } from '@/utils/library';
+import { HScroll } from '@/components/HScroll';
 
 type Year = { year: number; games: MyGame[]; hours: number; best: MyGame | null };
 
@@ -69,7 +70,7 @@ export default function TimelineScreen() {
             <ThemedText variant="muted" size={12}>
               {`${y.games.length} ${y.games.length === 1 ? 'terminado' : 'terminados'} · ${formatHours(y.hours)}${y.best ? ` · tu favorito: ${y.best.game.title}` : ''}`}
             </ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.covers}>
+            <HScroll contentContainerStyle={styles.covers}>
               {y.games.map((m) => (
                 <Pressable key={m.game.id} onPress={() => router.push(`/game/${encodeURIComponent(m.game.id)}`)}>
                   <GameCover game={m.game} width={78} plain />
@@ -78,7 +79,7 @@ export default function TimelineScreen() {
                   </ThemedText>
                 </Pressable>
               ))}
-            </ScrollView>
+            </HScroll>
           </View>
         </View>
       ))}

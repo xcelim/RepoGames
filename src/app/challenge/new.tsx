@@ -14,6 +14,7 @@ import { useStore } from '@/store/useStore';
 import type { GameRecord } from '@/types';
 import { rankByQuery } from '@/utils/fuzzy';
 import { notify } from '@/utils/notify';
+import { useShallow } from 'zustand/react/shallow';
 
 const KINDS: ChallengeKind[] = ['finish', 'platinum', 'achievements', 'count'];
 const DAYS: [string, number | null][] = [
@@ -26,7 +27,9 @@ const DAYS: [string, number | null][] = [
 export default function NewChallengeScreen() {
   const c = useIgnColors();
   const uid = useStore((s) => s.cloudUserId);
-  const { friendships, profiles } = useSocial();
+  const { friendships, profiles } = useSocial(
+    useShallow((s) => ({ friendships: s.friendships, profiles: s.profiles })),
+  );
   const friends = friendships
     .filter((f) => f.status === 'accepted')
     .map((f) => (f.requester === uid ? f.addressee : f.requester));

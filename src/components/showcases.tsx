@@ -16,6 +16,7 @@ import { Card, useIgnColors } from './ign';
 import { ReplayBadge } from './replayBadge';
 import { Shine } from './Shine';
 import { ThemedText } from './ThemedText';
+import { HScroll } from './HScroll';
 
 const open = (g: GameRecord) => router.push(`/game/${encodeURIComponent(g.id)}`);
 
@@ -45,13 +46,13 @@ function CoverRow({ games, render }: { games: GameRecord[]; render?: (g: GameRec
   const { width } = useWindowDimensions();
   const w = Math.min(110, (width - 40 - 36 - 24) / 3);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+    <HScroll contentContainerStyle={{ gap: 12 }}>
       {games.map((g) => (
         <Pressable key={g.id} onPress={() => open(g)} style={{ width: w }}>
           {render ? render(g, w) : <GameCover game={g} width={w} plain />}
         </Pressable>
       ))}
-    </ScrollView>
+    </HScroll>
   );
 }
 
@@ -118,7 +119,7 @@ export function ShowcaseView({
         .slice(0, 6);
       return (
         <Frame type="rare" empty={rare.length ? null : 'Marca logros en tus juegos para presumir de los más raros.'}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+          <HScroll contentContainerStyle={{ gap: 14 }}>
             {rare.map((e) => (
               <Pressable
                 key={`${e.game.id}-${e.achievement.id}`}
@@ -134,7 +135,7 @@ export function ShowcaseView({
                 </ThemedText>
               </Pressable>
             ))}
-          </ScrollView>
+          </HScroll>
         </Frame>
       );
     }
