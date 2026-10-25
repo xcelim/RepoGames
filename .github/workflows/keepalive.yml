@@ -21,9 +21,11 @@ jobs:
           KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "::error::Faltan SUPABASE_URL o SUPABASE_ANON_KEY"; exit 1; fi
-          code=$(curl -s -o /dev/null -w "%{http_code}" "${URL%/}/rest/v1/games?select=id&limit=1" \
+          # Igual que la app: solo el dominio (por si el secreto lleva comillas, espacios o una ruta).
+          BASE=$(printf '%s' "$URL" | tr -d "\"' \r\n" | sed -E 's#^(https?://)?([^/?#]+).*#https://\2#')
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/rest/v1/games?select=id&limit=1" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
-          echo "Supabase respondió $code"
+          echo "::notice::Supabase ($BASE) respondió $code"
           if [ "$code" != "200" ]; then echo "::error::Supabase no responde bien ($code). ¿Está pausado? Reactívalo en el panel."; exit 1; fi
       # GitHub apaga las tareas programadas si el repositorio pasa 60 días sin cambios:
       # volver a activarla aquí reinicia esa cuenta.
