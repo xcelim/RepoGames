@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect } from 'expo-router';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router/js-tabs';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CloudGate, OfflineBanner, useOfflineMode } from '@/components/offline';
@@ -149,7 +149,9 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           sceneStyle: { backgroundColor: skin.colors.bg },
-          animation: 'fade',
+          // Al cambiar de pestaña la pantalla se desliza un poco (como en IGN): da sensación de fluidez.
+          animation: Platform.OS === 'web' ? 'fade' : 'shift',
+          transitionSpec: { animation: 'timing', config: { duration: 210 } },
           // Las pestañas que no estás viendo no se vuelven a pintar con cada cambio.
           freezeOnBlur: true,
         }}

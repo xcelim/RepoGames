@@ -78,3 +78,16 @@ export function longDate(iso: string): string {
   const [, m, d] = iso.slice(0, 10).split('-').map(Number);
   return `${d} de ${MONTHS_LONG[m - 1]}`;
 }
+
+// «Quedan 6 días» / «Sale mañana» / «Sale hoy».
+export function untilLabel(date: string): string {
+  const days = daysBetween(todayIso(), date);
+  if (days < 0) return 'Ya disponible';
+  if (days === 0) return 'Sale hoy';
+  if (days === 1) return 'Sale mañana';
+  return `Quedan ${days} días`;
+}
+
+export function fullDate(iso: string): string {
+  return `${longDate(iso)} de ${iso.slice(0, 4)}`;
+}

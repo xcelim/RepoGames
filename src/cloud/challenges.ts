@@ -8,6 +8,7 @@ import type { GameRecord, UserGame } from '@/types';
 import { fromUserGameRow, toGameRow, type UserGameRow } from './mappers';
 import { ensureGames, ensureProfiles, friendIds, useSocial } from './social';
 import { getSupabase } from './supabase';
+import { uuid } from '@/utils/id';
 
 export type ChallengeKind = 'finish' | 'platinum' | 'achievements' | 'count';
 
@@ -107,29 +108,31 @@ export async function createChallenge(input: {
       await client.from('games').upsert(toGameRow(g, g.source === 'igdb' || g.source === 'rawg' ? null : uid));
     }
   }
-  const { data, error } = await client
-    .from('challenges')
-    .insert({
-      creator: uid,
-      title: input.title.trim(),
-      kind: input.kind,
-      game_id: input.gameId,
-      target: input.target,
-      ends_at: input.days ? new Date(Date.now() + input.days * 86_400_000).toISOString() : null,
-    })
-    .select('*')
-    .single();
+  // El id lo pone la app: así no hace falta leer el reto recién creado (aún no eres miembro
+  // y las normas de la base de datos no te dejarían verlo).
+  const id = uuid();
+  const { error } = await client.from('challenges').insert({
+    id,
+    creator: uid,
+    title: input.title.trim(),
+    kind: input.kind,
+    game_id: input.gameId,
+    target: input.target,
+    ends_at: input.days ? new Date(Date.now() + input.days * 86_400_000).toISOString() : null,
+  });
   if (error)
     throw new Error(
       /does not exist|schema cache/i.test(error.message) ? 'Falta ejecutar el SQL de retos' : error.message,
     );
-  const id = (data as ChallengeRow).id;
-  const rows = [
-    { challenge_id: id, profile_id: uid, accepted: true },
-    ...input.invite.map((p) => ({ challenge_id: id, profile_id: p, accepted: false })),
-  ];
-  const res = await client.from('challenge_members').insert(rows);
-  if (res.error) throw new Error(res.error.message);
+  // Primero tú (así ya puedes ver el reto) y después tus invitados.
+  const self = await client.from('challenge_members').insert({ challenge_id: id, profile_id: uid, accepted: true });
+  if (self.error) throw new Error(self.error.message);
+  if (input.invite.length) {
+    const res = await client
+      .from('challenge_members')
+      .insert(input.invite.map((p) => ({ challenge_id: id, profile_id: p, accepted: false })));
+    if (res.error) throw new Error(res.error.message);
+  }
   await refreshChallenges();
   return id;
 }

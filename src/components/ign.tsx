@@ -950,6 +950,7 @@ export function GameLine({
   onPress,
   right,
   showPlatforms = true,
+  caption,
 }: {
   game: GameRecord;
   rank?: number;
@@ -957,6 +958,7 @@ export function GameLine({
   onPress?: () => void;
   right?: ReactNode;
   showPlatforms?: boolean;
+  caption?: string; // texto destacado (por ejemplo «Quedan 6 días»)
 }) {
   const c = useIgnColors();
   const date = formatUsDate(game.releaseDate) ?? (game.year ? String(game.year) : null);
@@ -979,6 +981,11 @@ export function GameLine({
         <ThemedText size={15} numberOfLines={1}>
           {game.title}
         </ThemedText>
+        {caption ? (
+          <ThemedText variant="bold" size={13} style={{ color: c.accent }} numberOfLines={1}>
+            {caption}
+          </ThemedText>
+        ) : null}
         {line ? (
           <ThemedText variant="muted" size={12} numberOfLines={1}>
             {line}
@@ -1066,7 +1073,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  largeHeader: { paddingHorizontal: 20, paddingBottom: 8, gap: 8 },
+  largeHeader: { paddingHorizontal: 20, paddingBottom: 8, gap: 8, alignSelf: 'stretch' },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', paddingVertical: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
   largeTitle: { flex: 1 },

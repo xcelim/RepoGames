@@ -62,7 +62,7 @@ export default function PlayerCardScreen() {
   };
 
   return (
-    <IgnScreen title="Tarjeta de jugador" back contentStyle={{ alignItems: 'center', gap: 18, paddingHorizontal: 20 }}>
+    <IgnScreen title="Tarjeta de jugador" back contentStyle={{ alignItems: 'center', gap: 18 }}>
       <View
         ref={ref}
         collapsable={false}

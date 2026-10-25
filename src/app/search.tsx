@@ -128,7 +128,7 @@ function SearchScreenInner() {
   }, [query, customGames]);
 
   const external: Row[] = (query.trim().length >= 2 ? remote : [])
-    .filter((r) => !local.some((row) => row.game.id === onlineGameId(r)))
+    .filter((r) => hideOwned || !local.some((row) => row.game.id === onlineGameId(r)))
     .map((r) => ({
       key: onlineGameId(r),
       game: customGames[onlineGameId(r)] ?? toGameRecord(r, profileId),
@@ -180,8 +180,17 @@ function SearchScreenInner() {
     choose({ key: game.id, game });
   };
 
-  const owned = (r: Row) => !!(profileId && userGames[userGameKey(profileId, r.game.id)]);
-  const shownLocal = hideOwned ? local.filter((r) => !owned(r)) : local;
+  // «Los que ya tengo»: los de tu biblioteca (también si el mismo juego viene con otro id).
+  const ownedTitles = useMemo(() => {
+    const out = new Set<string>();
+    for (const u of Object.values(userGames))
+      if (u.profileId === profileId && customGames[u.gameId]) out.add(normalize(customGames[u.gameId].title));
+    return out;
+  }, [userGames, customGames, profileId]);
+  const owned = (r: Row) =>
+    !!(profileId && userGames[userGameKey(profileId, r.game.id)]) || ownedTitles.has(normalize(r.game.title));
+  // Al ocultar, tampoco se enseña «Ya en tu móvil»: solo juegos nuevos de la API.
+  const shownLocal = hideOwned ? [] : local;
   const shownExternal = hideOwned ? external.filter((r) => !owned(r)) : external;
   const rows: (Row | ListRowItem | { key: string; header: string })[] =
     mode === 'lists'

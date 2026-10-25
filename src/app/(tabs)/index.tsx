@@ -25,6 +25,7 @@ import { useCommunityLists, useListCount, useListPreview, useListProgress, usePr
 import { useStore } from '@/store/useStore';
 import type { GameList, GameRecord } from '@/types';
 import { userGameKey } from '@/utils/library';
+import { shortDate, untilLabel } from '@/hooks/useMyGames';
 import { OfflineGate } from '@/components/offline';
 import { HScroll } from '@/components/HScroll';
 import { Chip, type IconName } from '@/components/ui';
@@ -167,7 +168,12 @@ function useResultRecords(results: OnlineResult[]) {
 
 function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number; onAdd: (g: GameRecord) => void }) {
   const { data, loading, error } = useDiscover(kind, 20);
-  const records = useResultRecords(data);
+  const raw = useResultRecords(data);
+  // Próximos lanzamientos: por fecha y con la cuenta atrás.
+  const records =
+    kind === 'upcoming'
+      ? [...raw].sort((x, y) => (x.game.releaseDate ?? '9').localeCompare(y.game.releaseDate ?? '9'))
+      : raw;
   const open = useOpenOnline();
   const c = useIgnColors();
   if (!loading && !data.length) {
@@ -192,6 +198,11 @@ function CoverSection({ kind, year, onAdd }: { kind: DiscoverKind; year: number;
               status={status}
               onPress={() => open(game)}
               onAdd={() => onAdd(game)}
+              subtitle={
+                kind === 'upcoming' && game.releaseDate
+                  ? `${untilLabel(game.releaseDate)} · ${shortDate(game.releaseDate)}`
+                  : undefined
+              }
             />
           ))}
         </HScroll>
@@ -213,7 +224,12 @@ function RankedColumns({
   onAdd: (g: GameRecord) => void;
 }) {
   const { data, loading } = useDiscover(kind, 15);
-  const records = useResultRecords(data);
+  const raw = useResultRecords(data);
+  // Próximos lanzamientos: por fecha y con la cuenta atrás.
+  const records =
+    kind === 'upcoming'
+      ? [...raw].sort((x, y) => (x.game.releaseDate ?? '9').localeCompare(y.game.releaseDate ?? '9'))
+      : raw;
   const open = useOpenOnline();
   const c = useIgnColors();
   if (!loading && !data.length) return null;

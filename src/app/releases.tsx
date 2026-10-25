@@ -1,30 +1,21 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useUpcomingWide } from '@/api/discover';
 import { UPCOMING_PLATFORMS } from '@/api/igdb';
 import { toGameRecord } from '@/api/games';
 import { GameCover } from '@/components/games';
-import { Card, IgnScreen, useIgnColors, useProgressive } from '@/components/ign';
+import { Card, CoverTile, HeaderIcon, IgnScreen, useIgnColors, useProgressive } from '@/components/ign';
 import { Chip } from '@/components/ui';
 import { ThemedText } from '@/components/ThemedText';
 import { STATUS_META } from '@/data/meta';
-import { daysBetween, longDate, MONTHS_LONG, todayIso, useMyGames } from '@/hooks/useMyGames';
+import { daysBetween, fullDate, MONTHS_LONG, shortDate, todayIso, untilLabel, useMyGames } from '@/hooks/useMyGames';
 import { useStore } from '@/store/useStore';
 import type { GameRecord, PlayStatus } from '@/types';
 import { notify } from '@/utils/notify';
 import { canAlert, useReleaseAlerts } from '@/utils/releaseAlerts';
-
-function countdown(days: number): string {
-  if (days === 0) return '¡Hoy!';
-  if (days === 1) return 'Mañana';
-  if (days < 30) return `${days} días`;
-  if (days < 365) return `${Math.round(days / 30)} meses`;
-  return `${(days / 365).toFixed(1).replace('.0', '')} años`;
-}
 
 function ReleaseRow({
   game,
@@ -56,8 +47,11 @@ function ReleaseRow({
         <ThemedText variant="bold" size={15} numberOfLines={2}>
           {game.title}
         </ThemedText>
+        <ThemedText variant="bold" size={14} style={{ color: soon ? '#ff512f' : c.accent }}>
+          {untilLabel(date)}
+        </ThemedText>
         <ThemedText variant="muted" size={12}>
-          {`${longDate(date)} ${date.slice(0, 4)}${status ? ` · ${STATUS_META[status].label}` : ''}`}
+          {`Sale el ${fullDate(date)}${status ? ` · ${STATUS_META[status].label}` : ''}`}
         </ThemedText>
         {canAlert ? (
           <Pressable onPress={onAlert} hitSlop={8} style={styles.alert}>
@@ -72,17 +66,6 @@ function ReleaseRow({
           </Pressable>
         ) : null}
       </View>
-      <LinearGradient
-        colors={soon ? ['#ff512f', '#dd2476'] : [c.soft, c.soft]}
-        style={[styles.count, { borderRadius: c.radius }]}
-      >
-        <ThemedText variant="display" size={days < 100 ? 22 : 16} style={{ color: soon ? '#fff' : c.text }}>
-          {days < 30 ? String(days) : countdown(days).split(' ')[0]}
-        </ThemedText>
-        <ThemedText size={10} style={{ color: soon ? '#ffffffdd' : c.muted }}>
-          {days < 30 ? (days === 1 ? 'DÍA' : 'DÍAS') : countdown(days).split(' ')[1]?.toUpperCase()}
-        </ThemedText>
-      </LinearGradient>
     </Pressable>
   );
 }
@@ -95,6 +78,28 @@ export default function ReleasesScreen() {
   const { alerts, toggle } = useReleaseAlerts();
   const upcoming = useUpcomingWide();
   const [platform, setPlatform] = useState<string>('all');
+  const [view, setView] = useState<'list' | 'grid'>('list');
+  const { width } = useWindowDimensions();
+  const cols = Math.max(2, Math.floor((width - 40 + 12) / (170 + 12)));
+  const tileW = (width - 40 - 12 * (cols - 1)) / cols;
+  const upsertGame = useStore((s) => s.upsertGame);
+  const grid = (list: { game: GameRecord; status?: PlayStatus }[]) => (
+    <View style={styles.grid}>
+      {list.map(({ game, status }) => (
+        <CoverTile
+          key={game.id}
+          game={game}
+          width={tileW}
+          status={status}
+          subtitle={`${untilLabel(game.releaseDate!)} · ${shortDate(game.releaseDate!)}`}
+          onPress={() => {
+            if (!useStore.getState().games[game.id]) upsertGame(game);
+            router.push(`/game/${encodeURIComponent(game.id)}`);
+          }}
+        />
+      ))}
+    </View>
+  );
 
   const { waiting, out } = useMemo(() => {
     const dated = mine.filter((m) => m.game.releaseDate && m.ug.status !== 'beaten' && m.ug.status !== 'completed');
@@ -125,7 +130,18 @@ export default function ReleasesScreen() {
     toggle(g.id, g.title, date).then((on) => notify(on ? `Te avisaremos cuando salga ${g.title}` : 'Aviso quitado'));
 
   return (
-    <IgnScreen title="Lanzamientos" back contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
+    <IgnScreen
+      title="Lanzamientos"
+      back
+      right={
+        <HeaderIcon
+          icon={view === 'list' ? 'grid-outline' : 'list-outline'}
+          label={view === 'list' ? 'Ver en cuadrícula' : 'Ver en lista'}
+          onPress={() => setView((v) => (v === 'list' ? 'grid' : 'list'))}
+        />
+      }
+      contentStyle={{ paddingHorizontal: 20, gap: 14 }}
+    >
       {out.length ? (
         <Card style={{ gap: 6 }}>
           <ThemedText variant="bold" size={13} style={styles.caps}>
@@ -152,7 +168,9 @@ export default function ReleasesScreen() {
       <ThemedText variant="bold" size={13} style={styles.caps}>
         Los que esperas
       </ThemedText>
-      {waiting.length ? (
+      {waiting.length && view === 'grid' ? (
+        grid(waiting.map((m) => ({ game: m.game, status: m.ug.status })))
+      ) : waiting.length ? (
         <Card padded={false}>
           {waiting.map((m, i) => (
             <View
@@ -188,6 +206,8 @@ export default function ReleasesScreen() {
       </View>
       {upcoming.loading ? (
         <ActivityIndicator color={c.text} style={{ marginVertical: 30 }} />
+      ) : popular.length && view === 'grid' ? (
+        grid(popular.slice(0, shown).map((game) => ({ game })))
       ) : popular.length ? (
         <Card padded={false}>
           {popular.slice(0, shown).map((g, i) => (
@@ -220,6 +240,7 @@ export default function ReleasesScreen() {
 }
 
 const styles = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, rowGap: 20 },
   caps: { letterSpacing: 0.8, textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   month: { paddingHorizontal: 12, paddingVertical: 6, letterSpacing: 1 },

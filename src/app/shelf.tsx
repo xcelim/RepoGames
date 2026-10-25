@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { GameCover } from '@/components/games';
-import { Card, DarkButton, IgnScreen, useIgnColors, useProgressive } from '@/components/ign';
+import { Card, DarkButton, IgnScreen, useIgnColors } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { Chip } from '@/components/ui';
 import { STATUS_META } from '@/data/meta';
@@ -134,7 +134,7 @@ export default function ShelfScreen() {
     if (row.length) rows.push(row);
     return rows;
   }, [spines, inner]);
-  const shown = useProgressive(shelves.length, 4, 3);
+  const shown = shelves.length; // todas las baldas (si aparecen a trozos, el scroll da saltos)
   const pick = active ? spines.find((s) => s.mg.game.id === active) : null;
 
   return (
