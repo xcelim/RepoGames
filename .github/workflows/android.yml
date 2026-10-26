@@ -77,8 +77,38 @@ jobs:
         env:
           CI: 1
 
+      # Firma con la clave propia de Saga Quest (secretos ANDROID_KEYSTORE_BASE64 y ANDROID_KEYSTORE_PASSWORD).
+      # Sin ellos se firma con la clave de pruebas de Android, que el móvil mira con peor ojo.
+      - name: Firmar con la clave de Saga Quest
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::warning::Sin clave de firma propia: la APK se firma con la clave de pruebas."
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > android/app/sagaquest.jks
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  sagaquest {
+                      storeFile file('sagaquest.jks')
+                      storePassword System.getenv('KEYSTORE_PASSWORD')
+                      keyAlias 'sagaquest'
+                      keyPassword System.getenv('KEYSTORE_PASSWORD')
+                  }
+              }
+              buildTypes { release { signingConfig signingConfigs.sagaquest } }
+          }
+          GRADLE
+          echo "Firmada con la clave de Saga Quest"
+
       - name: Compilar APK
         working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           printf "\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\n" >> gradle.properties
           chmod +x gradlew
