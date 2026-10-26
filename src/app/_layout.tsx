@@ -13,6 +13,7 @@ import { useStore } from '@/store/useStore';
 import { loadFonts } from '@/theme/fonts';
 import { SKINS } from '@/theme/skins';
 import { BootSplash } from '@/components/BootSplash';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import { CelebrationHost } from '@/components/Celebration';
 import { SocialBoot } from '@/components/SocialBoot';
 import { WebSidebar } from '@/components/WebSidebar';
@@ -129,6 +130,7 @@ export default function RootLayout() {
       <SocialBoot />
       {Platform.OS === 'web' ? <WebSidebar /> : null}
       <BootSplash />
+      {Platform.OS === 'android' ? <UpdatePrompt /> : null}
     </GestureHandlerRootView>
   );
 }

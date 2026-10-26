@@ -19,6 +19,7 @@ import { SkinPicker } from '@/components/SkinPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { Panel, TextField } from '@/components/ui';
 import { useStore } from '@/store/useStore';
+import { BUILD, canSelfUpdate, checkForUpdate } from '@/utils/appUpdate';
 import { useSkin } from '@/theme/useSkin';
 
 export default function SettingsScreen() {
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
   const dbOnline = sources.igdb || sources.rawg;
   const [rawgStatus, setRawgStatus] = useState('');
   const [boot, setBoot] = useState(true);
+  const [updateMsg, setUpdateMsg] = useState('');
   useEffect(() => {
     bootEnabled().then(setBoot);
   }, []);
@@ -161,6 +163,22 @@ export default function SettingsScreen() {
             ]}
           />
         </Section>
+
+        {canSelfUpdate ? (
+          <Section title={`Versión 2.0.${BUILD}`}>
+            <Button
+              kind="ghost"
+              label={updateMsg || 'Buscar actualizaciones'}
+              onPress={async () => {
+                setUpdateMsg('Buscando…');
+                const u = await checkForUpdate();
+                if (!u) return setUpdateMsg('Tienes la última versión ✓');
+                setUpdateMsg(`Descargando ${u.tag}…`);
+                Linking.openURL(u.url).catch(() => undefined);
+              }}
+            />
+          </Section>
+        ) : null}
 
         <Section title="Arranque">
           <ToggleRow

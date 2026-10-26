@@ -31,6 +31,8 @@ jobs:
       # lo que protege los datos son las normas RLS de supabase/schema.sql).
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      # Número de compilación: la app lo compara con la última versión publicada para avisar de actualizaciones.
+      EXPO_PUBLIC_BUILD: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
 
@@ -65,6 +67,10 @@ jobs:
           npx tsc --noEmit
           npx eslint src
           npx jest --ci
+
+      - name: Poner el número de versión
+        run: |
+          node -e "const f='app.json';const j=require('./'+f);j.expo.version='2.0.${{ github.run_number }}';j.expo.android.versionCode=${{ github.run_number }};require('fs').writeFileSync(f,JSON.stringify(j,null,2))"
 
       - name: Generar proyecto Android (Expo prebuild)
         run: npx expo prebuild --platform android --no-install
