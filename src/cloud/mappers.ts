@@ -108,7 +108,7 @@ export type UserGameRow = {
   review_private?: boolean;
   replays_extra?: number;
   achievements?: string[];
-  achievements_total?: number;
+  achievements_total?: number | null;
   added_at: string;
   updated_at: string;
 };
@@ -286,7 +286,8 @@ export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
   // Siempre con valor: al subir varios a la vez, un campo que falte en alguno llegaría vacío.
   replays_extra: Number.isFinite(u.replaysExtra) ? Math.max(0, Math.round(u.replaysExtra!)) : 0,
   achievements: Array.isArray(u.achievements) ? u.achievements : [],
-  achievements_total: u.achievementsTotal ?? 0,
+  // Si este dispositivo no sabe cuántos logros tiene, va vacío y la base de datos conserva el que había.
+  achievements_total: u.achievementsTotal ? u.achievementsTotal : null,
   added_at: u.addedAt,
   updated_at: u.updatedAt,
 });

@@ -37,7 +37,7 @@ export default function FriendsSearchScreen() {
   }, [q]);
 
   return (
-    <IgnScreen title="Añadir amigos" back contentStyle={{ paddingHorizontal: 20, gap: 12 }}>
+    <IgnScreen narrow={860} title="Añadir amigos" back contentStyle={{ paddingHorizontal: 20, gap: 12 }}>
       <TextField
         value={q}
         onChangeText={setQ}

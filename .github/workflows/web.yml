@@ -34,6 +34,7 @@ jobs:
         run: |
           export EXPO_PUBLIC_GAMES_PROXY_URL="${EXPO_PUBLIC_SUPABASE_URL%/}/functions/v1/games"
           npx expo export -p web --output-dir dist
+          node scripts/web-pwa.js dist /RepoGames/app
       - name: Copiar a docs/app
         run: |
           rm -rf docs/app

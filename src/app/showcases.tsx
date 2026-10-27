@@ -37,7 +37,7 @@ export default function ShowcasesScreen() {
   };
 
   return (
-    <IgnScreen title="Vitrinas" close contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
+    <IgnScreen narrow={820} title="Vitrinas" close contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
       <Card style={styles.info}>
         <LevelBadge level={level} size={44} />
         <View style={{ flex: 1 }}>

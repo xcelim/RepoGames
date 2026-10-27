@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useBlocks } from '@/cloud/moderation';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -63,6 +64,7 @@ function SocialInner() {
   const outgoing = friendships.filter((f) => f.status === 'pending' && f.requester === uid).map((f) => f.addressee);
   const gameOf = (id: string): GameRecord | undefined => localGames[id] ?? games[id];
 
+  const blocked = useBlocks((s) => s.blocked);
   const convos = useMemo(
     () =>
       Object.entries(chats)
@@ -77,7 +79,9 @@ function SocialInner() {
   );
   // Conversaciones y grupos juntos, lo más reciente arriba.
   const threads = useMemo(() => {
-    const dms = convos.map((x) => ({ kind: 'dm' as const, key: x.other, at: x.last.createdAt, ...x }));
+    const dms = convos
+      .filter((x) => !blocked.includes(x.other))
+      .map((x) => ({ kind: 'dm' as const, key: x.other, at: x.last.createdAt, ...x }));
     const gs = groups.map((g) => {
       const ms = groupChats[g.id] ?? [];
       const last = ms[ms.length - 1];
@@ -91,7 +95,7 @@ function SocialInner() {
       };
     });
     return [...dms, ...gs].sort((a, b) => b.at.localeCompare(a.at));
-  }, [convos, groups, groupChats, uid]);
+  }, [convos, groups, groupChats, uid, blocked]);
 
   const reload = async () => {
     setBusy(true);

@@ -87,7 +87,7 @@ export default function NewChallengeScreen() {
   );
 
   return (
-    <IgnScreen title="Nuevo reto" close contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={820} title="Nuevo reto" close contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <ThemedText variant="bold" size={14}>
         Tipo de reto
       </ThemedText>

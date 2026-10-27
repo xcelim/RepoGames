@@ -50,12 +50,21 @@ export async function computeAchievements(
     const game = games[ug.gameId];
     if (!game) continue;
     const set = await fetchAchievements(game).catch(() => null);
-    if (!set || !set.list.length) continue;
-    if (ug.profileId === useStore.getState().currentProfileId)
-      useStore.getState().setAchievementsTotal(game.id, set.list.length);
     const done = new Set(ug.achievements);
-    for (const a of set.list) if (done.has(a.id)) earned.push({ game, achievement: a });
-    if (set.list.every((a) => done.has(a.id))) platinums.push({ game, ug, total: set.list.length, list: set.list });
+    const list = set?.list ?? [];
+    // ¿La lista descargada es la misma con la que marcaste los logros? (Steam y RAWG usan ids
+    // distintos: según el dispositivo puede salir una u otra.)
+    const same = list.length > 0 && list.some((a) => done.has(a.id));
+    if (same) {
+      if (ug.profileId === useStore.getState().currentProfileId)
+        useStore.getState().setAchievementsTotal(game.id, list.length);
+      for (const a of list) if (done.has(a.id)) earned.push({ game, achievement: a });
+      if (list.every((a) => done.has(a.id))) platinums.push({ game, ug, total: list.length, list });
+      continue;
+    }
+    // Si no se puede comprobar aquí, vale lo que se guardó al marcarlos (es igual en todos tus dispositivos).
+    if (ug.achievementsTotal && done.size >= ug.achievementsTotal)
+      platinums.push({ game, ug, total: ug.achievementsTotal, list: [] });
   }
   platinums.sort((a, b) => (b.ug.updatedAt ?? '').localeCompare(a.ug.updatedAt ?? ''));
   return { platinums, earned };

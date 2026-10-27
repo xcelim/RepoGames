@@ -26,17 +26,28 @@ Funciona como **IGN Playlist** (mismas pantallas, menús y navegación) con las 
 
 ## Claves de la API (solo una vez, para quien compila)
 
-En GitHub: **Settings → Secrets and variables → Actions → New repository secret**:
+Las claves de IGDB, RAWG y Steam **no van dentro de la APK ni de la web** (se podrían sacar de ellas): las guarda el servidor intermedio de Supabase (`supabase/functions/games`) y la app le pide los datos a él.
 
-| Nombre | Valor |
-| --- | --- |
-| `IGDB_CLIENT_ID` | Client ID de tu aplicación en dev.twitch.tv/console |
-| `IGDB_CLIENT_SECRET` | Client Secret de esa aplicación |
-| `RAWG_KEY` | clave de rawg.io/apidocs |
+1. Supabase → **Edge Functions → games**: pega `supabase/functions/games/index.ts` y pulsa **Deploy** (con «Verify JWT» desactivado).
+2. Supabase → **Edge Functions → Secrets**: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` (dev.twitch.tv/console), `RAWG_KEY` (rawg.io/apidocs) y `STEAM_API_KEY` (steamcommunity.com/dev/apikey).
+3. GitHub → **Settings → Secrets and variables → Actions**: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (y, para firmar la APK, `ANDROID_KEYSTORE_BASE64` y `ANDROID_KEYSTORE_PASSWORD`).
 
-GitHub Actions las mete en la APK al compilar. Para compilar en local, ponlas en un `.env` como `EXPO_PUBLIC_IGDB_CLIENT_ID`, `EXPO_PUBLIC_IGDB_CLIENT_SECRET` y `EXPO_PUBLIC_RAWG_KEY`.
+El servidor intermedio solo acepta la web de Saga Quest desde navegadores, limita las peticiones por IP y solo deja pasar las consultas que usa la app.
 
-Si vas a publicar la app para otra gente, mejor no meter las claves en la APK (se pueden extraer): despliega `supabase/functions/games` (un servidor intermedio que guarda las claves) y añade solo el secreto `GAMES_PROXY_URL` con su dirección. Instrucciones dentro del archivo.
+## Seguridad
+
+- **Datos**: cada tabla tiene normas RLS (nadie lee lo privado de otro ni toca lo que no es suyo). La app solo lleva la clave pública *anon*; la de servicio nunca sale del panel de Supabase.
+- **Inyección SQL**: la app no escribe SQL; todo va por la API de Supabase con parámetros, y las funciones de la base de datos no montan SQL con texto del usuario.
+- **Abusos**: la base de datos limita el ritmo (juegos creados, listas, mensajes, solicitudes de amistad, retos, intercambios, denuncias) y el tamaño de textos y ajustes (`supabase/migrations/2026-10-28-seguridad.sql`).
+- **Moderación**: cualquiera puede denunciar o bloquear a otra persona desde su perfil. Los administradores ven las denuncias en **Ajustes → Administración**.
+- **Actualizaciones**: la app avisa de cada versión nueva; si una es obligatoria, en **Ajustes → Administración** se pone la compilación mínima y las APK más viejas piden actualizar.
+
+**Antes de publicar (en tus cuentas):**
+
+- GitHub y Supabase con verificación en dos pasos. En GitHub: Settings → Code security → activa «Dependabot alerts» y «Dependabot security updates»; en Settings → Branches protege `main` (sin borrar ni forzar).
+- Supabase → Authentication: confirmar correo activado, «Leaked password protection» y un CAPTCHA (Cloudflare Turnstile o hCaptcha) en el registro; revisa los límites de Auth → Rate Limits.
+- Supabase **Pro** cuando haya usuarios de verdad: no se pausa, copias diarias y más capacidad.
+- Política de privacidad y condiciones de uso (obligatorias en Google Play y en la UE).
 
 ## Base de datos (Supabase)
 
@@ -48,7 +59,7 @@ Todo se guarda en Supabase: tu perfil y tus ajustes, tus listas (públicas y pri
 4. **Google**: en Google Cloud crea un *ID de cliente de OAuth* de tipo *Aplicación web* con la URI de redirección `https://<tu-proyecto>.supabase.co/auth/v1/callback`; en Supabase, **Authentication → Sign In / Providers → Google**, actívalo y pega el Client ID y el Client Secret; en **Authentication → URL Configuration → Redirect URLs** añade `sagaquest://auth-callback`.
 5. **Project Settings → API**: copia la *Project URL* y la clave *anon public* y guárdalas en GitHub (Settings → Secrets and variables → Actions) como `SUPABASE_URL` y `SUPABASE_ANON_KEY`. El siguiente APK ya va conectado.
 
-**Actualizar una base de datos que ya tienes**: ejecuta en el SQL Editor los archivos de `supabase/migrations/` que aún no hayas ejecutado, por orden de fecha. El de cromos (`2026-10-26-cromos.sql`) crea los cromos, los sobres diarios y los intercambios; el azar lo pone la base de datos, así que nadie puede fabricarse cromos.
+**Actualizar una base de datos que ya tienes**: ejecuta en el SQL Editor los archivos de `supabase/migrations/` que aún no hayas ejecutado, por orden de fecha (todos se pueden repetir sin problema). El de cromos (`2026-10-26-cromos.sql`) crea los cromos, los sobres diarios y los intercambios; el azar lo pone la base de datos, así que nadie puede fabricarse cromos.
 
 **Servidor intermedio de la web** (`supabase/functions/games`): si cambias este archivo, vuelve a desplegarlo (Edge Functions → games → pega el archivo → Deploy). La versión actual añade los precios de Steam y CheapShark para la pantalla de ofertas.
 

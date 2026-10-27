@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AvatarFrame } from '@/components/AvatarFrame';
-import { Card, IgnScreen, ProgressBar, useIgnColors } from '@/components/ign';
+import { Card, IgnScreen, ProgressBar, useIgnColors, useScreenWidth } from '@/components/ign';
 import { LevelBadge } from '@/components/LevelBadge';
 import { ThemedText } from '@/components/ThemedText';
 import { Avatar } from '@/components/ui';
@@ -30,7 +30,7 @@ const fmt = (n: number) => n.toLocaleString('es-ES');
 // Tu nivel: experiencia, de dónde sale, marcos de la foto y vitrinas.
 export default function LevelScreen() {
   const c = useIgnColors();
-  const { width } = useWindowDimensions();
+  const width = useScreenWidth(820);
   const profile = useCurrentProfile();
   const updateProfile = useStore((s) => s.updateProfile);
   const lv = useLevel();
@@ -39,7 +39,7 @@ export default function LevelScreen() {
   const cell = (width - 40 - 3 * 12) / 3;
 
   return (
-    <IgnScreen title="Nivel" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={820} title="Nivel" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <Card style={{ alignItems: 'center', gap: 14, paddingVertical: 26 }}>
         <AvatarFrame frame={lv.frame} size={96}>
           <Avatar name={profile.displayName} color={profile.avatarColor} uri={profile.photo} size={96} />

@@ -57,7 +57,7 @@ export default function RanksScreen() {
   );
 
   return (
-    <IgnScreen title="Rangos" close contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={860} title="Rangos" close contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <ThemedText variant="muted" size={13}>
         Ponte las insignias de tu rango en los competitivos que juegas (hasta {MAX}). Las dibuja la app: no son los
         emblemas oficiales.

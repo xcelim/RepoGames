@@ -17,6 +17,7 @@ import {
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Polygon } from 'react-native-svg';
@@ -113,6 +114,8 @@ type IgnScreenProps = {
   barTint?: string;
   // Además de actualizar todo al deslizar hacia abajo, lo propio de la pantalla.
   onRefresh?: () => Promise<unknown> | void;
+  // Ancho máximo del contenido (en el PC, para que formularios y listas no queden estirados).
+  narrow?: number;
 } & Pick<ScrollViewProps, 'refreshControl' | 'keyboardShouldPersistTaps' | 'stickyHeaderIndices'>;
 
 export function IgnScreen({
@@ -128,6 +131,7 @@ export function IgnScreen({
   barTint,
   onRefresh,
   refreshControl,
+  narrow,
   ...rest
 }: IgnScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
@@ -175,7 +179,11 @@ export function IgnScreen({
         }
         scrollEventThrottle={16}
         onScroll={onScroll}
-        contentContainerStyle={[{ paddingBottom: insets.bottom + 110 }, contentStyle]}
+        contentContainerStyle={[
+          { paddingBottom: insets.bottom + 110 },
+          narrow ? { width: '100%', maxWidth: narrow, alignSelf: 'center' } : null,
+          contentStyle,
+        ]}
       >
         {header ?? (
           <View style={[styles.largeHeader, { paddingTop: insets.top + 10 }]}>
@@ -216,6 +224,12 @@ export function IgnScreen({
       </Animated.View>
     </View>
   );
+}
+
+// Ancho útil de una pantalla con «narrow» (en el móvil es el de siempre).
+export function useScreenWidth(narrow?: number): number {
+  const { width } = useWindowDimensions();
+  return narrow ? Math.min(width, narrow) : width;
 }
 
 // ---------- Pintar poco a poco las rejillas largas ----------

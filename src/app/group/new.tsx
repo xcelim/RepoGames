@@ -38,7 +38,7 @@ export default function NewGroupScreen() {
   };
 
   return (
-    <IgnScreen title="Nuevo grupo" close contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
+    <IgnScreen narrow={820} title="Nuevo grupo" close contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
       <TextField
         label="Nombre del grupo"
         value={name}

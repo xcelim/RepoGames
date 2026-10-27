@@ -76,7 +76,10 @@ export default function ProfileEditScreen() {
     <View style={styles.flex}>
       <ScreenHeader close title="Editar perfil" />
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 32, width: '100%', maxWidth: 720, alignSelf: 'center' },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.center}>

@@ -30,6 +30,7 @@ export default function ChallengesScreen() {
 
   return (
     <IgnScreen
+      narrow={860}
       title="Retos"
       back
       right={<HeaderIcon icon="add-circle-outline" label="Nuevo reto" onPress={() => router.push('/challenge/new')} />}

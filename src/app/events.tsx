@@ -25,7 +25,7 @@ export default function EventsScreen() {
   const w = s.window;
 
   return (
-    <IgnScreen title="Eventos" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={780} title="Eventos" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       {w ? (
         <LinearGradient colors={w.event.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <SeasonParticles emojis={w.event.particles} count={16} height={300} />

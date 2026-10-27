@@ -6,7 +6,8 @@
 -- Por si faltan columnas de SQL anteriores.
 alter table public.user_games add column if not exists replays_extra int not null default 0;
 alter table public.user_games add column if not exists achievements text[] not null default '{}';
-alter table public.user_games add column if not exists achievements_total int not null default 0;
+alter table public.user_games add column if not exists achievements_total int default 0;
+alter table public.user_games alter column achievements_total drop not null;
 alter table public.list_items add column if not exists note text not null default '';
 alter table public.list_items add column if not exists replays int not null default 0;
 
@@ -24,7 +25,10 @@ begin
   new.review_private := coalesce(new.review_private, false);
   new.replays_extra := coalesce(new.replays_extra, 0);
   new.achievements := coalesce(new.achievements, '{}');
-  new.achievements_total := coalesce(new.achievements_total, 0);
+  -- Total de logros: si un dispositivo no lo sabe, se conserva el que ya había.
+  if tg_op = 'UPDATE' then
+    new.achievements_total := coalesce(new.achievements_total, old.achievements_total);
+  end if;
   new.added_at := coalesce(new.added_at, now());
   new.updated_at := coalesce(new.updated_at, now());
   return new;

@@ -125,14 +125,14 @@ export default function SteamScreen() {
 
   if (!hasSteam()) {
     return (
-      <IgnScreen title="Steam" back contentStyle={{ paddingHorizontal: 20 }}>
+      <IgnScreen narrow={820} title="Steam" back contentStyle={{ paddingHorizontal: 20 }}>
         <ThemedText variant="muted">Esta versión de la app no tiene la clave de Steam.</ThemedText>
       </IgnScreen>
     );
   }
 
   return (
-    <IgnScreen title="Importar de Steam" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={820} title="Importar de Steam" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <ThemedText variant="muted" size={13}>
         Trae tus juegos de Steam con sus horas jugadas y los logros que ya tienes. Tu perfil de Steam tiene que ser
         público (Steam → tu perfil → Editar perfil → Privacidad → «Detalles del juego: Público»).

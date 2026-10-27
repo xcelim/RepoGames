@@ -33,7 +33,7 @@ export default function LeaderboardScreen() {
   const top = people[0]?.xp ?? 1;
 
   return (
-    <IgnScreen title="Clasificación" back contentStyle={{ paddingHorizontal: 20, gap: 12 }}>
+    <IgnScreen narrow={860} title="Clasificación" back contentStyle={{ paddingHorizontal: 20, gap: 12 }}>
       <ThemedText variant="muted" size={13}>
         Tú y tus amigos ordenados por experiencia. ¡Termina juegos y consigue platinos para subir!
       </ThemedText>

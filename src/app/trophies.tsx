@@ -60,7 +60,7 @@ export default function TrophiesScreen() {
   const pct = Math.round((earned.size / all.length) * 100);
 
   return (
-    <IgnScreen title="Trofeos" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={860} title="Trofeos" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <LinearGradient colors={['#1d2b64', '#6a3093']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <Ionicons name="trophy" size={44} color="#f5c518" />

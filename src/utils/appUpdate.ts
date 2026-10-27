@@ -27,3 +27,22 @@ export async function checkForUpdate(): Promise<AppUpdate | null> {
     return null;
   }
 }
+
+// Versión mínima obligatoria (tabla app_config de Supabase): si esta APK es más vieja, hay que actualizar.
+export type Required = { build: number; message: string };
+
+export async function requiredUpdate(): Promise<Required | null> {
+  if (!canSelfUpdate) return null;
+  try {
+    const { getSupabase } = await import('@/cloud/supabase');
+    const client = getSupabase();
+    if (!client) return null;
+    const { data, error } = await client.from('app_config').select('value').eq('key', 'min_build').maybeSingle();
+    if (error || !data) return null;
+    const v = (data as { value: { build?: number; message?: string } }).value ?? {};
+    const min = Number(v.build ?? 0);
+    return min > BUILD ? { build: min, message: v.message ?? '' } : null;
+  } catch {
+    return null;
+  }
+}

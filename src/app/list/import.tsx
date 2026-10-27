@@ -81,7 +81,12 @@ export default function ImportListScreen() {
     setRows((r) => r && r.map((row, k) => (k === i ? { ...row, include: !row.include } : row)));
 
   return (
-    <IgnScreen title="Importar lista" close contentStyle={{ paddingHorizontal: 20, gap: 18, paddingBottom: 60 }}>
+    <IgnScreen
+      narrow={820}
+      title="Importar lista"
+      close
+      contentStyle={{ paddingHorizontal: 20, gap: 18, paddingBottom: 60 }}
+    >
       <ThemedText variant="muted" size={13}>
         Pega un juego por línea. Detrás del título puedes poner, separado con «|», el año, la plataforma, el estado
         (pasado, al 100 %, jugado, visto, jugando, en pausa, abandonado, pendiente, deseado) y tu nota del 1 al 10. Cada

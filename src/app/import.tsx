@@ -193,7 +193,7 @@ export default function ImportScreen() {
     setRows((r) => r && r.map((row, k) => (k === i ? { ...row, include: !row.include } : row)));
 
   return (
-    <IgnScreen title="Importar" back contentStyle={{ paddingHorizontal: 20, gap: 16, paddingBottom: 60 }}>
+    <IgnScreen narrow={820} title="Importar" back contentStyle={{ paddingHorizontal: 20, gap: 16, paddingBottom: 60 }}>
       <ThemedText variant="muted" size={13}>
         Trae tu colección desde donde la tengas. Cada juego se busca en IGDB y se añade con su ficha oficial.
       </ThemedText>

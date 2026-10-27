@@ -40,6 +40,32 @@ const STEAM_METHODS = new Set([
   'ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2',
 ]);
 
+// Solo la web de Saga Quest puede usarlo desde un navegador (la app del móvil no manda «Origin»).
+// Se pueden añadir más con el secreto ALLOWED_ORIGINS (separados por comas).
+const ALLOWED = new Set(
+  ['https://xcelim.github.io', 'http://localhost:8081', 'http://localhost:8099']
+    .concat((Deno.env.get('ALLOWED_ORIGINS') ?? '').split(','))
+    .map((o) => o.trim())
+    .filter(Boolean),
+);
+
+// Límite de peticiones por IP (por instancia): de sobra para usar la app, poco para abusar.
+const LIMIT = 240; // por minuto
+const hits = new Map<string, { n: number; reset: number }>();
+function limited(ip: string): boolean {
+  const now = Date.now();
+  const h = hits.get(ip);
+  if (!h || h.reset < now) {
+    hits.set(ip, { n: 1, reset: now + 60_000 });
+    if (hits.size > 20_000) for (const [k, v] of hits) if (v.reset < now) hits.delete(k);
+    return false;
+  }
+  h.n += 1;
+  return h.n > LIMIT;
+}
+
+const RAWG_PATH = /^games(\/\d+(\/(screenshots|achievements|stores|game-series))?)?$/;
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -74,9 +100,13 @@ const json = (body: unknown, status = 200, cache = 0) =>
   });
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('origin');
+  if (origin && !ALLOWED.has(origin)) return new Response('origen no permitido', { status: 403 });
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'desconocida';
+  if (limited(ip)) return json({ error: 'demasiadas peticiones, espera un momento' }, 429);
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^.*\/games/, '');
+  const path = url.pathname.replace(/^.*?\/games(?=\/|$)/, ''); // lo que va detrás de /functions/v1/games
   try {
     if (path.startsWith('/igdb/') && req.method === 'POST') {
       const endpoint = path.slice('/igdb/'.length);
@@ -92,6 +122,7 @@ Deno.serve(async (req) => {
           body,
         });
       const body = await req.text();
+      if (body.length > 4000) return json({ error: 'consulta demasiado larga' }, 400);
       let res = await send();
       if (res.status === 401) {
         token = null; // el token caducó: se pide otro y se reintenta
@@ -100,9 +131,11 @@ Deno.serve(async (req) => {
       return json(await res.text(), res.status, 3600);
     }
     if (path.startsWith('/rawg/') && req.method === 'GET') {
+      const rawgPath = path.slice('/rawg/'.length).replace(/\/+$/, '');
+      if (!RAWG_PATH.test(rawgPath)) return json({ error: 'ruta no permitida' }, 400);
       const params = new URLSearchParams(url.search);
       params.set('key', Deno.env.get('RAWG_KEY') ?? '');
-      const res = await fetch(`https://api.rawg.io/api/${path.slice('/rawg/'.length)}?${params}`);
+      const res = await fetch(`https://api.rawg.io/api/${rawgPath}?${params}`);
       return json(await res.text(), res.status, 3600);
     }
     if (path.startsWith('/steam/') && req.method === 'GET') {

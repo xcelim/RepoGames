@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { friendIds, useSocial } from '@/cloud/social';
 import { GameCover } from '@/components/games';
-import { Card, DarkButton, IgnScreen, useIgnColors } from '@/components/ign';
+import { Card, DarkButton, IgnScreen, useIgnColors, useScreenWidth } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useCurrentProfile, useStore } from '@/store/useStore';
@@ -32,7 +32,7 @@ const MODES: { id: Mode; label: string; icon: string; question: string }[] = [
 // ¿Más o menos?: adivina si el siguiente juego tiene más nota (o dura más) que el anterior.
 export default function HigherLowerScreen() {
   const c = useIgnColors();
-  const { width } = useWindowDimensions();
+  const width = useScreenWidth(640);
   const games = useStore((s) => s.games);
   const durationMode = useStore((s) => s.durationMode);
   const profile = useCurrentProfile();
@@ -138,7 +138,7 @@ export default function HigherLowerScreen() {
   }, [friendships, profiles, mode]);
 
   return (
-    <IgnScreen title="¿Más o menos?" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
+    <IgnScreen narrow={640} title="¿Más o menos?" back contentStyle={{ paddingHorizontal: 20, gap: 16 }}>
       <View style={[styles.tabs, { backgroundColor: c.soft, borderRadius: c.radius }]}>
         {MODES.map((m) => (
           <Pressable

@@ -69,6 +69,7 @@ export default function NotificationsScreen() {
 
   return (
     <IgnScreen
+      narrow={860}
       title="Avisos"
       back
       right={

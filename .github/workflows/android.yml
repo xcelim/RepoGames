@@ -22,11 +22,8 @@ jobs:
     # Claves de la API de juegos: se guardan en Settings → Secrets and variables → Actions
     # y se meten en la app al compilar, para que nadie tenga que configurarlas.
     env:
-      EXPO_PUBLIC_IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
-      EXPO_PUBLIC_IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-      EXPO_PUBLIC_RAWG_KEY: ${{ secrets.RAWG_KEY }}
-      EXPO_PUBLIC_STEAM_KEY: ${{ secrets.STEAM_API_KEY }}
-      EXPO_PUBLIC_GAMES_PROXY_URL: ${{ secrets.GAMES_PROXY_URL }}
+      # Las claves de IGDB, RAWG y Steam ya NO van dentro de la APK (se podrían sacar de ella):
+      # la app usa el servidor intermedio de Supabase (supabase/functions/games), que las guarda.
       # Supabase: la URL del proyecto y la clave pública "anon" (es pública por diseño;
       # lo que protege los datos son las normas RLS de supabase/schema.sql).
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -45,6 +42,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Servidor intermedio para los datos de juegos
+        run: |
+          base=$(printf '%s' "$EXPO_PUBLIC_SUPABASE_URL" | tr -d "\"' \r\n" | sed -E 's#^(https?://)?([^/?#]+).*#https://\2#')
+          echo "EXPO_PUBLIC_GAMES_PROXY_URL=${base}/functions/v1/games" >> "$GITHUB_ENV"
 
       - name: Comprobar las claves de la API
         run: |

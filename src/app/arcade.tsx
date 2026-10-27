@@ -140,9 +140,20 @@ const TOOLS: Tool[] = [
 export default function ArcadeScreen() {
   const { width } = useWindowDimensions();
   const mine = useMyGames();
-  // Dos por fila en el móvil; tres en pantallas anchas.
-  const cols = width >= 800 ? 3 : 2;
-  const half = (width - 40 - 12 * (cols - 1)) / cols;
+  const inner = width - 40;
+  const gap = 12;
+  // Columnas según el ancho: 2 en el móvil, 3 en tablet, 4 en el PC.
+  const cols = inner >= 960 ? 4 : inner >= 640 ? 3 : 2;
+  const featured = TOOLS.filter((t) => t.wide);
+  const rest = TOOLS.filter((t) => !t.wide);
+  // Las destacadas van juntas en una fila si caben; en el móvil, una debajo de otra.
+  const featW = inner >= 640 ? (inner - gap * (featured.length - 1)) / featured.length : inner;
+  // La última fila se reparte el ancho entero (sin huecos al final).
+  const widthAt = (i: number) => {
+    const lastStart = rest.length - (rest.length % cols || cols);
+    const inRow = i >= lastStart ? rest.length - lastStart : cols;
+    return (inner - gap * (inRow - 1)) / inRow;
+  };
   return (
     <IgnScreen title="Sala de juegos" back contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
       <ThemedText variant="muted" size={13}>
@@ -151,36 +162,46 @@ export default function ArcadeScreen() {
           : 'Añade juegos a tu biblioteca para sacarle partido a todo esto.'}
       </ThemedText>
       <EventBanner />
-      <View style={styles.grid}>
-        {TOOLS.map((t) => (
-          <Pressable
-            key={t.title}
-            onPress={() => router.push(t.href)}
-            style={({ pressed }) => [{ width: t.wide ? width - 40 : half, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-          >
-            <LinearGradient
-              colors={t.colors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.card, { minHeight: t.wide ? 130 : 150 }]}
-            >
-              <Ionicons name={t.icon} size={t.wide ? 120 : 90} color="rgba(255,255,255,0.16)" style={styles.bigIcon} />
-              <View style={styles.iconBubble}>
-                <Ionicons name={t.icon} size={22} color="#fff" />
-              </View>
-              <View style={{ gap: 3 }}>
-                <ThemedText variant="display" size={t.wide ? 24 : 17} style={styles.white} numberOfLines={2}>
-                  {t.title}
-                </ThemedText>
-                <ThemedText size={12} style={styles.caption} numberOfLines={2}>
-                  {t.caption}
-                </ThemedText>
-              </View>
-            </LinearGradient>
-          </Pressable>
+      <View style={[styles.grid, { gap }]}>
+        {featured.map((t) => (
+          <Tile key={t.title} tool={t} width={featW} big />
+        ))}
+      </View>
+      <View style={[styles.grid, { gap }]}>
+        {rest.map((t, i) => (
+          <Tile key={t.title} tool={t} width={widthAt(i)} />
         ))}
       </View>
     </IgnScreen>
+  );
+}
+
+function Tile({ tool: t, width, big }: { tool: Tool; width: number; big?: boolean }) {
+  return (
+    <Pressable
+      onPress={() => router.push(t.href)}
+      style={({ pressed }) => [{ width, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+    >
+      <LinearGradient
+        colors={t.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.card, { minHeight: big ? 150 : 140, height: '100%' }]}
+      >
+        <Ionicons name={t.icon} size={big ? 120 : 90} color="rgba(255,255,255,0.16)" style={styles.bigIcon} />
+        <View style={styles.iconBubble}>
+          <Ionicons name={t.icon} size={22} color="#fff" />
+        </View>
+        <View style={{ gap: 3 }}>
+          <ThemedText variant="display" size={big ? 22 : 17} style={styles.white} numberOfLines={2}>
+            {t.title}
+          </ThemedText>
+          <ThemedText size={12} style={styles.caption} numberOfLines={3}>
+            {t.caption}
+          </ThemedText>
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 

@@ -22,6 +22,8 @@ import { OfflineGate } from '@/components/offline';
 import { RankBadge } from '@/components/RankBadge';
 import { ShowcaseView } from '@/components/showcases';
 import { ThemedText } from '@/components/ThemedText';
+import { UserMenu } from '@/components/UserMenu';
+import { useBlocks } from '@/cloud/moderation';
 import { UserAvatar } from '@/components/UserAvatar';
 import { OFFICIAL_LISTS, OFFICIAL_PROFILE_ID } from '@/data/catalog';
 import { FINISHED } from '@/data/meta';
@@ -63,6 +65,7 @@ function UserScreenInner() {
     };
   }, [id, version]);
 
+  const isBlocked = useBlocks((st) => st.blocked.includes(id));
   const games = useMemo(() => ({ ...socialGames, ...localGames }), [socialGames, localGames]);
   const theirs = useMemo(() => library ?? [], [library]);
   const ach = useAchievementsOf(theirs, games);
@@ -99,6 +102,9 @@ function UserScreenInner() {
     <IgnScreen
       title={profile.displayName}
       back
+      right={
+        id !== uid && id !== OFFICIAL_PROFILE_ID && uid ? <UserMenu id={id} name={profile.displayName} /> : undefined
+      }
       onRefresh={() => setVersion((v) => v + 1)}
       contentStyle={{ paddingHorizontal: 20, gap: 16 }}
     >
@@ -124,7 +130,14 @@ function UserScreenInner() {
       </View>
       {profile.bio ? <ThemedText>{profile.bio}</ThemedText> : null}
 
-      {id !== uid && id !== OFFICIAL_PROFILE_ID ? (
+      {isBlocked ? (
+        <Card>
+          <ThemedText variant="muted" size={13}>
+            Has bloqueado a esta persona: no puede escribirte ni pedirte amistad. Puedes desbloquearla desde «⋯».
+          </ThemedText>
+        </Card>
+      ) : null}
+      {id !== uid && id !== OFFICIAL_PROFILE_ID && !isBlocked ? (
         <View style={styles.actions}>
           <FriendButton id={id} />
           {friendState === 'friends' ? (

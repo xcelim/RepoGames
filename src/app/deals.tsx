@@ -60,7 +60,13 @@ export default function DealsScreen() {
   const onSale = sorted.filter((g) => bestDiscount(prices[g.id] ?? null) > 0).length;
 
   return (
-    <IgnScreen title="Ofertas" back onRefresh={() => load(true)} contentStyle={{ paddingHorizontal: 20, gap: 14 }}>
+    <IgnScreen
+      narrow={820}
+      title="Ofertas"
+      back
+      onRefresh={() => load(true)}
+      contentStyle={{ paddingHorizontal: 20, gap: 14 }}
+    >
       <View style={[styles.tabs, { backgroundColor: c.soft, borderRadius: c.radius }]}>
         {(
           [

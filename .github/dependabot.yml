@@ -1,0 +1,15 @@
+# Avisos y arreglos de seguridad de las librerías (Dependabot abre un PR cuando hay que actualizar algo).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    # 0 = sin actualizaciones normales (Expo fija las versiones); solo las de seguridad, que se activan
+    # en Settings → Code security → «Dependabot security updates».
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2

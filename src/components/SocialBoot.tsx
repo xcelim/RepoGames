@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { claimFinishCards } from '@/cloud/cards';
+import { loadBlocks } from '@/cloud/moderation';
 import { startSocial } from '@/cloud/social';
 import { notify } from '@/utils/notify';
 import { useLevel } from '@/hooks/useLevel';
@@ -20,6 +21,9 @@ export function SocialBoot() {
   const updateProfile = useStore((s) => s.updateProfile);
   const lv = useLevel();
   useEffect(() => (uid ? startSocial() : undefined), [uid]);
+  useEffect(() => {
+    if (uid) loadBlocks().catch(() => undefined);
+  }, [uid]);
   // Cada juego que terminas te da su cromo.
   const finished = useStore(
     (s) =>

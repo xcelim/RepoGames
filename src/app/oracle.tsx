@@ -2,10 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
 import { GameCover } from '@/components/games';
-import { Card, DarkButton, IgnScreen, LightButton, useIgnColors } from '@/components/ign';
+import { Card, DarkButton, IgnScreen, LightButton, useIgnColors, useScreenWidth } from '@/components/ign';
 import { ThemedText } from '@/components/ThemedText';
 import { STATUS_META } from '@/data/meta';
 import { daysBetween, todayIso, useMyGames, type MyGame } from '@/hooks/useMyGames';
@@ -175,7 +175,7 @@ function RevealCard({ pick, index, width }: { pick: Pick; index: number; width: 
 // El oráculo: eliges tiempo y ganas, y te recomienda tres juegos de tu biblioteca.
 export default function OracleScreen() {
   const c = useIgnColors();
-  const { width } = useWindowDimensions();
+  const width = useScreenWidth(780);
   const mine = useMyGames();
   const mode = useStore((s) => s.durationMode);
   const [time, setTime] = useState<Time>('any');
@@ -201,7 +201,7 @@ export default function OracleScreen() {
   ];
 
   return (
-    <IgnScreen title="El oráculo" back contentStyle={{ paddingHorizontal: 20, gap: 18 }}>
+    <IgnScreen narrow={780} title="El oráculo" back contentStyle={{ paddingHorizontal: 20, gap: 18 }}>
       <Orb active={thinking} />
       <ThemedText variant="bold" size={13} style={styles.caps}>
         ¿Cuánto tiempo tienes?

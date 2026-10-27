@@ -46,6 +46,7 @@ export default function TradesScreen() {
 
   return (
     <IgnScreen
+      narrow={820}
       title="Intercambios"
       back
       onRefresh={() => refreshCards()}

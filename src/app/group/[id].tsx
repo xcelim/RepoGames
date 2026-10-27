@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useBlocks } from '@/cloud/moderation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -48,7 +49,13 @@ export default function GroupChatScreen() {
   const profiles = useSocial((s) => s.profiles);
   const friendships = useSocial((s) => s.friendships);
   const remoteGames = useSocial((s) => s.games);
-  const messages = useSocial((s) => s.groupChats[groupId]);
+  const allMessages = useSocial((s) => s.groupChats[groupId]);
+  const blocked = useBlocks((s) => s.blocked);
+  // Los mensajes de quien has bloqueado no se enseñan.
+  const messages = useMemo(
+    () => (blocked.length ? allMessages?.filter((m) => !blocked.includes(m.sender)) : allMessages),
+    [allMessages, blocked],
+  );
   const state = group ? 'friends' : 'none';
   const [info, setInfo] = useState(false);
   const [text, setText] = useState('');

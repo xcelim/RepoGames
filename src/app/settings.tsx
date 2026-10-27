@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearOnlineCache, onlineSources } from '@/api/games';
 import { getSavedCredentials, saveCredentials, testConnection } from '@/api/igdb';
 import { loadAllOfficial } from '@/api/official';
+import { isAdmin } from '@/api/officialDb';
 import { getSavedRawgKey, saveRawgKey, testRawg } from '@/api/rawg';
 import { CloudAccountPanel, OfflineDownloadCard } from '@/components/cloudPanel';
 import { BOOT_OFF, bootEnabled } from '@/components/BootSplash';
@@ -42,6 +43,12 @@ export default function SettingsScreen() {
   const [rawgStatus, setRawgStatus] = useState('');
   const [boot, setBoot] = useState(true);
   const [updateMsg, setUpdateMsg] = useState('');
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    isAdmin()
+      .then(setAdmin)
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     bootEnabled().then(setBoot);
   }, []);
@@ -145,7 +152,10 @@ export default function SettingsScreen() {
     <View style={styles.flex}>
       <ScreenHeader close title="Ajustes" />
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 40, width: '100%', maxWidth: 860, alignSelf: 'center' },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <Section title="Estética">
@@ -177,6 +187,12 @@ export default function SettingsScreen() {
                 Linking.openURL(u.url).catch(() => undefined);
               }}
             />
+          </Section>
+        ) : null}
+
+        {admin ? (
+          <Section title="Administración">
+            <Button label="Denuncias y versión obligatoria" onPress={() => router.push('/admin')} />
           </Section>
         ) : null}
 
