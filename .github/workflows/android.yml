@@ -118,6 +118,27 @@ jobs:
           ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a 2>&1 | tee ../gradle.log
           cp app/build/outputs/apk/release/app-release.apk ../SagaQuest.apk
 
+      - name: Verificar la firma del APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          {
+            echo '## Firma del APK'
+            echo '```'
+            "$BT/apksigner" verify --verbose --print-certs SagaQuest.apk 2>&1 || true
+            echo '```'
+            echo '## Datos del paquete'
+            echo '```'
+            "$BT/aapt" dump badging SagaQuest.apk 2>&1 | head -4 || true
+            echo '```'
+          } > firma.md
+          {
+            echo 'Descarga **SagaQuest.apk** en el móvil Android y ábrela para instalarla.'
+            echo 'Si Android avisa de «origen desconocido», permite la instalación para tu navegador.'
+            echo
+            cat firma.md
+          } > body.md
+          cat body.md
+
       - name: Guardar el registro de Gradle si falla
         if: failure()
         run: |
@@ -142,8 +163,6 @@ jobs:
         with:
           tag_name: v2.0.${{ github.run_number }}
           name: Saga Quest 2.0 (build ${{ github.run_number }})
-          body: |
-            Descarga **SagaQuest.apk** en el móvil Android y ábrela para instalarla.
-            Si Android avisa de «origen desconocido», permite la instalación para tu navegador.
+          body_path: body.md
           files: SagaQuest.apk
           make_latest: true
