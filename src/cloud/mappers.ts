@@ -314,3 +314,26 @@ export const fromUserGameRow = (r: UserGameRow, localProfileId: string): UserGam
   addedAt: r.added_at,
   updatedAt: r.updated_at,
 });
+
+// Mezcla tu perfil con el de la nube: de lo tuyo solo se sube lo que has cambiado en este
+// dispositivo (fields); el resto se queda como está en la nube.
+const TOP_FIELDS: [string, 'display_name' | 'bio' | 'avatar_color' | 'username'][] = [
+  ['displayName', 'display_name'],
+  ['bio', 'bio'],
+  ['avatarColor', 'avatar_color'],
+  ['username', 'username'],
+];
+const SETTING_FIELD: Record<string, string> = { xp: 'level', duels: 'elo' };
+
+export function mergeProfileRow(local: ProfileRow, remote: ProfileRow, fields: Set<string>): ProfileRow {
+  const out: ProfileRow = { ...local };
+  for (const [field, col] of TOP_FIELDS) if (!fields.has(field) && remote[col] != null) out[col] = remote[col] as never;
+  const settings: Record<string, unknown> = { ...(remote.settings ?? {}) };
+  for (const [k, v] of Object.entries(local.settings ?? {})) {
+    const field = SETTING_FIELD[k] ?? k;
+    if (fields.has(field) || !(k in settings)) settings[k] = v;
+  }
+  if (local.settings?.onboarded) settings.onboarded = true;
+  out.settings = settings as ProfileRow['settings'];
+  return out;
+}

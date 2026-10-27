@@ -17,12 +17,14 @@ import { useStore, type Store } from '@/store/useStore';
 import type { GameList, GameRecord, ListItem, UserGame } from '@/types';
 import { now } from '@/utils/id';
 import { userGameKey } from '@/utils/library';
+import { notify } from '@/utils/notify';
 
 import {
   fromGameRow,
   fromItemRow,
   fromListRow,
   fromProfileRow,
+  mergeProfileRow,
   fromUserGameRow,
   toGameRow,
   toItemRow,
@@ -81,7 +83,16 @@ function usedGameIds(s: Store, uid: string): Set<string> {
 export function diffState(prev: Store, next: Store, uid: string): string[] {
   const keys = new Set<string>();
   if (next.profiles[uid] !== prev.profiles[uid] || next.skin !== prev.skin || next.durationMode !== prev.durationMode) {
-    if (next.profiles[uid]) keys.add(`profiles|${uid}`);
+    if (next.profiles[uid]) {
+      keys.add(`profiles|${uid}`);
+      // Qué ha cambiado exactamente: al subir solo se pisa eso (lo demás se respeta de la nube,
+      // así un dispositivo no deshace lo que has cambiado en otro).
+      const a = (prev.profiles[uid] ?? {}) as unknown as Record<string, unknown>;
+      const b = next.profiles[uid] as unknown as Record<string, unknown>;
+      for (const f of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[f] !== b[f]) keys.add(`profilefield|${f}`);
+      if (next.skin !== prev.skin) keys.add('profilefield|skin');
+      if (next.durationMode !== prev.durationMode) keys.add('profilefield|durationMode');
+    }
   }
   const ownerOf = (listId: string) => (next.lists[listId] ?? prev.lists[listId])?.ownerId;
   changedKeys(prev.lists, next.lists, (key, list: GameList) => {
@@ -199,7 +210,14 @@ async function doFlush(): Promise<void> {
   // 1. Perfil y ajustes
   if (byTable.profiles?.includes(uid) && state.profiles[uid]) {
     await step('profiles', [uid], async () => {
-      const row = toProfileRow(state.profiles[uid], uid, { skin: state.skin, durationMode: state.durationMode });
+      const local = toProfileRow(state.profiles[uid], uid, { skin: state.skin, durationMode: state.durationMode });
+      const fields = new Set(byTable.profilefield ?? []);
+      let row = local;
+      if (fields.size) {
+        const remote = (await client.from('profiles').select('*').eq('id', uid).maybeSingle())
+          .data as ProfileRow | null;
+        if (remote) row = mergeProfileRow(local, remote, fields);
+      }
       const first = await client.from('profiles').upsert(row);
       if (first.error?.code === '23505') {
         // Ese nombre de usuario ya lo tiene otra persona: se le añade un sufijo.
@@ -211,6 +229,7 @@ async function doFlush(): Promise<void> {
         });
         applyingRemote = false;
       } else check(first, 'Perfil');
+      done.push(...(byTable.profilefield ?? []).map((f) => `profilefield|${f}`));
     });
   }
 
@@ -227,7 +246,15 @@ async function doFlush(): Promise<void> {
     .filter(Boolean)
     .map((g) => toGameRow(g, uid));
   try {
-    for (const part of chunks(gameRows)) check(await client.from('games').upsert(part), 'Juegos');
+    for (const part of chunks(gameRows)) {
+      const res = await client.from('games').upsert(part);
+      if (!res.error) continue;
+      // Uno a uno, para que un juego raro no bloquee a los demás.
+      const bad: string[] = [];
+      for (const row of part) if ((await client.from('games').upsert(row)).error) bad.push(row.title);
+      if (bad.length)
+        throw new Error(`Juegos: no se han podido guardar ${bad.slice(0, 3).join(', ')}: ${res.error.message}`);
+    }
     // Los juegos que solo has mirado (no están en tus listas ni tu biblioteca) no se suben.
     done.push(...(byTable.games ?? []).map((k) => `games|${k}`));
   } catch (error) {
@@ -260,9 +287,11 @@ async function doFlush(): Promise<void> {
   const ugKeys = byTable.user_games ?? [];
   const ugUp = ugKeys.filter((g) => state.userGames[userGameKey(uid, g)]);
   const ugDown = ugKeys.filter((g) => !state.userGames[userGameKey(uid, g)]);
-  await step('user_games', ugUp, async () => {
-    for (const part of chunks(ugUp)) {
-      const rows = part.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid));
+  // Se sube por tandas; si una tanda falla, se prueba juego a juego para que un juego con
+  // problemas no deje sin subir a todos los demás (lo que falla se queda pendiente).
+  if (ugUp.length) {
+    const upsert = async (keys: string[]) => {
+      const rows = keys.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid));
       let res = await client.from('user_games').upsert(rows, { onConflict: 'profile_id,game_id' });
       // Si aún no se ha ejecutado el SQL nuevo, se sube sin la columna que falta.
       if (res.error && /achievements_total/.test(res.error.message))
@@ -270,14 +299,45 @@ async function doFlush(): Promise<void> {
           rows.map(({ achievements_total: _t, ...r }) => r),
           { onConflict: 'profile_id,game_id' },
         );
-      // El estado «Visto» necesita el SQL del 27/10/2026: se avisa con un mensaje claro.
-      if (res.error && /status_check/.test(res.error.message))
-        throw new Error(
-          'Biblioteca: para guardar juegos «Vistos» falta ejecutar en Supabase el SQL 2026-10-27-visto.sql',
+      return res.error;
+    };
+    const failed: string[] = [];
+    let reason = '';
+    for (const part of chunks(ugUp)) {
+      const err = await upsert(part).catch((e: unknown) => ({ message: String(e), code: 'net' }));
+      if (!err) {
+        done.push(...part.map((k) => `user_games|${k}`));
+        continue;
+      }
+      if (err.code === 'net' || /fetch|network|timeout/i.test(err.message)) {
+        failed.push(...part);
+        reason = err.message;
+        continue;
+      }
+      for (let k = 0; k < part.length; k += 10) {
+        const slice = part.slice(k, k + 10);
+        const results = await Promise.all(
+          slice.map((g) => upsert([g]).catch((e: unknown) => ({ message: String(e) }))),
         );
-      check(res, 'Biblioteca');
+        results.forEach((e, n) => {
+          if (!e) done.push(`user_games|${slice[n]}`);
+          else {
+            failed.push(slice[n]);
+            reason = e.message;
+          }
+        });
+      }
     }
-  });
+    if (failed.length) {
+      const title = (g: string) => state.games[g]?.title ?? g;
+      const which = failed.slice(0, 3).map(title).join(', ') + (failed.length > 3 ? ` y ${failed.length - 3} más` : '');
+      errors.push(
+        /status_check/.test(reason)
+          ? `Biblioteca: para guardar juegos «Vistos» falta ejecutar en Supabase el SQL 2026-10-27-visto.sql (${which})`
+          : `Biblioteca: no se han podido guardar ${failed.length} juegos (${which}): ${reason}`,
+      );
+    }
+  }
   await step('user_games', ugDown, async () => {
     check(
       await client.from('user_games').delete().eq('profile_id', uid).in('game_id', ugDown),
@@ -487,6 +547,16 @@ export async function pull(): Promise<void> {
 
 let syncing: Promise<void> | null = null;
 
+// Si algo no se ha podido guardar en tu cuenta, se avisa (una vez por cada problema distinto).
+let lastAnnounced = '';
+function announce(error: unknown) {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (!useConnection.getState().online || /fetch|network|timeout|Failed to/i.test(msg)) return;
+  if (msg === lastAnnounced) return;
+  lastAnnounced = msg;
+  notify(`⚠️ No se ha guardado todo en tu cuenta: ${msg.slice(0, 220)}`);
+}
+
 export function syncNow(): Promise<void> {
   if (syncing) return syncing;
   syncing = (async () => {
@@ -503,6 +573,7 @@ export function syncNow(): Promise<void> {
       if (useStore.getState().offlineEnabled) refreshOfflineCopy();
     } catch (error) {
       reportNetworkFailure(error);
+      announce(error);
       useSync.setState({ status: 'error', error: error instanceof Error ? error.message : String(error) });
     }
   })().finally(() => {
@@ -519,6 +590,7 @@ function scheduleFlush() {
       .then(() => useSync.setState({ status: 'idle', error: null }))
       .catch((error) => {
         reportNetworkFailure(error);
+        announce(error);
         useSync.setState({ status: 'error', error: error instanceof Error ? error.message : String(error) });
       });
   }, 1200);

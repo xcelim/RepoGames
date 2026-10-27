@@ -13,7 +13,7 @@ const mockDb: Record<string, Row[]> = {
   list_follows: [],
   list_members: [],
 };
-const mockFail: { table?: string } = {};
+const mockFail: { table?: string; status?: string } = {};
 
 const PK: Record<string, string[]> = {
   profiles: ['id'],
@@ -42,6 +42,8 @@ function mockQuery(table: string) {
     },
     upsert: async (rows: Row | Row[]) => {
       if (mockFail.table === table) return { data: null, error: { message: 'fallo simulado' } };
+      if (mockFail.status && (Array.isArray(rows) ? rows : [rows]).some((r) => r.status === mockFail.status))
+        return { data: null, error: { message: 'violates check constraint "user_games_status_check"' } };
       for (const row of Array.isArray(rows) ? rows : [rows]) {
         const keys = PK[table];
         const i = mockDb[table].findIndex((r) => keys.every((k) => r[k] === row[k]));
@@ -129,6 +131,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 beforeEach(() => {
   for (const t of Object.keys(mockDb)) mockDb[t] = [];
   delete mockFail.table;
+  delete mockFail.status;
   useStore.getState().clearLocalData();
   useStore.getState().adoptAccount(UID, 'y@x.com', profile);
   useStore.setState({ dirty: {} });
@@ -201,6 +204,40 @@ describe('subir y bajar', () => {
     delete mockFail.table;
     await flush();
     expect(useStore.getState().dirty['user_games|igdb-1']).toBeUndefined();
+  });
+
+  it('un juego que falla no impide subir los demás', async () => {
+    stopEngine = startSyncEngine();
+    for (const id of ['igdb-1', 'igdb-2', 'igdb-3']) useStore.getState().upsertGame(game(id));
+    useStore.getState().setStatus('igdb-1', 'beaten');
+    useStore.getState().setStatus('igdb-2', 'watched');
+    useStore.getState().setStatus('igdb-3', 'library');
+    mockFail.status = 'watched';
+    await expect(flush()).rejects.toThrow('2026-10-27-visto.sql');
+    expect(mockDb.user_games.map((r) => r.game_id).sort()).toEqual(['igdb-1', 'igdb-3']);
+    expect(useStore.getState().dirty['user_games|igdb-2']).toBeDefined();
+    expect(useStore.getState().dirty['user_games|igdb-1']).toBeUndefined();
+    delete mockFail.status;
+    await flush();
+    expect(mockDb.user_games).toHaveLength(3);
+  });
+
+  it('al subir el perfil solo pisa lo que ha cambiado en este dispositivo', async () => {
+    stopEngine = startSyncEngine();
+    markAllDirty(UID);
+    await flush();
+    // Otro dispositivo cambia la estética en la nube.
+    const row = mockDb.profiles.find((r) => r.id === UID)!;
+    row.settings = { ...(row.settings as object), skin: 'cozy', trophies: { lib1: '2026-10-01' } };
+    // Aquí solo cambia el nivel.
+    useStore.getState().updateProfile({ level: 7, xp: 700 });
+    await flush();
+    const after = mockDb.profiles.find((r) => r.id === UID)!.settings as Record<string, unknown>;
+    expect(after).toMatchObject({ skin: 'cozy', level: 7, xp: 700, trophies: { lib1: '2026-10-01' } });
+    // Y si cambias la estética aquí, se sube la tuya.
+    useStore.getState().setSkin('synthwave' as never);
+    await flush();
+    expect((mockDb.profiles.find((r) => r.id === UID)!.settings as Record<string, unknown>).skin).toBe('synthwave');
   });
 
   it('al bajar no pisa lo que está pendiente y quita lo borrado en otro móvil', async () => {
