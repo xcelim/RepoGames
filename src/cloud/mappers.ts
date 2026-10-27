@@ -252,8 +252,8 @@ export const toItemRow = (i: ListItem): ListItemRow => ({
   position: i.position,
   added_at: i.addedAt,
   // Solo se envían si se usan, así la sincronización no falla si aún no has añadido las columnas.
-  ...(i.note !== undefined ? { note: i.note } : {}),
-  ...(i.replays !== undefined ? { replays: i.replays } : {}),
+  note: i.note ?? '',
+  replays: Number.isFinite(i.replays) ? Math.max(0, Math.round(i.replays!)) : 0,
 });
 
 export const fromItemRow = (r: ListItemRow): ListItem => ({
@@ -283,9 +283,10 @@ export const toUserGameRow = (u: UserGame, profileId: string): UserGameRow => ({
   recommend: u.recommend ?? null,
   spoilers: u.spoilers ?? false,
   review_private: u.reviewPrivate ?? false,
-  ...(u.replaysExtra !== undefined ? { replays_extra: u.replaysExtra } : {}),
-  ...(u.achievements !== undefined ? { achievements: u.achievements } : {}),
-  ...(u.achievementsTotal ? { achievements_total: u.achievementsTotal } : {}),
+  // Siempre con valor: al subir varios a la vez, un campo que falte en alguno llegaría vacío.
+  replays_extra: Number.isFinite(u.replaysExtra) ? Math.max(0, Math.round(u.replaysExtra!)) : 0,
+  achievements: Array.isArray(u.achievements) ? u.achievements : [],
+  achievements_total: u.achievementsTotal ?? 0,
   added_at: u.addedAt,
   updated_at: u.updatedAt,
 });

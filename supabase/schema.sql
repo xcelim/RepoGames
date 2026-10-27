@@ -1198,3 +1198,48 @@ exception when undefined_object then
   raise notice 'No existe la publicación supabase_realtime: se omite el tiempo real.';
 end;
 $$;
+
+-- ===================== 15. Valores por defecto al guardar (arreglo 27/10/2026) =====================
+create or replace function public.user_games_fill_defaults()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.liked := coalesce(new.liked, '{}');
+  new.disliked := coalesce(new.disliked, '{}');
+  new.review := coalesce(new.review, '');
+  new.owned := coalesce(new.owned, false);
+  new.favorite := coalesce(new.favorite, false);
+  new.spoilers := coalesce(new.spoilers, false);
+  new.review_private := coalesce(new.review_private, false);
+  new.replays_extra := coalesce(new.replays_extra, 0);
+  new.achievements := coalesce(new.achievements, '{}');
+  new.achievements_total := coalesce(new.achievements_total, 0);
+  new.added_at := coalesce(new.added_at, now());
+  new.updated_at := coalesce(new.updated_at, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists user_games_fill_defaults on public.user_games;
+create trigger user_games_fill_defaults
+  before insert or update on public.user_games
+  for each row execute function public.user_games_fill_defaults();
+
+-- Lo mismo para los juegos de las listas (nota y rejugadas).
+create or replace function public.list_items_fill_defaults()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.note := coalesce(new.note, '');
+  new.replays := coalesce(new.replays, 0);
+  return new;
+end;
+$$;
+
+drop trigger if exists list_items_fill_defaults on public.list_items;
+create trigger list_items_fill_defaults
+  before insert or update on public.list_items
+  for each row execute function public.list_items_fill_defaults();
+

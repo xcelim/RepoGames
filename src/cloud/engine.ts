@@ -279,7 +279,13 @@ async function doFlush(): Promise<void> {
   });
   await step('list_items', itemsUp, async () => {
     for (const part of chunks(itemsUp)) {
-      check(await client.from('list_items').upsert(part.map((k) => toItemRow(state.items[k]))), 'Juegos de las listas');
+      check(
+        await client.from('list_items').upsert(
+          part.map((k) => toItemRow(state.items[k])),
+          { defaultToNull: false },
+        ),
+        'Juegos de las listas',
+      );
     }
   });
 
@@ -292,12 +298,14 @@ async function doFlush(): Promise<void> {
   if (ugUp.length) {
     const upsert = async (keys: string[]) => {
       const rows = keys.map((g) => toUserGameRow(state.userGames[userGameKey(uid, g)], uid));
-      let res = await client.from('user_games').upsert(rows, { onConflict: 'profile_id,game_id' });
+      let res = await client
+        .from('user_games')
+        .upsert(rows, { onConflict: 'profile_id,game_id', defaultToNull: false });
       // Si aún no se ha ejecutado el SQL nuevo, se sube sin la columna que falta.
       if (res.error && /achievements_total/.test(res.error.message))
         res = await client.from('user_games').upsert(
           rows.map(({ achievements_total: _t, ...r }) => r),
-          { onConflict: 'profile_id,game_id' },
+          { onConflict: 'profile_id,game_id', defaultToNull: false },
         );
       return res.error;
     };
