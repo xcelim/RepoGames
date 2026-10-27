@@ -1,0 +1,32 @@
+{
+  "name": "Saga Quest",
+  "short_name": "Saga Quest",
+  "description": "Tu registro de partidas: biblioteca, listas, amigos y mucho más.",
+  "lang": "es",
+  "start_url": "/RepoGames/app/",
+  "scope": "/RepoGames/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b10",
+  "theme_color": "#0b0b10",
+  "icons": [
+    {
+      "src": "/RepoGames/app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/RepoGames/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/RepoGames/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
