@@ -31,7 +31,7 @@ jobs:
       # Número de compilación: la app lo compara con la última versión publicada para avisar de actualizaciones.
       EXPO_PUBLIC_BUILD: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v5
         with:
