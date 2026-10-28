@@ -1,124 +1,221 @@
+// Mundo gamer: tu pueblo medieval a píxeles. Empiezas con un terreno y un ayuntamiento;
+// talas árboles, construyes edificios separados, compras aldeanos que trabajan y produces recursos.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { DarkButton, LightButton, Sheet, useIgnColors } from '@/components/ign';
-import { IsoCity, type IsoCityHandle } from '@/components/IsoCity';
+import { PixelSprite } from '@/components/PixelSprite';
 import { ScreenHeader } from '@/components/lists';
+import { type Cell, type Mode, ProductionBars, WorldMap, spriteOf } from '@/components/WorldMap';
 import { ThemedText } from '@/components/ThemedText';
 import { useMyGames } from '@/hooks/useMyGames';
 import { useCurrentProfile, useStore } from '@/store/useStore';
-import type { CityItem, CityState } from '@/types';
+import type { CityBuilding, CityState, Res } from '@/types';
 import {
-  type Building,
+  addDecor,
+  advance,
+  assign,
+  available,
+  BUILDINGS,
+  BUILDING_KINDS,
+  buildingAt,
+  buyVillager,
+  canAfford,
+  chop,
+  build,
+  type Cost,
   cityOf,
-  COINS_PER_HOUR,
-  coinsEarned,
   DECOR,
-  DECOR_KINDS,
-  type DecorKind,
-  expandCost,
-  layoutCity,
-  MAX_LEVEL,
-  SKIES,
-  upgradeCost,
-} from '@/utils/city';
+  decorAt,
+  demolish,
+  EXPAND_COST,
+  expand,
+  freeVillagers,
+  hasTree,
+  housingCapacity,
+  MAX_SIZE,
+  newCity,
+  productionText,
+  RES,
+  removeDecor,
+  requirementMet,
+  requirementText,
+  type Result,
+  sourcesOf,
+  type Stock,
+  upgrade,
+  VILLAGER_COST,
+  workersTotal,
+} from '@/utils/world';
+import { type SpriteName } from '@/utils/sprites';
 import { notify } from '@/utils/notify';
 
-const fmt = (n: number) => n.toLocaleString('es-ES');
+const costText = (cost: Cost) =>
+  Object.entries(cost)
+    .filter(([, v]) => v)
+    .map(([r, v]) => `${v} ${RES[r as Res].name.toLowerCase()}`)
+    .join(' · ') || 'Gratis';
+
+const fmt = (n: number) => Math.floor(n).toLocaleString('es-ES');
 const buzz = () => {
   if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 };
 
-// Mundo gamer: tu ciudad en 3D isométrico. Cada juego terminado es un edificio y tus horas, monedas.
+type SheetKind = { type: 'build' } | { type: 'building'; id: string } | { type: 'villagers' } | { type: 'info' } | null;
+
 export default function WorldScreen() {
   const c = useIgnColors();
-  const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
   const mine = useMyGames();
   const profile = useCurrentProfile();
   const updateProfile = useStore((s) => s.updateProfile);
-  const city = useMemo(() => cityOf(profile?.city), [profile?.city]);
-  const earned = coinsEarned(mine);
-  const coins = Math.max(0, earned - city.spent);
-  const { buildings, homeless } = useMemo(() => layoutCity(mine, city), [mine, city]);
-  const map = useRef<IsoCityHandle>(null);
+  const src: Stock = useMemo(() => sourcesOf(mine), [mine]);
 
-  const [shop, setShop] = useState(false);
-  const [tab, setTab] = useState<'decor' | 'sky' | 'land'>('decor');
-  const [placing, setPlacing] = useState<DecorKind | null>(null);
-  const [building, setBuilding] = useState<Building | null>(null);
-  const [item, setItem] = useState<CityItem | null>(null);
-  const [selected, setSelected] = useState<{ x: number; y: number } | null>(null);
-  const [info, setInfo] = useState(false);
+  // Tu mundo guardado en el perfil es la fuente de verdad. Lo que se ve se calcula desde ahí
+  // con el reloj de cada segundo, así que la producción nunca se cuenta dos veces.
+  const saved = cityOf(profile?.city);
+  const [now, setNow] = useState(() => Date.now());
+  const [mode, setMode] = useState<Mode>({ kind: 'idle' });
+  const [tab, setTab] = useState<'edificios' | 'decoracion'>('edificios');
+  const [sheet, setSheet] = useState<SheetKind>(null);
+  const [selected, setSelected] = useState<Cell | null>(null);
+  const live = useMemo(() => (saved ? advance(saved, src, now) : null), [saved, src, now]);
 
-  const save = (next: CityState) => updateProfile({ city: next });
-  const pay = (cost: number): boolean => {
-    if (coins < cost) {
-      notify(`Te faltan ${fmt(cost - coins)} monedas: ¡a jugar!`);
+  // Para el guardado periódico (que no debe quedarse con valores viejos).
+  const savedRef = useRef(saved);
+  const srcRef = useRef(src);
+  useEffect(() => {
+    savedRef.current = saved;
+    srcRef.current = src;
+  });
+
+  // Guarda el mundo en tu perfil (la nube). Cada acción guarda; además cada 30 s por la producción.
+  const commit = (next: CityState) => updateProfile({ city: next });
+
+  // Primera vez (o versión antigua del mundo): empiezas de cero con un terreno nuevo.
+  useEffect(() => {
+    if (profile && !cityOf(profile.city)) updateProfile({ city: newCity() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, profile?.city]);
+
+  // Reloj: la producción avanza cada segundo.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Guardado periódico: fija la producción en tu perfil.
+  useEffect(() => {
+    const flush = () => {
+      const s0 = savedRef.current;
+      if (s0) commit(advance(s0, srcRef.current, Date.now()));
+    };
+    const t = setInterval(flush, 30_000);
+    return () => {
+      clearInterval(t);
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Aplica una acción sobre el mundo ya avanzado hasta ahora.
+  const act = (fn: (st: CityState) => Result, done?: string): boolean => {
+    if (!saved) return false;
+    const r = fn(advance(saved, src, now));
+    if (!r.ok) {
+      notify(r.error);
       return false;
     }
+    buzz();
+    commit(r.state);
+    if (done) notify(done);
     return true;
   };
 
-  const onTapTile = (x: number, y: number) => {
-    if (!placing) {
-      setSelected(null);
+  // El mapa solo se vuelve a dibujar si cambia lo que se ve (no con cada segundo).
+  const shapeKey = live
+    ? `${live.size}|${live.seed}|${live.chopped.length}|${live.buildings
+        .map((b) => `${b.id}:${b.kind}:${b.level}:${b.x},${b.y}:${b.workers}`)
+        .join(';')}|${live.items.map((i) => i.id).join(';')}`
+    : '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shape = useMemo(() => live, [shapeKey]);
+
+  if (!live || !shape) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <ScreenHeader back title="Mundo gamer" />
+      </View>
+    );
+  }
+
+  const st = live;
+  // Nunca se enseña menos de 0 (si borras juegos, el oro de tus horas puede bajar).
+  const have = (r: Res) => Math.max(0, available(st, src, r));
+  const cap = housingCapacity(st);
+  const free = freeVillagers(st);
+  const width = Math.min(winW - 24, 560);
+
+  const onCell = (x: number, y: number) => {
+    if (mode.kind === 'build') {
+      act((s) => build(s, src, mode.building, x, y), `🏗️ ${BUILDINGS[mode.building].name} construido`);
       return;
     }
-    if (city.items.some((i) => i.x === x && i.y === y) || buildings.some((b) => b.x === x && b.y === y)) {
-      notify('Esa casilla está ocupada');
+    if (mode.kind === 'decor') {
+      act((s) => addDecor(s, src, mode.item, x, y), `${DECOR[mode.item].name} colocado`);
       return;
     }
-    const cost = DECOR[placing].price;
-    if (!pay(cost)) return;
-    buzz();
-    save({
-      ...city,
-      spent: city.spent + cost,
-      items: [
-        ...city.items,
-        { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, kind: placing, x, y },
-      ],
-    });
-    // Sigue colocando del mismo tipo mientras te lo puedas permitir.
-    if (coins - cost < cost) setPlacing(null);
+    setSelected({ x, y });
+    if (hasTree(st, x, y)) return act((s) => chop(s, x, y), '🪓 +2 de madera');
+    const b = buildingAt(st, x, y);
+    if (b) return setSheet({ type: 'building', id: b.id });
+    const d = decorAt(st, x, y);
+    if (d) {
+      Alert.alert(`¿Quitar ${DECOR[d.kind]?.name.toLowerCase() ?? 'esto'}?`, 'Recuperas la mitad de lo que costó.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Quitar', style: 'destructive', onPress: () => act((s) => ({ ok: true, state: removeDecor(s, d.id) })) },
+      ]);
+    }
   };
 
-  const upgrade = (b: Building) => {
-    const cost = upgradeCost(b.level);
-    if (cost == null || !pay(cost)) return;
-    buzz();
-    save({ ...city, spent: city.spent + cost, upgrades: { ...city.upgrades, [b.game.game.id]: b.level + 1 } });
-    setBuilding({ ...b, level: b.level + 1, floors: b.floors + 1 });
-    notify(`🏗️ ${b.game.game.title} sube a nivel ${b.level + 1}`);
+  const expandAsk = () => {
+    if (st.size >= MAX_SIZE) return notify('Tu terreno ya está al máximo');
+    const cost = EXPAND_COST[st.size];
+    if (!cost) return notify('No se puede ampliar más');
+    Alert.alert(`Ampliar a ${st.size + 2}×${st.size + 2}`, `Cuesta ${costText(cost)}.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Ampliar', onPress: () => act((s) => expand(s, src), 'Terreno ampliado') },
+    ]);
   };
 
-  const removeItem = (it: CityItem) => {
-    const refund = Math.floor((DECOR[it.kind as DecorKind]?.price ?? 0) / 2);
-    save({ ...city, spent: Math.max(0, city.spent - refund), items: city.items.filter((i) => i.id !== it.id) });
-    setItem(null);
+  const demolishAsk = (b: CityBuilding) => {
+    Alert.alert(`¿Derribar ${BUILDINGS[b.kind].name.toLowerCase()}?`, 'Recuperas la mitad de lo que costó.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Derribar',
+        style: 'destructive',
+        onPress: () => {
+          setSheet(null);
+          act((s) => demolish(s, b.id), 'Derribado');
+        },
+      },
+    ]);
   };
 
-  const buySky = (id: string) => {
-    if (city.skies?.includes(id)) return save({ ...city, sky: id });
-    const cost = SKIES[id].price;
-    if (!pay(cost)) return;
-    buzz();
-    save({ ...city, spent: city.spent + cost, sky: id, skies: [...(city.skies ?? ['day']), id] });
-  };
+  const selectedBuilding = sheet?.type === 'building' ? st.buildings.find((b) => b.id === sheet.id) : undefined;
 
-  const expand = () => {
-    const cost = expandCost(city.size);
-    if (cost == null || !pay(cost)) return;
-    buzz();
-    save({ ...city, spent: city.spent + cost, size: city.size + 2 });
-    setTimeout(() => map.current?.center(), 50);
+  const pickBuilding = (kind: string) => {
+    setSheet(null);
+    setMode({ kind: 'build', building: kind });
+    notify(`Toca una casilla libre para ${BUILDINGS[kind].name.toLowerCase()}`);
   };
-
-  const population = buildings.reduce((a, b) => a + (b.construction ? 0 : b.floors * 40), 0) + city.items.length * 5;
+  const pickDecor = (kind: string) => {
+    setSheet(null);
+    setMode({ kind: 'decor', item: kind });
+    notify(`Toca una casilla libre para ${DECOR[kind].name.toLowerCase()}`);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -126,293 +223,321 @@ export default function WorldScreen() {
         back
         title="Mundo gamer"
         right={
-          <Pressable onPress={() => setInfo(true)} hitSlop={8} accessibilityLabel="Cómo funciona">
+          <Pressable onPress={() => setSheet({ type: 'info' })} hitSlop={8} accessibilityLabel="Cómo funciona">
             <Ionicons name="information-circle-outline" size={24} color={c.text} />
           </Pressable>
         }
       />
-      <View style={styles.stats}>
-        <Stat label="Monedas" value={`🪙 ${fmt(coins)}`} />
-        <Stat label="Edificios" value={fmt(buildings.filter((b) => !b.construction).length)} />
-        <Stat label="Población" value={fmt(population)} />
-      </View>
 
-      <View style={{ flex: 1, marginHorizontal: 12 }}>
-        <IsoCity
-          ref={map}
-          city={city}
-          buildings={buildings}
-          placing={!!placing}
-          selected={selected}
-          onTapTile={onTapTile}
-          onTapBuilding={(b) => {
-            setSelected({ x: b.x, y: b.y });
-            setBuilding(b);
-          }}
-          onTapItem={(it) => {
-            setSelected({ x: it.x, y: it.y });
-            setItem(it);
-          }}
-        />
-        <View style={styles.zoom}>
-          <ZoomButton icon="add" onPress={() => map.current?.zoom(1.25)} />
-          <ZoomButton icon="remove" onPress={() => map.current?.zoom(0.8)} />
-          <ZoomButton icon="scan" onPress={() => map.current?.center()} />
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <View style={styles.resources}>
+          <ResPill icon="coin" value={fmt(have('gold'))} />
+          <ResPill icon="log" value={fmt(have('wood'))} />
+          <ResPill icon="gem" value={fmt(have('diamonds'))} />
+          <Pressable onPress={() => setSheet({ type: 'villagers' })} style={styles.res}>
+            <PixelSprite name="villager" size={20} />
+            <ThemedText variant="bold" size={13}>{`${st.villagers}/${cap}`}</ThemedText>
+          </Pressable>
         </View>
-        {placing ? (
-          <View style={[styles.placing, { backgroundColor: c.inverseBg, borderRadius: c.radius }]}>
-            <Text style={{ fontSize: 20 }}>{DECOR[placing].icon}</Text>
-            <ThemedText variant="bold" size={13} style={{ flex: 1, color: c.inverseText }}>
-              {`Toca una casilla amarilla · ${DECOR[placing].price} 🪙`}
+
+        <View style={[styles.frame, { borderColor: c.line, backgroundColor: '#3d7430' }]}>
+          <View style={{ width, height: width }}>
+            <WorldMap st={shape} width={width} mode={mode} selected={selected} onCell={onCell} />
+            <ProductionBars st={st} width={width} />
+          </View>
+        </View>
+
+        {mode.kind !== 'idle' ? (
+          <View style={[styles.hint, { backgroundColor: c.inverseBg, borderRadius: c.radius }]}>
+            <ThemedText variant="bold" size={14} style={{ color: c.inverseText, flex: 1 }}>
+              {mode.kind === 'build'
+                ? `Construir: ${BUILDINGS[mode.building].name} — toca una casilla verde`
+                : `Decorar: ${DECOR[mode.item].name} — toca una casilla verde`}
             </ThemedText>
-            <Pressable onPress={() => setPlacing(null)} hitSlop={8}>
-              <ThemedText variant="bold" size={13} style={{ color: c.inverseText, textDecorationLine: 'underline' }}>
-                Listo
+            <Pressable onPress={() => setMode({ kind: 'idle' })} hitSlop={8}>
+              <ThemedText variant="bold" size={14} style={{ color: c.inverseText }}>
+                Cancelar
               </ThemedText>
             </Pressable>
           </View>
-        ) : null}
-        {homeless && !placing ? (
-          <View style={[styles.placing, { backgroundColor: '#e5484d', borderRadius: c.radius }]}>
-            <Ionicons name="warning" size={18} color="#fff" />
-            <ThemedText variant="bold" size={12} style={{ flex: 1, color: '#fff' }}>
-              {`${homeless} ${homeless === 1 ? 'edificio no cabe' : 'edificios no caben'}: amplía tu terreno en la tienda`}
-            </ThemedText>
-          </View>
-        ) : null}
-      </View>
+        ) : (
+          <ThemedText variant="muted" size={12} style={{ textAlign: 'center' }}>
+            Toca un árbol para talarlo · un edificio para gestionarlo · una casilla libre para ver qué puedes poner
+          </ThemedText>
+        )}
 
-      <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
-        <DarkButton label="Tienda" icon="storefront" onPress={() => setShop(true)} style={{ flex: 1 }} />
-        <LightButton label="Ver mi biblioteca" onPress={() => router.push('/library')} style={{ flex: 1 }} />
-      </View>
+        <View style={styles.actions}>
+          <LightButton label="Construir" icon="hammer" onPress={() => setSheet({ type: 'build' })} style={{ flex: 1 }} />
+          <LightButton label="Aldeanos" icon="people" onPress={() => setSheet({ type: 'villagers' })} style={{ flex: 1 }} />
+          <LightButton label="Ampliar" icon="expand" onPress={expandAsk} style={{ flex: 1 }} />
+        </View>
+        <ThemedText variant="muted" size={11} style={{ textAlign: 'center' }}>
+          {`Terreno ${st.size}×${st.size} · ${st.buildings.length} edificios · ${free} aldeanos libres`}
+        </ThemedText>
+      </ScrollView>
 
-      {/* Tienda */}
-      <Sheet visible={shop} title={`Tienda · 🪙 ${fmt(coins)}`} onClose={() => setShop(false)}>
-        <View style={[styles.tabs, { backgroundColor: c.soft, borderRadius: c.radius }]}>
-          {(
-            [
-              ['decor', 'Decoración'],
-              ['sky', 'Cielo'],
-              ['land', 'Terreno'],
-            ] as const
-          ).map(([id, label]) => (
+      {/* Construir: edificios y decoración. */}
+      <Sheet
+        visible={sheet?.type === 'build'}
+        title="Construir"
+        onClose={() => setSheet(null)}
+        doneLabel="Cerrar"
+      >
+        <View style={styles.tabs}>
+          {(['edificios', 'decoracion'] as const).map((t) => (
             <Pressable
-              key={id}
-              onPress={() => setTab(id)}
-              style={[
-                styles.tab,
-                { borderRadius: c.radius, backgroundColor: tab === id ? c.inverseBg : 'transparent' },
-              ]}
+              key={t}
+              onPress={() => setTab(t)}
+              style={[styles.tab, { backgroundColor: tab === t ? c.inverseBg : c.soft, borderRadius: c.radius }]}
             >
-              <ThemedText variant="bold" size={12} style={{ color: tab === id ? c.inverseText : c.text }}>
-                {label}
+              <ThemedText variant="bold" size={13} style={{ color: tab === t ? c.inverseText : c.text }}>
+                {t === 'edificios' ? 'Edificios' : 'Decoración'}
               </ThemedText>
             </Pressable>
           ))}
         </View>
-        {tab === 'decor' ? (
-          <View style={styles.grid}>
-            {DECOR_KINDS.map((k) => {
-              const d = DECOR[k];
-              const can = coins >= d.price;
+        {tab === 'edificios'
+          ? BUILDING_KINDS.filter((k) => !BUILDINGS[k].hall).map((k, i, arr) => {
+              const def = BUILDINGS[k];
+              const have = st.buildings.some((b) => b.kind === k);
+              const locked = def.requires && !requirementMet(st, def.requires);
+              const affordable = canAfford(st, src, def.cost);
+              const note = have && def.unique
+                ? 'Ya lo tienes'
+                : locked
+                  ? `Antes: ${requirementText(def.requires!)}`
+                  : !affordable
+                    ? `Te faltan recursos · ${costText(def.cost)}`
+                    : costText(def.cost);
               return (
-                <Pressable
+                <BuildRow
                   key={k}
+                  name={def.name}
+                  note={note}
+                  detail={productionText(k)}
+                  sprite={spriteOf({ kind: k, level: 1 } as CityBuilding)}
+                  dim={!!(locked || (have && def.unique) || !affordable)}
+                  last={i === arr.length - 1}
                   onPress={() => {
-                    if (!pay(d.price)) return;
-                    if (buildings.length + city.items.length >= city.size * city.size) {
-                      notify('No queda sitio libre: amplía el terreno en la pestaña «Terreno»');
-                      setTab('land');
-                      return;
-                    }
-                    setPlacing(k);
-                    setShop(false);
-                    setSelected(null);
+                    if (have && def.unique) return notify(`Ya tienes un ${def.name.toLowerCase()}`);
+                    if (locked) return notify(note);
+                    pickBuilding(k);
                   }}
-                  style={[
-                    styles.shopItem,
-                    { backgroundColor: c.soft, borderRadius: c.radius, opacity: can ? 1 : 0.45 },
-                  ]}
-                >
-                  <Text style={{ fontSize: 28, lineHeight: 34 }}>{d.icon}</Text>
-                  <ThemedText variant="bold" size={12} numberOfLines={1}>
-                    {d.name}
-                  </ThemedText>
-                  <ThemedText variant="muted" size={11}>{`🪙 ${d.price}`}</ThemedText>
-                </Pressable>
+                />
               );
-            })}
-          </View>
-        ) : tab === 'sky' ? (
-          <View style={{ gap: 8, marginTop: 12 }}>
-            {Object.entries(SKIES).map(([id, s]) => {
-              const owned = city.skies?.includes(id);
-              return (
-                <Pressable
-                  key={id}
-                  onPress={() => buySky(id)}
-                  style={[
-                    styles.skyRow,
-                    { borderRadius: c.radius, borderColor: city.sky === id ? c.text : c.line, backgroundColor: c.soft },
-                  ]}
-                >
-                  <View style={[styles.skySwatch, { backgroundColor: s.colors[0], borderColor: s.colors[1] }]} />
-                  <ThemedText variant="bold" size={14} style={{ flex: 1 }}>
-                    {s.name}
-                  </ThemedText>
-                  <ThemedText variant="muted" size={12}>
-                    {city.sky === id ? 'Puesto' : owned ? 'Poner' : `🪙 ${s.price}`}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={{ gap: 10, marginTop: 12 }}>
-            <ThemedText size={14}>{`Tu terreno mide ${city.size}×${city.size} casillas.`}</ThemedText>
-            {expandCost(city.size) != null ? (
-              <DarkButton
-                label={`Ampliar a ${city.size + 2}×${city.size + 2} · 🪙 ${fmt(expandCost(city.size)!)}`}
-                icon="expand"
-                onPress={expand}
+            })
+          : Object.keys(DECOR).map((k, i, arr) => (
+              <BuildRow
+                key={k}
+                name={DECOR[k].name}
+                note={costText(DECOR[k].cost)}
+                sprite={k as SpriteName}
+                dim={!canAfford(st, src, DECOR[k].cost)}
+                last={i === arr.length - 1}
+                onPress={() => pickDecor(k)}
               />
-            ) : (
-              <ThemedText variant="muted" size={13}>
-                ¡Ya tienes el terreno más grande!
-              </ThemedText>
-            )}
-          </View>
-        )}
+            ))}
       </Sheet>
 
-      {/* Edificio */}
+      {/* Un edificio: aldeanos, mejora y derribo. */}
       <Sheet
-        visible={!!building}
-        title="Edificio"
-        onClose={() => {
-          setBuilding(null);
-          setSelected(null);
-        }}
+        visible={!!selectedBuilding}
+        title={selectedBuilding ? BUILDINGS[selectedBuilding.kind].name : ''}
+        onClose={() => setSheet(null)}
+        doneLabel="Cerrar"
       >
-        {building ? (
-          <View style={{ gap: 10 }}>
-            <ThemedText variant="display" size={20}>
-              {building.game.game.title}
-            </ThemedText>
-            <ThemedText variant="muted" size={13}>
-              {building.construction
-                ? 'En obras: lo estás jugando. Cuando lo termines, se levantará el edificio.'
-                : `${building.floors} plantas · nivel ${building.level}/${MAX_LEVEL}${building.gold ? ' · completado al 100 % (dorado)' : ''}`}
-            </ThemedText>
-            {!building.construction && building.level < MAX_LEVEL ? (
-              <DarkButton
-                label={`Mejorar a nivel ${building.level + 1} · 🪙 ${upgradeCost(building.level)}`}
-                icon="trending-up"
-                onPress={() => upgrade(building)}
-              />
-            ) : !building.construction ? (
-              <ThemedText variant="bold" size={13}>
-                ¡Nivel máximo! 👑
-              </ThemedText>
-            ) : null}
-            <LightButton
-              label="Ver juego"
-              onPress={() => {
-                const id = building.game.game.id;
-                setBuilding(null);
-                router.push(`/game/${encodeURIComponent(id)}`);
-              }}
-            />
-          </View>
+        {selectedBuilding ? (
+          <BuildingDetail
+            b={selectedBuilding}
+            st={st}
+            src={src}
+            free={free}
+            onWorkers={(d) => act((s) => assign(s, selectedBuilding.id, d))}
+            onUpgrade={() => act((s) => upgrade(s, src, selectedBuilding.id), 'Mejorado')}
+            onDemolish={() => demolishAsk(selectedBuilding)}
+          />
         ) : null}
       </Sheet>
 
-      {/* Decoración */}
-      <Sheet
-        visible={!!item}
-        title="Decoración"
-        onClose={() => {
-          setItem(null);
-          setSelected(null);
-        }}
-      >
-        {item ? (
-          <View style={{ gap: 10, alignItems: 'center' }}>
-            <Text style={{ fontSize: 40, lineHeight: 50 }}>{DECOR[item.kind as DecorKind]?.icon}</Text>
-            <ThemedText variant="display" size={18}>
-              {DECOR[item.kind as DecorKind]?.name ?? 'Decoración'}
-            </ThemedText>
-            <LightButton
-              label={`Quitar (recuperas ${Math.floor((DECOR[item.kind as DecorKind]?.price ?? 0) / 2)} 🪙)`}
-              onPress={() => removeItem(item)}
-              style={{ alignSelf: 'stretch' }}
-            />
-          </View>
-        ) : null}
-      </Sheet>
-
-      {/* Cómo funciona */}
-      <Sheet visible={info} title="Cómo funciona" onClose={() => setInfo(false)}>
-        <ScrollView>
-          <ThemedText size={14} style={{ lineHeight: 21 }}>
-            {`• Cada juego que terminas levanta un edificio. Cuantas más horas, más alto.\n• Los juegos de la misma saga forman un barrio del mismo color. Los completados al 100 % son dorados.\n• Lo que estás jugando aparece en obras, con grúa.\n• Cada hora jugada son ${COINS_PER_HOUR} monedas (las horas que apuntas o, si terminaste el juego, lo que dura). Llevas ${fmt(earned)} ganadas y ${fmt(city.spent)} gastadas.\n• Con las monedas mejoras edificios (ventanas encendidas, antena y corona dorada), pones decoración, cambias el cielo y amplías el terreno.\n• Arrastra para moverte y pellizca (o usa + y −) para hacer zoom. Tu mundo se guarda en tu cuenta.`}
+      {/* Aldeanos: cuántos caben, cuántos trabajan y comprar más. */}
+      <Sheet visible={sheet?.type === 'villagers'} title="Aldeanos" onClose={() => setSheet(null)} doneLabel="Cerrar">
+        <View style={{ gap: 12 }}>
+          <ThemedText variant="muted" size={14}>
+            {`Tienes ${st.villagers} aldeanos (caben ${cap}). Trabajando: ${workersTotal(st)}. Libres: ${free}.`}
           </ThemedText>
-        </ScrollView>
+          <ThemedText variant="muted" size={13}>
+            Cada aldeano trabaja en un edificio de producción (serrería, mina, joyería). Construye o mejora chozas para tener sitio.
+          </ThemedText>
+          <DarkButton
+            label={`Comprar aldeano · ${VILLAGER_COST} oro`}
+            icon="person-add"
+            disabled={!canAfford(st, src, { gold: VILLAGER_COST })}
+            onPress={() => act((s) => buyVillager(s, src), 'Ha llegado un aldeano')}
+          />
+        </View>
+      </Sheet>
+
+      {/* Cómo funciona. */}
+      <Sheet visible={sheet?.type === 'info'} title="Cómo funciona" onClose={() => setSheet(null)} doneLabel="Entendido">
+        <View style={{ gap: 10 }}>
+          <ThemedText size={14}>
+            🪙 <ThemedText variant="bold" size={14}>Oro:</ThemedText> 10 por cada hora que juegas.
+          </ThemedText>
+          <ThemedText size={14}>
+            🪵 <ThemedText variant="bold" size={14}>Madera:</ThemedText> 1 por cada logro suelto (los de un platino no cuentan) y 2 por cada árbol talado.
+          </ThemedText>
+          <ThemedText size={14}>
+            💎 <ThemedText variant="bold" size={14}>Diamantes:</ThemedText> 1 por cada platino.
+          </ThemedText>
+          <ThemedText variant="muted" size={13}>
+            Tus aldeanos producen mientras no estás, hasta 12 h. Ampliar el terreno y los edificios cuestan recursos; derribar devuelve la mitad.
+          </ThemedText>
+        </View>
       </Sheet>
     </View>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+// Fila de la hoja de construir: nombre, coste/estado y, debajo, lo que produce.
+function BuildRow({
+  name,
+  note,
+  detail,
+  sprite,
+  dim,
+  last,
+  onPress,
+}: {
+  name: string;
+  note: string;
+  detail?: string | null;
+  sprite: SpriteName;
+  dim?: boolean;
+  last?: boolean;
+  onPress: () => void;
+}) {
   const c = useIgnColors();
   return (
-    <View style={[styles.stat, { backgroundColor: c.card, borderRadius: c.radius, borderColor: c.line }]}>
-      <ThemedText variant="display" size={17} numberOfLines={1}>
-        {value}
-      </ThemedText>
-      <ThemedText variant="muted" size={11}>
-        {label}
-      </ThemedText>
-    </View>
-  );
-}
-
-function ZoomButton({ icon, onPress }: { icon: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.zoomBtn} hitSlop={4}>
-      <Ionicons name={icon as never} size={20} color="#111" />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.buildRow,
+        { borderBottomColor: c.line, borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth, opacity: pressed ? 0.7 : dim ? 0.55 : 1 },
+      ]}
+    >
+      <PixelSprite name={sprite} size={44} />
+      <View style={{ flex: 1, gap: 3 }}>
+        <ThemedText variant="bold" size={16}>
+          {name}
+        </ThemedText>
+        <ThemedText variant="muted" size={13}>
+          {note}
+        </ThemedText>
+        {detail ? (
+          <ThemedText variant="muted" size={12}>
+            {detail}
+          </ThemedText>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
 
+function ResPill({ icon, value }: { icon: SpriteName; value: string }) {
+  return (
+    <View style={styles.res}>
+      <PixelSprite name={icon} size={20} />
+      <ThemedText variant="bold" size={13}>
+        {value}
+      </ThemedText>
+    </View>
+  );
+}
+
+// Ficha de un edificio: producción, aldeanos (+/−), mejora y derribo.
+function BuildingDetail({
+  b,
+  st,
+  src,
+  free,
+  onWorkers,
+  onUpgrade,
+  onDemolish,
+}: {
+  b: CityBuilding;
+  st: CityState;
+  src: Stock;
+  free: number;
+  onWorkers: (delta: number) => void;
+  onUpgrade: () => void;
+  onDemolish: () => void;
+}) {
+  const c = useIgnColors();
+  const def = BUILDINGS[b.kind];
+  const prod = productionText(b.kind);
+  const up = def.upgrades[b.level - 1];
+  const canUp = b.level < def.maxLevel && up !== undefined;
+  const pct = def.produce ? Math.min(1, b.progress / def.produce.every) : 0;
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+        <PixelSprite name={spriteOf(b)} size={72} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <ThemedText variant="muted" size={13}>
+            {def.hall ? 'Ayuntamiento' : `Nivel ${b.level} de ${def.maxLevel}`}
+          </ThemedText>
+          <ThemedText size={14}>{def.desc}</ThemedText>
+        </View>
+      </View>
+
+      {def.housing[b.level - 1] ? (
+        <ThemedText variant="muted" size={13}>{`Aloja a ${def.housing[b.level - 1]} aldeanos.`}</ThemedText>
+      ) : null}
+
+      {def.maxWorkers ? (
+        <View style={{ gap: 8 }}>
+          {prod ? <ThemedText variant="muted" size={13}>{`Produce: ${prod}`}</ThemedText> : null}
+          <View style={[styles.workers, { borderColor: c.line, borderRadius: c.radius }]}>
+            <ThemedText variant="bold" size={14} style={{ flex: 1 }}>
+              {`Aldeanos: ${b.workers}/${def.maxWorkers}`}
+            </ThemedText>
+            <LightButton label="−" onPress={() => onWorkers(-1)} disabled={b.workers <= 0} style={styles.step} />
+            <LightButton
+              label="+"
+              onPress={() => onWorkers(1)}
+              disabled={b.workers >= def.maxWorkers || free <= 0}
+              style={styles.step}
+            />
+          </View>
+          {b.workers > 0 && def.produce ? (
+            <View style={[styles.bar, { backgroundColor: c.soft }]}>
+              <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: c.accent }} />
+            </View>
+          ) : null}
+          <ThemedText variant="muted" size={12}>{`Aldeanos libres: ${free}`}</ThemedText>
+        </View>
+      ) : null}
+
+      {canUp ? (
+        <DarkButton label={`Mejorar a nivel ${b.level + 1} · ${costText(up)}`} icon="arrow-up" onPress={onUpgrade} />
+      ) : null}
+      {!def.hall ? <LightButton label="Derribar" icon="trash" onPress={onDemolish} /> : null}
+      <ThemedText variant="muted" size={11}>{`Tienes ${fmt(Math.max(0, available(st, src, 'gold')))} de oro.`}</ThemedText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  stats: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth },
-  zoom: { position: 'absolute', right: 10, top: 10, gap: 8 },
-  zoomBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#ffffffe6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placing: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-  },
-  bar: { flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingTop: 12 },
-  tabs: { flexDirection: 'row', padding: 4 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  shopItem: { width: '31%', alignItems: 'center', paddingVertical: 10, gap: 2 },
-  skyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1.5 },
-  skySwatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 4 },
+  body: { paddingHorizontal: 12, paddingBottom: 40, gap: 12, alignItems: 'center' },
+  resources: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center', alignSelf: 'stretch' },
+  res: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(0,0,0,0.12)', borderRadius: 10 },
+  frame: { borderWidth: 3, borderRadius: 6, padding: 2 },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, alignSelf: 'stretch' },
+  actions: { flexDirection: 'row', gap: 8, alignSelf: 'stretch' },
+  tabs: { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  tab: { paddingHorizontal: 12, paddingVertical: 8 },
+  workers: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, padding: 10 },
+  step: { minWidth: 48 },
+  bar: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  buildRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
 });

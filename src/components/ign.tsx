@@ -331,15 +331,20 @@ export function LightButton({
   label,
   onPress,
   style,
+  disabled,
+  icon,
 }: {
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  icon?: IconName;
 }) {
   const c = useIgnColors();
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.darkBtn,
         {
@@ -347,11 +352,12 @@ export function LightButton({
           borderRadius: c.radius,
           borderWidth: 1,
           borderColor: c.line,
-          opacity: pressed ? 0.8 : 1,
+          opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
         },
         style,
       ]}
     >
+      {icon ? <Ionicons name={icon} size={18} color={c.text} /> : null}
       <ThemedText variant="bold" size={16}>
         {label}
       </ThemedText>

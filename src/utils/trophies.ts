@@ -441,7 +441,7 @@ export const TROPHIES: Trophy[] = [
     description: 'Mejora un edificio al nivel máximo',
     tier: 'silver',
     icon: 'trending-up',
-    progress: (c) => count(Object.values(c.profile?.city?.upgrades ?? {}).filter((l) => l >= 3).length, 1),
+    progress: (c) => count((c.profile?.city?.buildings ?? []).filter((b) => b.level >= 3).length, 1), // la choza llega a nivel 3
   }),
 ];
 

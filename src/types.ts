@@ -109,14 +109,30 @@ export type Profile = {
   events?: Record<string, string>; // eventos de temporada completados (id → fecha)
 };
 
-export type CityItem = { id: string; kind: string; x: number; y: number };
+// Recursos del pueblo: oro (horas), madera (logros sueltos) y diamantes (platinos).
+export type Res = 'gold' | 'wood' | 'diamonds';
+
+export type CityItem = { id: string; kind: string; x: number; y: number }; // decoración
+export type CityBuilding = {
+  id: string;
+  kind: string; // tipo de edificio (ver BUILDINGS en utils/world.ts)
+  x: number;
+  y: number;
+  level: number;
+  workers: number; // aldeanos trabajando aquí
+  progress: number; // segundos de trabajo acumulados para el siguiente ciclo
+};
 export type CityState = {
-  spent: number; // monedas gastadas
+  v: 2; // versión del mundo (la ciudad isométrica antigua se descarta)
+  seed: number; // define los árboles del terreno
   size: number; // lado del terreno (en casillas)
-  items: CityItem[]; // decoración colocada
-  upgrades: Record<string, number>; // nivel de cada edificio (juego → 1..3)
-  sky?: string; // cielo elegido
-  skies?: string[]; // cielos comprados
+  buildings: CityBuilding[];
+  items: CityItem[];
+  chopped: string[]; // árboles talados («x,y»)
+  made: Partial<Record<Res, number>>; // lo que han producido tus edificios y los árboles talados
+  spent: Partial<Record<Res, number>>; // lo que has gastado
+  villagers: number;
+  clock: number; // última vez que se calculó la producción (ms)
 };
 
 export type TierList = {
